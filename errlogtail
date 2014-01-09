@@ -1,0 +1,18 @@
+#! /usr/bin/perl -w
+
+# Run tail -f on the apache2 error log, filtering out some of the noise.
+
+open(my $fh, "tail '--follow=name' /var/log/apache2/error.log |") || die;
+while (<$fh>)
+	{
+	# 127.0.0.1 - - [19/Feb/2011:16:30:11 -0500] "GET /c HTTP/1.1" 200 2182 "-" "Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.2.13) Gecko/20101206 Ubuntu/10.04 (lucid) Firefox/3.6.13"
+	# 127.0.0.1 - - [19/Feb/2011:16:30:38 -0500] "GET /a HTTP/1.1" 200 752 "-" "MyApp/0.1 libwww-perl/5.834"
+
+	s/^.*\[/\[/;
+	s/(Mozilla|MyApp)[^\"]*(\")/$1$2/;
+	s| HTTP/1.1||;
+	s| "-"||;
+	s| -0500||;
+	print;
+	}
+
