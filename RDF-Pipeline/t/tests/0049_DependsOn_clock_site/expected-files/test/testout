@@ -1,0 +1,25 @@
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 6
+Content-Location: http://localhost/cache/hello/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+hello
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 12
+Content-Location: http://localhost/cache/hello/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+hello
+hello
+----------------------------------------------------------------------

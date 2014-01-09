@@ -1,0 +1,28 @@
+#! /usr/bin/perl -w
+
+# This is a generic parameterFilter that passes through the most
+# recent querystring requested.
+
+# Command line arguments are the URIs of this node's inputs.
+#
+# Stdin consists of pairs of lines, each pair consisting of the
+# requester URI and the query string that was requested from
+# that requester.  The first pair is from the requester that
+# caused this parameterFilter to be invoked, i.e., the most
+# recent requester.  Subsequent line pairs indicate the query strings
+# from other requesters (and potentially the requester also,
+# redundantly).  An empty requester is anonymous.
+#
+# Stdout will consist of pairs of lines, each pair consisting of
+# a URI and a query string.
+
+my ($latestRequester, $latestQuery, %requesterQueries) = 
+	grep {$_} map {chomp; $_} <>;
+$latestRequester = $latestRequester;  		# Avoid unused var warning
+%requesterQueries = %requesterQueries;	# Avoid unused var warning
+
+foreach my $in (@inputs) 
+	{
+	print "$in\n$latestQuery\n";
+	}
+

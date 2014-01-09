@@ -1,0 +1,5 @@
+The existence of this file tells run-test.perl to avoid checking
+for the word "error" or "died" in the result files, so that
+the presence of one of those words will not automatically be
+taken as test failure.
+

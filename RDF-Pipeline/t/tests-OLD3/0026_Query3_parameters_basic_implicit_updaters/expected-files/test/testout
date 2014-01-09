@@ -1,0 +1,36 @@
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 443
+Content-Location: http://localhost/cache/cardiology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Cardiology patient data for id=(002|003|004)
+PROCESSED	Patient	id=002	name=Bob	dob=1950-12-21
+PROCESSED	Patient	id=003	name=Carol	dob=1944-06-12
+PROCESSED	Patient	id=004	name=Doug	dob=1949-08-27
+PROCESSED	Lab	id=002	glucose=850	date=2012-02-02
+PROCESSED	Lab	id=002	glucose=940	date=2012-02-03
+PROCESSED	Lab	id=004	glucose=720	date=2012-03-01
+PROCESSED	Lab	id=004	glucose=1040	date=2012-03-02
+PROCESSED	Lab	id=004	glucose=950	date=2012-03-03
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 243
+Content-Location: http://localhost/cache/immunology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Immunology patient data for id=(003|006)
+PROCESSED	Patient	id=003	name=Carol	dob=1944-06-12
+PROCESSED	Patient	id=006	name=Frank	dob=1971-11-15
+PROCESSED	Lab	id=006	glucose=870	date=2012-01-15
+PROCESSED	Lab	id=006	glucose=910	date=2012-01-16
+----------------------------------------------------------------------

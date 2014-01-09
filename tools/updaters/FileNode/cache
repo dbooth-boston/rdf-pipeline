@@ -1,0 +1,35 @@
+#! /usr/bin/perl -w
+
+# Generic FileNode updater for updating the output only if
+# the input has actually changed, rather than every time
+# this updater is invoked.  Expects one input.
+#
+# Usage: cache outFile inFile
+#
+# Because the output filename is needed as an argumnet,
+# the p:state MUST be set explicitly on the node that has
+# this updater.  Otherwise this updater will be expected 
+# to write its state to stdout, which would be treated as
+# a change every time.  Example:
+#
+#   :cache a p:FileNode ;
+#     p:state "myCache.txt" .  # Relative to $wwwDir/node/
+#
+# Copyright 2013 by David Booth
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+
+# warn "ARGV: { @ARGV }\n";
+@ARGV == 2 || die "$0: ERROR: Wrong number of arguments\n Usage: $0 outFile inFile\n";
+my ($outFile, $inFile) = @ARGV;
+-e $inFile || die "$0: ERROR: No input file: $inFile\n";
+!-d $inFile || die "$0: ERROR: Input file is a directory: $inFile\n";
+my $qInFile = quotemeta($inFile);
+my $qOutFile = quotemeta($outFile);
+my $different = (!-e $outFile || system("/usr/bin/cmp -s $qInFile $qOutFile"));
+if ($different) {
+  my $cmd = "/bin/cp -p -f $qInFile $qOutFile";
+  warn "cmd: $cmd\n";
+  !system($cmd) || die;
+  }
+exit 0;
+

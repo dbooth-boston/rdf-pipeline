@@ -1,0 +1,7 @@
+# FILE /home/dbooth/rdf-pipeline/trunk/Private/www/cache/process/parametersFile
+1376399401.392168000001
+id=(002,003,004)
+http://localhost/node/immunology
+id=(003,006)
+http://localhost/node/cardiology
+id=(002,003,004)

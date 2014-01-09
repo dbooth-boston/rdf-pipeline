@@ -1,0 +1,3 @@
+#! /bin/bash
+cat patients-data.txt | ./patients2rdf
+

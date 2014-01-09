@@ -1,0 +1,9 @@
+# comment
+
+_:b111
+	<http://example/foo>
+  "hi"	"bye bye"@en
+"hello"^^<http://www.w3.org/2001/XMLSchema#string>
+"-12.34E3"^^<http://www.w3.org/2001/XMLSchema#double> 
+"1234"^^<http://www.w3.org/2001/XMLSchema#integer> 
+

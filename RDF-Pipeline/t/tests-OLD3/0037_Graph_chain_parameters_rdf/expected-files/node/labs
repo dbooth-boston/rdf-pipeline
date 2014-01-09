@@ -1,0 +1,6 @@
+#! /bin/bash
+# QUERY_STRING "customer=(002,003,004)" --> PATTERN "customer=(002|003|004)"
+export PATTERN=`echo "$QUERY_STRING" | sed 's/,/|/g'`
+egrep "$PATTERN" $1 | ./labs2rdf
+exit 0
+

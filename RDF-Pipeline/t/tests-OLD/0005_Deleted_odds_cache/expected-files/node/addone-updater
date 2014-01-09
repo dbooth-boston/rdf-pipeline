@@ -1,0 +1,8 @@
+#! /usr/bin/perl -w
+# Add one to each number in the input.
+
+foreach my $n (`cat $ARGV[0]`) {
+	my $nPlus = $n + 1;
+	print "$nPlus\n";
+	}
+

@@ -1,0 +1,30 @@
+# Query Parameter example
+
+@prefix p: <http://purl.org/pipeline/ont#> .
+@prefix : <http://localhost/node/> .
+
+:patients a p:FileNode .
+
+:labs a p:FileNode .
+
+:normalize a p:FileNode ;
+  p:inputs ( :labs ) ;
+  p:updater "normalize-updater" .
+
+:merge a p:FileNode ;
+  p:inputs ( :patients :normalize ) ;
+  p:parametersFilter "merge-parametersFilter" ;
+  p:updater "merge-updater" .
+
+:process a p:FileNode ;
+  p:inputs ( :merge ) ;
+  p:updater "process-updater" .
+
+:cardiology a p:FileNode ;
+  p:inputs ( :process ) ;
+  p:updater "cardiology-updater" .
+
+:immunology a p:FileNode ;
+  p:inputs ( :process ) ;
+  p:updater "immunology-updater" .
+

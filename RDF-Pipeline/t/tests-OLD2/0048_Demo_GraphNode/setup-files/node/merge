@@ -1,0 +1,7 @@
+#inputs( $patients $labs )
+#outputs( $out )
+
+CLEAR SILENT GRAPH <$out> ;
+ADD GRAPH <$patients> TO GRAPH <$out> ;
+ADD GRAPH <$labs> TO GRAPH <$out> ;
+

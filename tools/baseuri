@@ -1,0 +1,177 @@
+#! /usr/bin/env perl
+
+# Convert RDF absolute URIs such as 
+# <http://purl.org/dc/elements/1.1/creator>
+# into relative URIs such as <creator>, given a base URI.  Or, 
+# with the -u option, does the opposite.  The input
+# does *not* need to be Turtle or SPARQL.  This is intentional, so 
+# that this program can operate on any kind of text file.
+#
+# The base URI may be specified explicitly via the -b option
+# or the program will look for an input line that looks like a SPARQL
+# or Turtle base URI declaration.  The base URI must be absolute.
+#
+# CAVEAT: This does not do proper relative URI resolution per
+# RFC3986 sec 5.2.  It treates absolute URIs as a simple 
+# concatenation of the base URI (stripped of final path component 
+# after the last slash) with the relative URI.
+# 
+# Reads stdin, writes stdout.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Regression tests for this code:
+#	0043_Test-tools-base
+#	0044_Test-tools-unbase
+##################################################################
+
+use warnings;
+use strict;
+
+################# Usage ###################
+sub Usage
+{
+return "Usage: $0 [ options ] [ inputFile.txt ... ]
+Options:
+  -b, --base=baseUri
+	Use baseUri as the base URI.  Otherwise,
+
+  -u, --unbase
+	Expand relative URIs to absolute URIs.
+
+  -s, --show
+	Show the base URI used, instead of transforming input.
+
+  -h, --help
+	Show this usage message.\n";
+}
+
+################# MAIN ###################
+
+my $debug = 0;
+my $optBase = "";
+my $optUnbase = 0;
+my $optShow = 0;
+my $optHelp = 0;
+
+use Getopt::Long; # Perl
+if (!GetOptions(
+                "base|b=s" => \$optBase,
+                "unbase|u" => \$optUnbase,
+                "show|s" => \$optShow,
+                "help|h" => \$optHelp,
+                )) {
+        warn "$0: Error reading options.\n";
+        die &Usage();
+        }
+if ($optHelp) {
+        print &Usage();
+        exit 0;
+        }
+
+
+# Characters allowed in URIs, obtained from scanning the BNF in RFC3986
+# http://www.ietf.org/rfc/rfc3986.txt
+my $uriChar = '[a-zA-Z0-9\\~\\=\\_\\-\\,\\;\\:\\!\\?\\/\\.\\\'\\()\\[\\]\\@\\$\\*\\&\\#\\%\\+]';
+# Same, but without RFC 3986 scheme chars or colon:
+my $nonSchemeChar = '[\\~\\=\\_\\,\\;\\!\\?\\/\\\'\\()\\[\\]\\@\\$\\*\\&\\#\\%]';
+# Instead, also consider [\\+\\-\\.] to be non-scheme chars, because
+# the common schemes like http, urn and ftp do not use them:
+# my $nonSchemeChar = '[\\+\\-\\.\\~\\=\\_\\,\\;\\!\\?\\/\\\'\\()\\[\\]\\@\\$\\*\\&\\#\\%]';
+#    scheme        = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+my $schemeChar = '[a-zA-Z0-9\\+\\-\\.]';
+# Instead only allow letters in the scheme:
+# my $schemeChar = '[a-zA-Z]';
+
+# Real relative URI pattern is too complicated, so use this:
+my $relativePattern = "(($schemeChar)*($nonSchemeChar)($uriChar)*)|(($schemeChar)+)";
+
+# Real absolute URI pattern is too complicated, so use this:
+my $absolutePattern = "($schemeChar)+\\:($relativePattern)";
+
+my $prefixPattern = "[a-zA-Z](([a-zA-Z_\\-0-9\\.])*[a-zA-Z_\\-0-9])?\\:";
+
+my $baseUri = "";
+
+# Look for base definition in stdin:
+my @lines = <>;
+foreach my $line (@lines) {
+	my $base = &GetBaseDef($line);
+	$baseUri = $base if $base;
+	}
+# Did the input contain a base URI definition?
+my $hasBaseDefinition = $baseUri;
+die "$0: ERROR: -b baseURI option must not put baseURI in <angleBrackets>\n"
+	if $optBase && ($optBase =~ m/^\</ || $optBase =~ m/\>$/);
+# -b option overrides base declared in the document:
+$baseUri = $optBase if $optBase;
+die "$0: ERROR: Base URI is relative: $baseUri\n" if $baseUri =~ m/^($relativePattern)$/;
+die "$0: ERROR: Base URI is not absolute: $baseUri\n" if $baseUri !~ m/^($absolutePattern)$/;
+my $originalBaseUri = $baseUri;
+# Authority only, and no path?  If so, add a slash to the end:
+warn "$0: WARNING: Adding trailing slash to base URI with no path: $originalBaseUri\n" 
+	if $baseUri =~ s|^(($schemeChar)+\:\/\/[^\/]+)$|$1\/|;
+# Strip final path component after last slash, per RFC 3986 sec 5.2.3:
+warn "$0: WARNING: Stripping final path component (after last slash) from base URI (per RFC3986 sec 5.2.3): $originalBaseUri\n"
+	if $baseUri =~ s/[^\/]+$//;
+$baseUri || die "$0: ERROR: No base URI found.  Use -b baseUri to specify one.\n";
+
+my $basePattern = quotemeta($baseUri);
+# die "basePattern: $basePattern\n\n";
+
+# Transform the input:
+for (my $i=0; $i<@lines; $i++) {
+	# Don't transform base definitions themselves:
+	next if &GetBaseDef($lines[$i]) or $lines[$i] =~ m/^\s*(\@?)prefix\s+($prefixPattern)\s+\</i;
+	# Transform regular line:
+	if ($optUnbase) {
+		# Expand <bar> --> <http://example/foo#bar>
+		# This cannot be an infinite loop, because $baseUri is known
+		# to be absolute, which does not match $relativePattern.
+		#                        1             2
+		while ($lines[$i] =~ s/\<($relativePattern)\>/\<$baseUri$1\>/i) {
+			my $relative = $1;
+			warn "$0: WARNING: Relative URI beginning with slash will not be properly expanded to an absolute URI: <$relative>\n"
+				if $relative =~ m|^\/|;
+			# warn "RELATIVE: $relative\n";
+			}
+		}
+	else	{
+		# Base <http://example/foo#bar> --> foo:bar
+		# An infinite loop is avoided by using the /g pattern modifier:
+		while ($lines[$i] =~ s/\<($basePattern)(($uriChar)*)\>/\<$2\>/gi) {
+
+			# WARNING: Don't do any pattern matching here!
+			my $base = $1;
+			my $relative = $2;
+			# warn "BASE: $base RELATIVE: $relative\n";
+			}
+		}
+	}
+
+if ($optShow) {
+	print "base <$baseUri>\n";
+	}
+else	{
+	print @lines;
+	}
+exit 0;
+
+############### GetBaseDef ##################
+# Given a line that *might* be a base definition, 
+# return($base) if it is a base definition;
+# otherwise return(undef).
+sub GetBaseDef
+{
+my $line = shift;
+defined($line) or die;
+my $base = undef;
+#                  1            2 
+if ($line =~ m/^\s*(\@?)base\s+<($absolutePattern)\>/i) {
+	$base = $2;
+	}
+return($base);
+}
+

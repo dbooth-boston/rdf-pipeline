@@ -1,0 +1,6 @@
+#! /bin/bash
+
+# Concatenate the inputs to stdout.
+
+cat $@
+

@@ -1,0 +1,164 @@
+============================== handler ==============================
+Sat Mar 03 03:03:03 EDT 2012
+SERVER_NAME: localhost
+DOCUMENT_ROOT: /home/dbooth/rdf-pipeline/trunk/Private/www
+Query string (elements 2): debug=$DEBUG_DETAILS
+  RealHandler: http://localhost/node/UPPERWILLIES Sat Mar 03 03:03:03 EDT 2012
+  Query string args unparsed: debug=$DEBUG_DETAILS
+  Query string args parsed:
+    debug=$DEBUG_DETAILS
+  thisUri: http://localhost/node/UPPERWILLIES subtype: FileNode
+    HandleHttpEvent called: thisUri: http://localhost/node/UPPERWILLIES
+    HandleHttpEvent query: 
+      UpdateQueries(nm, http://localhost/node/UPPERWILLIES, , )
+        LookupLMs(FILE, /home/dbooth/rdf-pipeline/trunk/Private/www/cache/UPPERWILLIES/parametersFile) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2FPrivate%2Fwww%2Fcache%2FUPPERWILLIES%2FparametersFile
+        ... # FILE /home/dbooth/rdf-pipeline/trunk/Private/www/cache/UPPERWILLIES/parametersFile
+        ... 1326111111.111111000001
+        ... 
+        ... 
+        ... 
+      ... lm: 1326111111.111111000001 isNewLatest: 0 isNewOutQuery: 0
+    HandleHttpEvent GET http://localhost/node/UPPERWILLIES From: 
+    ... callerLM: 
+      FreshenSerState GET http://localhost/node/UPPERWILLIES From: 
+      ... callerLM: 
+        FreshenState GET http://localhost/node/UPPERWILLIES From: 
+        ... callerLM: 
+          LookupLMs(URI, http://localhost/node/UPPERWILLIES) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/URI/http%3A%2F%2Flocalhost%2Fnode%2FUPPERWILLIES
+          ... # URI http://localhost/node/UPPERWILLIES
+          ... 1326111111.111111000001
+          ... http://localhost/node/willies
+          ... 1326111111.111111000001
+          ... file:///home/dbooth/rdf-pipeline/trunk/Private/www/cache/UPPERWILLIES/parametersFile
+          ... 1326111111.111111000001
+          RequestLatestDependsOn(nm, http://localhost/node/UPPERWILLIES, 1326111111.111111000001, , , HASH(0x111111111111)) called
+            LookupLMs(FILE, /home/dbooth/rdf-pipeline/trunk/Private/www/cache/UPPERWILLIES/parametersFile) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2FPrivate%2Fwww%2Fcache%2FUPPERWILLIES%2FparametersFile
+            ... # FILE /home/dbooth/rdf-pipeline/trunk/Private/www/cache/UPPERWILLIES/parametersFile
+            ... 1326111111.111111000001
+            ... 
+            ... 
+            ... 
+          NO CHANGE to query parameters of http://localhost/node/UPPERWILLIES
+          ... oldParametersLM: 1326111111.111111000001 parametersLM: 1326111111.111111000001
+            LatestRunParametersFilter(nm, http://localhost/node/UPPERWILLIES, , [ http://localhost/node/willies ], , [  ]) called.
+          Ran parametersFilter
+            UpdateQueries(nm, http://localhost/node/willies, http://localhost/node/UPPERWILLIES, )
+              LookupLMs(FILE, /home/dbooth/rdf-pipeline/trunk/Private/www/cache/willies/parametersFile) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2FPrivate%2Fwww%2Fcache%2Fwillies%2FparametersFile
+              ... # FILE /home/dbooth/rdf-pipeline/trunk/Private/www/cache/willies/parametersFile
+              ... 1326111111.111111000001
+              ... 
+              ... http://localhost/node/UPPERWILLIES
+              ... 
+            ... lm: 1326111111.111111000001 isNewLatest: 0 isNewOutQuery: 0
+          http://localhost/node/UPPERWILLIES depUri: http://localhost/node/willies depType: GraphNode method: GET depLM: 
+          ... isSameServer: 1 isSameType: 0 knownFresh: 0 isInput: 1
+          Same server, different type.
+            FreshenSerState GET http://localhost/node/willies From: http://localhost/node/UPPERWILLIES
+            ... callerLM: 1326111111.111111000001
+              FreshenState GET http://localhost/node/willies From: http://localhost/node/UPPERWILLIES
+              ... callerLM: 1326111111.111111000001
+                LookupLMs(URI, http://localhost/node/willies) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/URI/http%3A%2F%2Flocalhost%2Fnode%2Fwillies
+                ... # URI http://localhost/node/willies
+                ... 1326111111.111111000001
+                ... http://localhost/node/williams
+                ... 1326111111.111111000001
+                ... file:///home/dbooth/rdf-pipeline/trunk/Private/www/cache/willies/parametersFile
+                ... 1326111111.111111000001
+                RequestLatestDependsOn(nm, http://localhost/node/willies, 1326111111.111111000001, http://localhost/node/UPPERWILLIES, 1326111111.111111000001, HASH(0x111111111111)) called
+                  LookupLMs(FILE, /home/dbooth/rdf-pipeline/trunk/Private/www/cache/willies/parametersFile) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2FPrivate%2Fwww%2Fcache%2Fwillies%2FparametersFile
+                  ... # FILE /home/dbooth/rdf-pipeline/trunk/Private/www/cache/willies/parametersFile
+                  ... 1326111111.111111000001
+                  ... 
+                  ... http://localhost/node/UPPERWILLIES
+                  ... 
+                NO CHANGE to query parameters of http://localhost/node/willies
+                ... oldParametersLM: 1326111111.111111000001 parametersLM: 1326111111.111111000001
+                  LatestRunParametersFilter(nm, http://localhost/node/willies, , [ http://localhost/node/williams ], , [  ]) called.
+                Ran parametersFilter
+                  UpdateQueries(nm, http://localhost/node/williams, http://localhost/node/willies, )
+                    LookupLMs(FILE, /home/dbooth/rdf-pipeline/trunk/Private/www/cache/williams/parametersFile) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2FPrivate%2Fwww%2Fcache%2Fwilliams%2FparametersFile
+                    ... # FILE /home/dbooth/rdf-pipeline/trunk/Private/www/cache/williams/parametersFile
+                    ... 1326111111.111111000001
+                    ... 
+                    ... http://localhost/node/willies
+                    ... 
+                  ... lm: 1326111111.111111000001 isNewLatest: 0 isNewOutQuery: 0
+                http://localhost/node/willies depUri: http://localhost/node/williams depType: GraphNode method: GET depLM: 
+                ... isSameServer: 1 isSameType: 1 knownFresh: 0 isInput: 1
+                Same server and type.
+                  FreshenState GET http://localhost/node/williams From: 
+                  ... callerLM: 
+                    LookupLMs(URI, http://localhost/node/williams) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/URI/http%3A%2F%2Flocalhost%2Fnode%2Fwilliams
+                    ... # URI http://localhost/node/williams
+                    ... 1326111111.111111000001
+                    ... http://localhost/node/bill-presidents.ttl
+                    ... 1326111111.111111000001
+                    ... file:///home/dbooth/rdf-pipeline/trunk/Private/www/cache/williams/parametersFile
+                    ... 1326111111.111111000001
+                    RequestLatestDependsOn(nm, http://localhost/node/williams, 1326111111.111111000001, , , HASH(0x111111111111)) called
+                      LookupLMs(FILE, /home/dbooth/rdf-pipeline/trunk/Private/www/cache/williams/parametersFile) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2FPrivate%2Fwww%2Fcache%2Fwilliams%2FparametersFile
+                      ... # FILE /home/dbooth/rdf-pipeline/trunk/Private/www/cache/williams/parametersFile
+                      ... 1326111111.111111000001
+                      ... 
+                      ... http://localhost/node/willies
+                      ... 
+                    NO CHANGE to query parameters of http://localhost/node/williams
+                    ... oldParametersLM: 1326111111.111111000001 parametersLM: 1326111111.111111000001
+                      LatestRunParametersFilter(nm, http://localhost/node/williams, , [ http://localhost/node/bill-presidents.ttl ], , [  ]) called.
+                    Ran parametersFilter
+                    http://localhost/node/williams depUri: http://localhost/node/bill-presidents.ttl depType:  method: GET depLM: 
+                    ... isSameServer: 1 isSameType: 0 knownFresh: 0 isInput: 1
+                    Foreign or non-node.
+                      ForeignSendHttpRequest(nm, GET, http://localhost/node/williams, http://localhost/node/bill-presidents.ttl, , ) called
+                          LookupLMs(FILE, /home/dbooth/rdf-pipeline/trunk/Private/www/cache/bill-presidents.ttl/serCache) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2FPrivate%2Fwww%2Fcache%2Fbill-presidents.ttl%2FserCache
+                          ... # FILE /home/dbooth/rdf-pipeline/trunk/Private/www/cache/bill-presidents.ttl/serCache
+                          ... 1326111111.111111000001
+                          ... Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+                          ... ETag: "141-4c84921cb9300"
+                      ForeignSendHttpRequest: Setting req L-MH: Sat, 03 Mar 2012 03:03:03 GMT If-N-M: "141-4c84921cb9300"
+                      ForeignSendHttpRequest: CONDITIONAL GET from http://localhost/node/williams to http://localhost/node/bill-presidents.ttl
+                      ... with L-MH: Sat, 03 Mar 2012 03:03:03 GMT ETagH: "141-4c84921cb9300"
+                      Code: 304
+                      ForeignSendHttpRequest: CONDITIONAL GET from http://localhost/node/williams to http://localhost/node/bill-presidents.ttl returned 304
+                      ... with newL-MH: Sat, 03 Mar 2012 03:03:03 GMT newETagH: "141-4c84921cb9300"
+                        HeadersToLM(Sat, 03 Mar 2012 03:03:03 GMT, "141-4c84921cb9300") returning LM: 1326111111.111111000001
+                      ... with newLMHeader: Sat, 03 Mar 2012 03:03:03 GMT
+                      ... with newETagHeader: "141-4c84921cb9300"
+                      ... with newLM: 1326111111.111111000001
+                      DeserializeToLocalCache http://localhost/node/williams In: http://localhost/node/bill-presidents.ttl
+                      ... with depLM: 1326111111.111111000001 isInput: 1
+                        LookupLMs(GraphNode, http://localhost/cache/GraphNode/bill-presidents.ttl/cache) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/GraphNode/http%3A%2F%2Flocalhost%2Fcache%2FGraphNode%2Fbill-presidents.ttl%2Fcache
+                        ... # GraphNode http://localhost/cache/GraphNode/bill-presidents.ttl/cache
+                        ... 1326111111.111111000001
+                      DeserializeToLocalCache returning due to no depLM or depLM eq oldCacheLM
+                    NO CHANGE to depUri http://localhost/node/bill-presidents.ttl of http://localhost/node/williams
+                    ... oldDepLM: 1326111111.111111000001 newDepLM: 1326111111.111111000001 stale: 0
+                    RequestLatestDependsOn(nm, http://localhost/node/williams, 1326111111.111111000001, , , HASH(0x111111111111)) returning: 0
+                FreshenState http://localhost/node/williams returned newDepLM: 1326111111.111111000001
+                NO CHANGE to depUri http://localhost/node/williams of http://localhost/node/willies
+                ... oldDepLM: 1326111111.111111000001 newDepLM: 1326111111.111111000001 stale: 0
+                RequestLatestDependsOn(nm, http://localhost/node/willies, 1326111111.111111000001, http://localhost/node/UPPERWILLIES, 1326111111.111111000001, HASH(0x111111111111)) returning: 0
+            FreshenState http://localhost/node/willies returned newThisLM: 1326111111.111111000001
+              LookupLMs(FILE, /home/dbooth/rdf-pipeline/trunk/Private/www/cache/willies/serState) from file: /home/dbooth/rdf-pipeline/trunk/Private/www/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2FPrivate%2Fwww%2Fcache%2Fwillies%2FserState
+              ... # FILE /home/dbooth/rdf-pipeline/trunk/Private/www/cache/willies/serState
+              ... 1326111111.111111000001
+            FreshenSerState: Returning serStateLM: 1326111111.111111000001
+            DeserializeToLocalCache http://localhost/node/UPPERWILLIES In: http://localhost/node/willies
+            ... with depLM: 1326111111.111111000001 isInput: 1
+            DeserializeToLocalCache returning due to no fDeserializer
+          NO CHANGE to depUri http://localhost/node/willies of http://localhost/node/UPPERWILLIES
+          ... oldDepLM: 1326111111.111111000001 newDepLM: 1326111111.111111000001 stale: 0
+          RequestLatestDependsOn(nm, http://localhost/node/UPPERWILLIES, 1326111111.111111000001, , , HASH(0x111111111111)) returning: 0
+      FreshenState http://localhost/node/UPPERWILLIES returned newThisLM: 1326111111.111111000001
+      FreshenSerState: No serialization needed. Returning newThisLM: 1326111111.111111000001
+    Sending file: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/UPPERWILLIES/state
+RealHandler returned: 0
+============================================================
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/UPPERWILLIES
+                NO CHANGE to query parameters of http://localhost/node/willies
+                    NO CHANGE to query parameters of http://localhost/node/williams
+                    NO CHANGE to depUri http://localhost/node/bill-presidents.ttl of http://localhost/node/williams
+                NO CHANGE to depUri http://localhost/node/williams of http://localhost/node/willies
+          NO CHANGE to depUri http://localhost/node/willies of http://localhost/node/UPPERWILLIES
+----------------------------------------------------------------------

@@ -1,0 +1,15 @@
+curl file:///home/dbooth/rdf-pipeline/trunk/Private/www/node/patients-data.txt
+curl http://localhost/node/patients
+curl file:///home/dbooth/rdf-pipeline/trunk/Private/www/node/labs-data.txt
+curl http://localhost/node/labs
+curl http://localhost/node/normalize
+curl http://localhost/node/merge
+curl http://localhost/node/cardiology
+curl http://localhost/node/immunology
+
+curl 'http://localhost/node/cardiology?id=(002,003,004)'
+curl 'http://localhost/node/cardiology?id=(002,003,004)'
+curl 'http://localhost/node/immunology?id=(003,006)'
+curl 'http://localhost/node/immunology?id=(003,006)'
+curl 'http://localhost/node/cardiology?id=(002,003,004)'
+

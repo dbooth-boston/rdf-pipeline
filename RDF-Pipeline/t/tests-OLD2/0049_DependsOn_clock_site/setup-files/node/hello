@@ -1,0 +1,5 @@
+#! /bin/bash
+
+echo hello >> hellos.txt
+cat hellos.txt
+

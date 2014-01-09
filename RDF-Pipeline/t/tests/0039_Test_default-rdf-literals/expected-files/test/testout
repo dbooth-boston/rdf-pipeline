@@ -1,0 +1,16 @@
+<PlainString> <p> "PLAIN" .
+<string> <p> "foo" .
+<integer> <p> 123456789 .
+<decimal> <p> 123.456789 .
+<decimal> <p> 123.0 .
+<decimal> <p> 123.0 .
+<decimal> <p> .123 .
+<double> <p> 123.4567E+89 .
+<double> <p> 4567E+0 .
+<double> <p> 45.67E+0 .
+<double> <p> .67E+0 .
+<double> <p> .67e0 .
+<double> <p> 67e0 .
+<double> <p> 67.e0 .
+<boolean> <p> true .
+

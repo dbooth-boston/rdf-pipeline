@@ -1,0 +1,9 @@
+# Immunology patient data for PATTERN: patient:p(003|006)
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p003 :lab [ :name "Carol" ; :dob "1944-06-12" ] .	# PROCESSED
+patient:p006 :lab [ :name "Frank" ; :dob "1971-11-15" ] .	# PROCESSED
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p006 :lab [ :glucose 870 ; :date "2012-01-15" ] .	# PROCESSED
+patient:p006 :lab [ :glucose 910 ; :date "2012-01-16" ] .	# PROCESSED

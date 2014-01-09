@@ -1,0 +1,12 @@
+#!/usr/bin/env ste.perl
+
+# Count triples in given graph.
+# Usage: ./count-triples.rqt -i graphName
+
+#inputs( $g )
+
+PREFIX g: <$g> 
+
+SELECT (COUNT(*) as ?count)
+WHERE { GRAPH g: { ?s ?p ?v } }
+

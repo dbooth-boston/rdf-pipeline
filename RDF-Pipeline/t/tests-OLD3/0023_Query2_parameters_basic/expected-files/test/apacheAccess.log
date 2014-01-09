@@ -1,0 +1,16 @@
+"GET /node/cardiology HTTP/1.1" 200
+"HEAD /node/cardiology-updater HTTP/1.1" 200
+"HEAD /node/labs-updater HTTP/1.1" 200
+"HEAD /node/merge-updater HTTP/1.1" 200
+"HEAD /node/normalize-updater HTTP/1.1" 200
+"HEAD /node/patients-updater HTTP/1.1" 200
+"HEAD /node/process-updater HTTP/1.1" 200
+----------------------------------------------------------------------
+"GET /node/immunology HTTP/1.1" 200
+"HEAD /node/immunology-updater HTTP/1.1" 200
+"HEAD /node/labs-updater HTTP/1.1" 304
+"HEAD /node/merge-updater HTTP/1.1" 304
+"HEAD /node/normalize-updater HTTP/1.1" 304
+"HEAD /node/patients-updater HTTP/1.1" 304
+"HEAD /node/process-updater HTTP/1.1" 304
+----------------------------------------------------------------------

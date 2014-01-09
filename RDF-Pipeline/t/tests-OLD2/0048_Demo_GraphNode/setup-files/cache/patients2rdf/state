@@ -1,0 +1,8 @@
+@prefix patient: <http://example/patient#> . 
+@prefix : <http://example/med#> . 
+patient:p001 :lab [ :name "Alice" ; :dob "1979-01-23" ] .
+patient:p002 :lab [ :name "Bob" ; :dob "1950-12-21" ] .
+patient:p003 :lab [ :name "Carol" ; :dob "1944-06-12" ] .
+patient:p004 :lab [ :name "Doug" ; :dob "1949-08-27" ] .
+patient:p005 :lab [ :name "Ellen" ; :dob "1966-09-29" ] .
+patient:p006 :lab [ :name "Frank" ; :dob "1971-11-15" ] .

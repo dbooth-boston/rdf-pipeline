@@ -1,0 +1,6 @@
+#! /bin/bash
+# QUERY_STRING "key=(002,003,004)" --> PATTERN "key=(002|003|004)"
+export PATTERN=`echo "$QUERY_STRING" | sed 's/,/|/g'`
+egrep "$PATTERN" labs-data.txt
+exit 0
+

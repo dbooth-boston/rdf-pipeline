@@ -1,0 +1,28 @@
+#! /usr/bin/env ste.perl
+
+Template variable names are listed here:
+
+#inputs ( $inUri Bill ${Taft} )	   	# Comment okay here
+#outputs ( $outUri )			
+#parameters ( $max $min )
+
+Below you can see the effect of template expansion: 
+
+Inputs, outputs: 
+  inUri: $inUri 
+  B_i_l_l: Bill  "Bill"  money@Bill.me
+  Taft: ${Taft} 
+Parameters (either from QUERY_STRING or from -p option):
+  min: $min
+  max: $max
+Environment examples: 
+  THIS_URI: $ENV{THIS_URI}  
+  FOO: $ENV{FOO}
+QUERY_STRING: 
+  $ENV{QUERY_STRING}
+
+Note that the following are NOT changed, because template expansion 
+will NOT break words, and it is case sensitive: 
+
+  $inUriExtra  Billion  EmBill bill
+

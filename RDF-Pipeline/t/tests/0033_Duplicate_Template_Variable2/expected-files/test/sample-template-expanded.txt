@@ -1,0 +1,1 @@
+/home/dbooth/rdf-pipeline/trunk/tools/ste.perl: ERROR: Duplicate template variable: $max

@@ -1,0 +1,4 @@
+#! /usr/bin/perl -w -p
+
+# Convert all "quotedWords" into upper case "QUOTEDWORDS"
+s/(\"[^\"\s]+\")/uc($1)/eg;

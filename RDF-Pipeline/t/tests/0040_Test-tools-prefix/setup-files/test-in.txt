@@ -1,0 +1,18 @@
+# Silently redefine a standard prefix:
+prefix memo:    <http://ontologies.smile.deri.ie/2009/02/27/memoXXXXX#>
+# Silently define a new prefix for a standard URI:
+@prefix owlimXXXXX:   <http://www.ontotext.com/trree/owlim#> .  #Foo
+
+This line will be ignored.
+
+#### These four lines are for testing re-definition warnings:
+prefix def:    <http://example/redef#redef>
+# prefix redef:    <http://example/redef#redef>
+prefix pre:    <http://example/pre#pre>
+# prefix pre:    <http://example/pre#newpre>
+
+# Some input data:
+<http://ontologies.smile.deri.ie/2009/02/27/memo#old>
+<http://ontologies.smile.deri.ie/2009/02/27/memoXXXXX#XXXXX>
+foo <http://www.w3.org/1999/02/22-rdf-syntax-ns#RDF> bar
+<http://example/newpre2#newpre2>

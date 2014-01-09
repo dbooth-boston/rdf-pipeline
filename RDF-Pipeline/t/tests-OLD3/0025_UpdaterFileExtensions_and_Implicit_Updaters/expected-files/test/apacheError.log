@@ -1,0 +1,6 @@
+          UPDATED query parameters of http://localhost/node/labs
+        UPDATING http://localhost/node/labs {/home/dbooth/rdf-pipeline/trunk/Private/www/node/labs} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/labs/state
+----------------------------------------------------------------------
+          UPDATED query parameters of http://localhost/node/patients
+        UPDATING http://localhost/node/patients {/home/dbooth/rdf-pipeline/trunk/Private/www/node/patients} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/patients/state
+----------------------------------------------------------------------

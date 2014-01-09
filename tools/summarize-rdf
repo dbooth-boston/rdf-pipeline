@@ -1,0 +1,303 @@
+#!/usr/bin/perl -w
+
+# Summary of schema implied by RDF instance data -- classes and predicates.
+# Files are read from command line or stdin, in Turtle format.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Runtime: ~30 minutes / 600k triples
+#
+# EXAMPLE INPUT:
+#    1. @prefix p: <http://purl.org/pipeline/ont#> .
+#    2. @prefix : <http://localhost/node/> .
+#    3. :max a p:FileNode . # No updater -- update manually.
+#    4. :odds a p:FileNode ;
+#    5.     p:inputs ( :max ) ;
+#    6.     p:updater "odds-updater" .
+#    7. :mult a p:FileNode ;
+#    8.     p:inputs ( :odds <http://localhost/node/multiplier.txt> ) ;
+#    9.     p:updater "mult-updater" .
+#   10. :addone a p:FileNode ;
+#   11.     p:inputs ( :mult ) ;
+#   12.     p:updater "addone-updater" .
+#   13. p:URI <http://www.w3.org/2000/01/rdf-schema#subClassOf> p:Node .
+#
+# EXAMPLE OUTPUT:
+#    1. ===== Input Summary =====
+#    2. Parsing turtle: /tmp/pipeline.ttl 
+#    3. Total triples: 19
+#    4. Nodes by kind:  BLANK:4  LITERAL:3  URI:7  
+#    5. Literals by datatype:  UNTYPED:3  
+#    6. 
+#    7. ===== Predicates by Subject Class =====
+#    8. p1:FileNode|4
+#    9.   p1:inputs -> { rdf:List|3 }|3
+#   10.   p1:updater -> { (UNTYPED)|3 }|3
+#   11.   rdf:type -> { rdfs:Class|1 }|1
+#   12. 
+#   13. rdf:List|4
+#   14.   rdf:first -> { p1:FileNode|3 UNKNOWN|1 }|4
+#   15.   rdf:rest -> { rdf:List|2 }|2
+#   16. 
+#   17. rdfs:Class|1
+#   18.   rdfs:subClassOf -> { rdfs:Class|1 }|1
+#   19. 
+#   20. ===== Namespaces =====
+#   21. PREFIX p1: <http://purl.org/pipeline/ont#> 
+#   22. PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
+#   23. PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> 
+#
+# EXPLANATION OF OUTPUT:
+# Numbers are instance counts.  Braces group a list of classes,
+# because things can have more than one class.
+#
+# For brevity, class and predicate names have been shortened by
+# stripping a presumed namespace (though not necessarily a namespace
+# that you declared using @prefix).  Namespace prefixes are listed
+# at the end (on lines 21-23), but they are not necessarily the
+# same as the prefixes that were used in the input turtle, because
+# the original prefixes are lost in parsing.
+#
+# Line 4 shows the number of distinct blank nodes, literals and URIs.
+#
+# Line 5 breaks down the literals by datatype, showing the number
+# of distinct instances for each datatype.
+#
+# Line 8 indicates that there were 4 distinct p1:FileNode instances
+# in the subject position of a triple.
+#
+# Line 9 indicates that the domain of p1:inputs included p1:FileNode,
+# and the range included rdf:List, and there were 3 distinct rdf:List
+# values in the object position of a triple.  
+#
+# Line 10 indicates that the range of p1:updater was a set of
+# untyped literal values, and there were 3 distinct literals.
+# A datatype range (as opposed to a class range) is indicated 
+# in parentheses.
+#
+# Line 14 indicates that the rdf:first predicate has a range that
+# includes both the p1:FileNode class (having 3 instances) and 
+# an unknown class (having 1 instance), for a total of 4 
+# distinct instances.  In this case, the unknown class was due
+# to <http://localhost/node/multiplier.txt> on input line 8, 
+# as it was not declared with any rdf:type .  Remember that 
+# rdf:first" and rdf:rest are auto-generated from Turtle 
+# list syntax ( ... ).
+#
+# Line 17 indicates that there was one distinct instance of class 
+# rdf:Class as a subject.
+#
+# DEPENDENCIES
+# This script depends on some other perl modules.  To install
+# them, execute the following shell commands:
+#
+#   cpan  RDF::Helper::Constants
+#   cpan  RDF::Trine
+#   cpan  RDF::Trine::Model
+#   cpan  RDF::Trine::Statement
+#   cpan  RDF::Trine::Node::Resource
+#
+############################################################
+
+use strict;
+
+use RDF::Helper::Constants qw( :all );
+use RDF::Trine;
+use RDF::Trine::Model;
+use RDF::Trine::Statement;
+use RDF::Trine::Node::Resource;
+
+my %inverseStandardNamespaces = (
+        'dc',     'http://purl.org/dc/elements/1.1/',
+        'fn',     'http://www.w3.org/2005/xpath-functions#',
+        'owl',    'http://www.w3.org/2002/07/owl#',
+        'prov',   'http://www.w3.org/ns/prov-o/',
+        'rdf',    'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+        'rdfs',   'http://www.w3.org/2000/01/rdf-schema#',
+        'skos',   'http://www.w3.org/2004/02/skos/core#',
+        'time',   'http://www.w3.org/2006/time#',
+        'xsd',    'http://www.w3.org/2001/XMLSchema#',
+        );
+my %standardNamespaces = map {($inverseStandardNamespaces{$_}, $_)}
+		keys %inverseStandardNamespaces;
+keys %standardNamespaces == keys %inverseStandardNamespaces or die;
+
+my %namespaces;		# Remembers namespaces seen, stripped by &ShortenUri
+my $nextPrefix = "p1";
+
+my $RDF_TYPE = RDF::Trine::Node::Resource->new(RDF_TYPE);
+my $RDF_NIL = RDF::Trine::Node::Resource->new(RDF_NIL);
+my $RDF_LIST = RDF::Trine::Node::Resource->new(RDF_LIST);
+my $RDF_FIRST = RDF::Trine::Node::Resource->new(RDF_FIRST);
+my $RDF_REST = RDF::Trine::Node::Resource->new(RDF_REST);
+my $RDFS_CLASS = RDF::Trine::Node::Resource->new(RDFS_CLASS);
+my $RDFS_SUBCLASS_OF = RDF::Trine::Node::Resource->new(RDFS_SUBCLASS_OF);
+
+# my $subject = RDF::Trine::Node::Resource->new('http://example.org/aircraft/B787');
+# my $predicate = RDF::Trine::Node::Resource->new('http://purl.org/dc/terms/title');
+# my $object = RDF::Trine::Node::Literal->new('Boeing 787', 'en');
+# my $ss = $subject->as_string();
+# print "subject: $ss\n";
+# my $statement = RDF::Trine::Statement->new($subject, $predicate, $object);
+my $model = RDF::Trine::Model->temporary_model;
+my $parser = RDF::Trine::Parser->new( 'turtle' );
+my $base_uri = "http://example/";
+print "===== Input Summary =====\n";
+foreach my $file (@ARGV) {
+	print "Parsing turtle: $file \n";
+	$parser->parse_file_into_model( $base_uri, $file, $model );
+	}
+if (!@ARGV) {
+	my $turtle = join("", <>);	# Slurp stdin
+	$parser->parse_into_model( $base_uri, $turtle, $model );
+	}
+my $n = $model->size();
+print "Total triples: $n\n";
+
+my %typesOf;		# Node -> hash of declared types or datatypes
+my %typeInstances;	# {URI, LITERAL, BLANK} -> hash of instances
+my %datatypeValues;	# datatypes -> hash of values
+my %predicateSubjects;	# predicates -> hash of subjects
+my %predicateObjects;	# predicates -> hash of objects
+my %isDatatype;		# Remember whether a URI is a datatype
+my %subjectPredicates;	# Maps subjects -> hash of predicates
+my $si = $model->get_statements(undef, undef, undef);
+while (my $ts = $si->next()) {
+	my $s = $ts->subject();
+	my $p = $ts->predicate();
+	my $o = $ts->object();
+	$subjectPredicates{$s}->{$p} = 1;
+	# print "\t$s $p $o\n";
+	if ($p->equal($RDF_TYPE)) {
+		$typesOf{$s}->{$o} = 1;
+		$typesOf{$o}->{$RDFS_CLASS} = 1;
+		}
+	if ($p->equal($RDFS_SUBCLASS_OF)) {
+		$typesOf{$s}->{$RDFS_CLASS} = 1;
+		$typesOf{$o}->{$RDFS_CLASS} = 1;
+		}
+	my $t = $o->type();
+	$typeInstances{$t}->{$o} = 1;
+	if ($t eq "LITERAL") {
+		my $dt = $o->literal_datatype() || "UNTYPED";
+		$typesOf{$o}->{$dt} = 1;
+		#### TODO: This naively assumes that a datatype URI will
+		#### never be used as a class name in an rdf:type declaration:
+		$isDatatype{$dt} = 1;
+		my $v = $o->value();
+		$datatypeValues{$dt}->{$v} = 1;
+		# print "  LITERAL($dt): $s $p $o\n";
+		}
+	$typesOf{$s}->{$RDF_LIST} = 1 if $s->equal($RDF_NIL);
+	$typesOf{$o}->{$RDF_LIST} = 1 if $o->equal($RDF_NIL);
+	$typesOf{$s}->{$RDF_LIST} = 1 if $p->equal($RDF_FIRST);
+	if ($p->equal($RDF_REST)) {
+		$typesOf{$s}->{$RDF_LIST} = 1;
+		$typesOf{$o}->{$RDF_LIST} = 1;
+		}
+	$predicateSubjects{$p}->{$s} = 1;
+	$predicateObjects{$p}->{$o} = 1;
+	# print "\t$s $p $o type: $t\n";
+	}
+
+print "Nodes by kind:  ";
+foreach my $t (sort keys %typeInstances) {
+	my @instances = keys %{$typeInstances{$t}};
+	my $ni = scalar(@instances);
+	print "$t|$ni  ";
+	}
+print "\n";
+
+print "Literals by datatype:  ";
+foreach my $dt (sort keys %datatypeValues) {
+	my @values = keys %{$datatypeValues{$dt}};
+	my $nv = scalar(@values);
+	my $sdt = &ShortenUri($dt);
+	print "$sdt|$nv  ";
+	}
+print "\n";
+print "\n";
+
+# Determine the classes for each subject (including any that are UNK):
+my %classInstances;	# Maps subject classes -> hash of instances
+my %classPredicates;	# Maps subject classes -> hash of predicates
+foreach my $s (keys %subjectPredicates) {
+	my @predicates = keys %{$subjectPredicates{$s}};
+	foreach my $c (&TypesOf($s)) {
+		# print "s: $s c: $c\n";
+		$classInstances{$c}->{$s} = 1;
+		foreach my $p (@predicates) {
+			$classPredicates{$c}->{$p} = 1;
+			}
+		}
+	}
+
+print "===== Predicates by Subject Class =====\n";
+my @sortedClasses = sort {&ShortenUri($a) cmp &ShortenUri($b)}
+		keys %classInstances;
+foreach my $c (@sortedClasses) {
+	my $sc = &ShortenUri($c);
+	my @instances = keys %{$classInstances{$c}};
+	my $ni = scalar(@instances);
+	print "$sc|$ni\n";
+	my @sortedPredicates = sort {&ShortenUri($a) cmp &ShortenUri($b)}
+			keys %{$classPredicates{$c}};
+	foreach my $p (@sortedPredicates) {
+		my $sp = &ShortenUri($p);
+		print "  $sp -> { ";
+		#### TODO: include the count of triples using this predicate
+		my %oClasses;
+		my @objects = keys %{$predicateObjects{$p}};
+		foreach my $o (@objects) {
+			my @types = &TypesOf($o);
+			foreach my $t (@types) {
+				$oClasses{$t}++;
+				}
+			}
+		foreach my $c (sort keys %oClasses) {
+			my $nc = $oClasses{$c};
+			my $sc = &ShortenUri($c);
+			$sc = "($sc)" if $isDatatype{$c};
+			print "$sc|$nc ";
+			}
+		my $no = scalar(@objects);
+		print "}|$no\n";
+		}
+	print "\n";
+	}
+
+print "===== Namespaces =====\n";
+foreach my $ns (sort {$namespaces{$a} cmp $namespaces{$b}} keys %namespaces) {
+	my $p = $namespaces{$ns};
+	print "PREFIX $p: <$ns> \n";
+	}
+exit 0;
+
+######################## TypesOf ########################
+# Look up the type of a subject (from global %typesOf) or default to UNK.
+sub TypesOf
+{
+my $s = shift;
+my @types = keys %{$typesOf{$s}};
+return @types if @types;
+return ( "UNKNOWN" );
+}
+
+######################## ShortenUri ########################
+# Shorten the URI by stripping and remembering (in global %namespaces)
+# the part before last slash or hash.
+sub ShortenUri
+{
+my $uri = shift;
+$uri = $uri->as_string() if RDF::Trine::Node->is_node();
+$uri = $1 if $uri =~ m/^\<(.*)\>$/;
+return $uri if $uri =~ m/^\"/ || $uri =~ m/\"$/;	# Ignore literals
+return $uri if $uri !~ s/(^.*[\/\#])(.)/$2/;
+my $ns = $1;
+my $prefix = $namespaces{$ns} || $standardNamespaces{$ns} || $nextPrefix++;
+$namespaces{$ns} = $prefix;
+return "$prefix:$uri";
+}
+

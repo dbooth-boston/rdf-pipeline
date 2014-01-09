@@ -1,0 +1,351 @@
+<!DOCTYPE HTML>
+<html itemtype="http://schema.org/WebPage" itemscope="itemscope"><head>
+
+
+
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8"><title>Node Metadata Properties</title>
+  
+<style type="text/css">p { margin-bottom: 0.08in; }</style></head><body>
+<h1>Node Metadata Properties</h1>
+Most of these are node properties, though some (noted) are node <b>type</b>
+properties.<br>
+Perhaps we should standardize internal naming, something like:<br>
+&nbsp; fooPath&nbsp;&nbsp; &nbsp;-- A filename full path.<br>
+&nbsp; fooDir&nbsp;&nbsp; &nbsp;-- A directory full path.<br>
+&nbsp; fooUri&nbsp;&nbsp; &nbsp;-- A URI.<br>
+&nbsp; fooName&nbsp;&nbsp; &nbsp;-- A native name (i.e., node-type
+specific).<br>
+<br>
+Namespace of all classes and properties:
+&lt;http://purl.org/pipeline/ont#&gt; except "a" (a/k/a rdfs:type).<br>
+<br>
+The following table lists classes, i.e., node types, a/k/a wrapper
+types.<br>
+<table style="text-align: left; width: 100%;" border="1" cellpadding="2" cellspacing="2">
+  <tbody>
+    <tr>
+      <td style="vertical-align: top; font-weight: bold;">Class <br>
+(node type)<br>
+      </td>
+      <td style="vertical-align: top; font-weight: bold;">Explanation<br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">FileNode<br>
+      </td>
+      <td style="vertical-align: top;">A node whose state is
+represented by a file on the host file system.&nbsp; The updater is an
+executable program -- often a shell script.&nbsp; TODO: Add
+descriptions of
+arguments and return value.<br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">GraphNode&nbsp;&nbsp;&nbsp; <br>
+      </td>
+      <td style="vertical-align: top;">A node whose state is
+represented by a named graph in a SPARQL server.&nbsp; The updater is a
+SPARQL 1.1 Update script.&nbsp; TODO: Add descriptions of arguments and
+return value.</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">JavaNode<br>
+      </td>
+      <td style="vertical-align: top;">A node whose state is
+represented by a Java object within the host's JVM.&nbsp; The object
+must
+implement the Updater interface, which has an "update" method for
+updating the object.&nbsp; TODO: Add descriptions of interface,
+arguments
+and return value.</td>
+    </tr>
+  </tbody>
+</table>
+<br>
+<br>
+The following table lists user-oriented properties.&nbsp; Wrappers use
+additional properties internally.&nbsp; The subject (or domain) of each
+property is a node unless otherwise indicated, such as "Subject is $nodeType", which
+means that the subject should be the <span style="font-style: italic;">type</span> of a node, e.g., GraphNode.<br>
+<br>
+*Internal properties, not normally specified by users.<br>
+<br>
+<table border="1" cellspacing="0" cols="3">
+  <col width="497"><col width="696"><col width="1980"> <tbody>
+    <tr>
+      <td style="vertical-align: top; font-weight: bold;">Property<br>
+      </td>
+      
+      <td style="vertical-align: top; font-weight: bold;">Internal
+value type<br>
+      </td>
+      <td style="vertical-align: top; font-weight: bold;">Value<br>
+      </td>
+    </tr>
+    <tr>
+      <td align="left" height="17" width="497">a (a/k/a rdfs:type)</td>
+      
+      <td align="left" width="696">hash</td>
+      <td align="left" width="1980">Node type, e.g., GraphNode.&nbsp;
+Inverse is {member}.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">contentType</td>
+      
+      <td align="left">value</td>
+      <td align="left">HTTP Content-Type for this node's serialized
+output. Defaults to defaultContentType of the $nodeType if not
+specified.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">defaultContentType</td>
+      
+      <td align="left">value</td>
+      <td align="left">Subject is $nodeType. Default HTTP Content-Type
+for serialized output.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">defaultContentEncoding</td>
+      
+      <td align="left">value</td>
+      <td align="left">Subject is $nodeType. Default HTTP
+Content-Encoding for serialized output.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">dependsOn</td>
+      
+      <td align="left">list/multi</td>
+      <td align="left">URIs of inputs, parameters and anything else
+this node depends on.&nbsp; Inputs and parameters are automatically
+included, but dependsOn can be used to specify additional dependencies.<br>
+      </td>
+    </tr>
+    <tr>
+      <td align="left" height="17">dependsOnCache*</td>
+      
+      <td align="left">hash</td>
+      <td align="left">Maps a dependsOn URI to the native name for that
+input. I.e., points to local "cache".</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">dependsOnSerCache*</td>
+      
+      <td align="left">hash</td>
+      <td align="left">Maps a dependsOn URI to the local file name for
+that serialized input. I.e., points to local "serCache".</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">fExists*</td>
+      
+      <td align="left">value</td>
+      <td align="left">Subject is $nodeType. Function that takes a
+native name and returns 1 iff that state or local cache exists.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">fDeserializer*</td>
+      
+      <td align="left">value</td>
+      <td align="left">Subject is $nodeType.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">fRunUpdater*</td>
+      
+      <td align="left">value</td>
+      <td align="left">Subject is $nodeType.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">fSetNodeDefaults*</td>
+      
+      <td align="left">value</td>
+      <td align="left">Subject is $nodeType. @@ TODO: Is this used? @@</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">fSerializer*</td>
+      
+      <td align="left">value</td>
+      <td align="left">Subject is $nodeType.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">fUpdatePolicy*</td>
+      
+      <td align="left">value</td>
+      <td align="left">Update policy function for this node.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">fUriToNativeName*</td>
+      
+      <td align="left">value</td>
+      <td align="left">Subject is $nodeType. Converts a URI to a native
+name.</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">hostRoot</td>
+      
+      <td style="vertical-align: top;">hash</td>
+      <td style="vertical-align: top;">
+      <table border="1" cellspacing="0" cols="3">
+        <tbody>
+          <tr>
+          </tr>
+          <tr>
+            <td align="left">Subject is $nodeType. Maps the server
+prefix
+(such as "http://localhost") of node URIs of this $nodeType to the
+root location (as native name) of the server that implements the
+wrapper for this $nodeType. No trailing slash.&nbsp; Analogous to $DOCUMENT_ROOT. $DOCUMENT_ROOT
+(a/k/a $basePath) is used by default if this property is not set.&nbsp;
+Example: <br>
+&nbsp; p:GraphNode p:hostRoot<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ( "http://localhost"
+"http://localhost:28080/openrdf-workbench/repositories/owlimlite" ) .<br>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      </td>
+    </tr>
+    <tr>
+      <td align="left" height="17">inputCaches*<br>
+      </td>
+      
+      <td align="left">list<br>
+      </td>
+      <td align="left">Native input names for this node -- either
+states or caches, depending on whether the input is local or foreign.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">inputs</td>
+      
+      <td align="left">list/multi</td>
+      <td align="left">URIs of this node's inputs.&nbsp; They maybe
+other RDF Pipeline Nodes, or arbitrary HTTP data sources.<br>
+      </td>
+    </tr>
+    <tr>
+      <td align="left" height="17">lmFile*</td>
+      
+      <td align="left">value</td>
+      <td align="left">File name of node's last modified timestamps:
+(state and all inputs)</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">member*</td>
+      
+      <td align="left">hash</td>
+      <td align="left">Inverse of rdf:type (aka "a")</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">nodeType*</td>
+      
+      <td align="left">value</td>
+      <td align="left">Most specific node type -- a leaf class.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">outputs*</td>
+      
+      <td align="left">multi</td>
+      <td align="left">URIs of this node's outputs (actually inverse
+dependsOns). Derived from dependsOns.&nbsp; TODO: Rename this after
+implementing nodes that have multiple outputs.<br>
+      </td>
+    </tr>
+    <tr>
+      <td align="left" height="17">parameterCaches*<br>
+      </td>
+      
+      <td align="left">list</td>
+      <td align="left">Native parameter names for this node -- either
+states or caches, depending on whether the input is local or foreign.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">parameters*</td>
+      
+      <td align="left">list/multi</td>
+      <td align="left">URIs of this node's parameters.</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">parametersFilter<br>
+      </td>
+      
+      <td style="vertical-align: top;">value<br>
+      </td>
+      <td style="vertical-align: top;">File path of parametersFilter,
+relative to server "$ENV{DOCUMENT_ROOT}/node/".&nbsp; TODO: Add link to
+parametersFilter explanation.<br>
+      </td>
+    </tr>
+    <tr>
+      <td align="left" height="17">rdfs:subClassOf</td>
+      
+      <td align="left">hash</td>
+      <td align="left">Subject is $nodeType.&nbsp; Creates a new node
+type as a subclass of the given node type.&nbsp; Inverse is subClass.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">serState*</td>
+      
+      <td align="left">value</td>
+      <td align="left">File name of serialized state (under
+DOCUMENT_ROOT). Same as state if the node has no fSerializer.</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">state</td>
+      
+      <td style="vertical-align: top;">value</td>
+      <td style="vertical-align: top;">Native name of node output,
+i.e., the object that will be updated by the node's updater.&nbsp; For
+example, for a FileNode it is a filename.&nbsp; For a GraphNode it is a
+named graph.<br>
+      </td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">stateOriginal*</td>
+      
+      <td style="vertical-align: top;">value</td>
+      <td style="vertical-align: top;">Value of state predicate before
+setting defaults</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">stateType</td>
+      
+      <td style="vertical-align: top;">value</td>
+      <td style="vertical-align: top;">Subject is $nodeType.&nbsp; Type
+of state, if set.&nbsp; Otherwise $nodeType is used.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">stderr</td>
+      
+      <td align="left">value</td>
+      <td align="left">File name of stderr from last update.</td>
+    </tr>
+    <tr>
+      <td align="left" height="17">subClass*</td>
+      
+      <td align="left">hash</td>
+      <td align="left">Inverse of rdfs:subClassOf</td>
+    </tr>
+    <tr>
+      <td style="vertical-align: top;">updatePolicy<br>
+      </td>
+      
+      <td style="vertical-align: top;"><br>
+      </td>
+      <td style="vertical-align: top;">
+      Specifies
+the name of the algorithm
+that decides whether/when a node should be updated. Potential
+policies include lazy, eager and periodic.
+      </td>
+    </tr>
+    <tr>
+      <td align="left" height="17">updater</td>
+      
+      <td align="left">value</td>
+      <td align="left">Native name of updater function</td>
+    </tr>
+  </tbody>
+</table>
+<br>
+<br>
+
+</body></html>

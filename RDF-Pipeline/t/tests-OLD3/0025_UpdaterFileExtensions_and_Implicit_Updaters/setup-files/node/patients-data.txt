@@ -1,0 +1,6 @@
+Patient	id=001	name=Alice	dob=1979-01-23
+Patient	id=002	name=Bob	dob=1950-12-21
+Patient	id=003	name=Carol	dob=1944-06-12
+Patient	id=004	name=Doug	dob=1949-08-27
+Patient	id=005	name=Ellen	dob=1966-09-29
+Patient	id=006	name=Frank	dob=1971-11-15

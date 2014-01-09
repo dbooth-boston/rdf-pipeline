@@ -1,0 +1,5 @@
+#! /bin/bash
+# This is the normalize node updater.
+# Multiply glucose measurements by 10
+perl -p -e 's/:glucose\s+([0-9]+)/":glucose ".($1*10)/e'  $1
+

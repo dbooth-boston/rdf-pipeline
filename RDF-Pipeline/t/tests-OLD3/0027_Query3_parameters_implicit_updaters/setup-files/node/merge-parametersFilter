@@ -1,0 +1,25 @@
+#! /usr/bin/perl -w
+
+# Filter query string parameters received from (downsteam) outputs to 
+# construct appropriate query string parameters to pass to (upstream) inputs.
+
+# The QUERY_STRING environment variable holds the most recent query string
+# received by this node:
+# my $qs = $ENV{QUERY_STRING} || "";
+
+# The QUERY_STRINGS (plural) env var holds a space-separated list of 
+# the most recent query strings from all of this node's outputs.
+
+# Concatenate uniq IDs requested by all outputs into a comma-separated list:
+my $qss = $ENV{QUERY_STRINGS} || "";
+map {m/id=\(?([0-9,]+)/ ? split(/,/, $_) : ()} split(/ /, $qss);
+my %ids = map {($_,1)} map {m/[0-9]+/g} ($qss =~ m/id=\(?([0-9,]+)/g);
+my $ids = join(",", sort keys %ids);
+
+# Command line arguments are the URIs of this node's inputs:
+my ($patientsUri, $labsUri) = @ARGV;
+
+# Write one input URI (with query string) per line to stdout:
+print "$patientsUri?id=($ids)\n";
+print "$labsUri?key=($ids)\n";
+

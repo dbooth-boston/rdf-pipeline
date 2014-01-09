@@ -1,0 +1,9 @@
+#! /bin/bash
+# Select lab values for customer IDs specified in $QUERY_STRING .
+# First convert $QUERY_STRING to a pattern, such as:
+#   "customer=(002,003,004)" --> "customer=(002|003|004)"
+export PATTERN=`echo "$QUERY_STRING" | sed 's/,/|/g'`
+# Empty $PATTERN selects all.
+egrep "$PATTERN" $1 
+exit 0
+

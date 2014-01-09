@@ -1,0 +1,5 @@
+#! /bin/sh
+# This is the merge node updater.
+cat $1  
+cat $2 | sed 's/customer/patient/g'
+

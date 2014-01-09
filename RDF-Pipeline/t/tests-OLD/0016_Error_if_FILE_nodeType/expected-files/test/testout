@@ -1,0 +1,26 @@
+HTTP/1.1 500 Internal Server Error
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Vary: Accept-Encoding
+Content-Length: 614
+Connection: close
+Content-Type: text/html; charset=iso-8859-1
+
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>500 Internal Server Error</title>
+</head><body>
+<h1>Internal Server Error</h1>
+<p>The server encountered an internal error or
+misconfiguration and was unable to complete
+your request.</p>
+<p>Please contact the server administrator,
+ webmaster@localhost and inform them of the time the error occurred,
+and anything you might have done that may have
+caused the error.</p>
+<p>More information about this error may be available
+in the server error log.</p>
+<hr>
+<address>Apache/2.2.22 (Ubuntu) Server at localhost Port 80</address>
+</body></html>
+----------------------------------------------------------------------

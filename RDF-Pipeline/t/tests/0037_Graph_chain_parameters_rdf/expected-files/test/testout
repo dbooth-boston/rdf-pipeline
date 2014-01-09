@@ -1,0 +1,112 @@
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 830
+Content-Location: http://localhost/cache/cardiology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Cardiology patient data for PATTERN: patient:p(002|003|004)
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p002 :lab [ :name "Bob" ; :dob "1950-12-21" ] .	# PROCESSED
+patient:p003 :lab [ :name "Carol" ; :dob "1944-06-12" ] .	# PROCESSED
+patient:p004 :lab [ :name "Doug" ; :dob "1949-08-27" ] .	# PROCESSED
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p002 :lab [ :glucose 850 ; :date "2012-02-02" ] .	# PROCESSED
+patient:p002 :lab [ :glucose 940 ; :date "2012-02-03" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 720 ; :date "2012-03-01" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 1040 ; :date "2012-03-02" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 950 ; :date "2012-03-03" ] .	# PROCESSED
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 830
+Content-Location: http://localhost/cache/cardiology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Cardiology patient data for PATTERN: patient:p(002|003|004)
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p002 :lab [ :name "Bob" ; :dob "1950-12-21" ] .	# PROCESSED
+patient:p003 :lab [ :name "Carol" ; :dob "1944-06-12" ] .	# PROCESSED
+patient:p004 :lab [ :name "Doug" ; :dob "1949-08-27" ] .	# PROCESSED
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p002 :lab [ :glucose 850 ; :date "2012-02-02" ] .	# PROCESSED
+patient:p002 :lab [ :glucose 940 ; :date "2012-02-03" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 720 ; :date "2012-03-01" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 1040 ; :date "2012-03-02" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 950 ; :date "2012-03-03" ] .	# PROCESSED
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 548
+Content-Location: http://localhost/cache/immunology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Immunology patient data for PATTERN: patient:p(003|006)
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p003 :lab [ :name "Carol" ; :dob "1944-06-12" ] .	# PROCESSED
+patient:p006 :lab [ :name "Frank" ; :dob "1971-11-15" ] .	# PROCESSED
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p006 :lab [ :glucose 870 ; :date "2012-01-15" ] .	# PROCESSED
+patient:p006 :lab [ :glucose 910 ; :date "2012-01-16" ] .	# PROCESSED
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 548
+Content-Location: http://localhost/cache/immunology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Immunology patient data for PATTERN: patient:p(003|006)
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p003 :lab [ :name "Carol" ; :dob "1944-06-12" ] .	# PROCESSED
+patient:p006 :lab [ :name "Frank" ; :dob "1971-11-15" ] .	# PROCESSED
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p006 :lab [ :glucose 870 ; :date "2012-01-15" ] .	# PROCESSED
+patient:p006 :lab [ :glucose 910 ; :date "2012-01-16" ] .	# PROCESSED
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 830
+Content-Location: http://localhost/cache/cardiology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Cardiology patient data for PATTERN: patient:p(002|003|004)
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p002 :lab [ :name "Bob" ; :dob "1950-12-21" ] .	# PROCESSED
+patient:p003 :lab [ :name "Carol" ; :dob "1944-06-12" ] .	# PROCESSED
+patient:p004 :lab [ :name "Doug" ; :dob "1949-08-27" ] .	# PROCESSED
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p002 :lab [ :glucose 850 ; :date "2012-02-02" ] .	# PROCESSED
+patient:p002 :lab [ :glucose 940 ; :date "2012-02-03" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 720 ; :date "2012-03-01" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 1040 ; :date "2012-03-02" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 950 ; :date "2012-03-03" ] .	# PROCESSED
+----------------------------------------------------------------------

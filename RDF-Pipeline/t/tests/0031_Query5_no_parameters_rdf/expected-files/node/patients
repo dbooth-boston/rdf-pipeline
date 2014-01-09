@@ -1,0 +1,4 @@
+#! /bin/sh
+# This is the patients node updater.
+cat $1 | ./patients2rdf
+

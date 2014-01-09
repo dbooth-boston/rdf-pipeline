@@ -1,0 +1,47 @@
+#!/usr/bin/env perl
+
+# Sesame 2.6.x SPARQL UPDATE operation.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Usage: $0 [ filename.ru ]
+
+#### TODO: Make it return 1 if there was an error.
+
+################### Generic preparation ####################
+use warnings;
+my $debug = 0;
+$ENV{SPARQL_SERVER} or die "$0: ERROR: SPARQL_SERVER env var is not set.  Example:
+  export SPARQL_SERVER=http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test\n";
+@ARGV == 1 || @ARGV == 0 || die "Usage: $0 [ filename.ru ]\n";
+my $f = $ARGV[0];
+my $tmpDir = $ENV{TMPDIR} || "/tmp";
+my $tmp = "";
+if (!defined($f)) {
+        my $s = join("", <>);
+        $tmp = "$tmpDir/sparql-update-$$.ru";
+        $f = $tmp;
+	open(my $fh, ">$f") || die "$0: ERROR: Cannot create tmp file: $f\n";
+	print $fh $s;
+	close($fh) || die;
+        }
+-e $f or die "$0: ERROR: File not found: $f\n";
+-f $f or die "$0: ERROR: Not a plain file: $f\n";
+my $qf = quotemeta($f);
+
+################### Server-type-specific code ####################
+my $dir = $0;
+$dir =~ s/\/[^\/]+$//;
+my $qdir = quotemeta($dir);
+my $qss = quotemeta($ENV{SPARQL_SERVER});
+# curl -s --data-urlencode  'update@/dev/null' 'http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test/update' 
+my $cmd = "/usr/bin/curl -s  --data-urlencode  update\@$qf $qss/update" ;
+warn "cmd: $cmd\n" if $debug;
+!system($cmd) or die "$0: $?\n";
+
+##################### Cleanup #####################
+unlink($tmp) if $tmp;
+exit 0;
+

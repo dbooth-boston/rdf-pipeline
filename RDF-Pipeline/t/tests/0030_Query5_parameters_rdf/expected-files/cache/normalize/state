@@ -1,0 +1,7 @@
+@prefix customer: <http://example/customer#> . 
+@prefix : <http://example/med#> . 
+customer:p002 :lab [ :glucose 850 ; :date "2012-02-02" ] .
+customer:p002 :lab [ :glucose 940 ; :date "2012-02-03" ] .
+customer:p004 :lab [ :glucose 720 ; :date "2012-03-01" ] .
+customer:p004 :lab [ :glucose 1040 ; :date "2012-03-02" ] .
+customer:p004 :lab [ :glucose 950 ; :date "2012-03-03" ] .

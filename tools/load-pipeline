@@ -1,0 +1,49 @@
+#! /usr/bin/perl -w
+
+# This script cleans out the existing $wwwDir and then
+# copies the given pipeline directory to $wwwDir/node to
+# enable the pipeline to be run.
+#
+# Usage:
+#
+#  	./load-pipeline pipelineDir
+#
+# Copyright 2013 by David Booth
+# See license information at http://code.google.com/p/rdf-pipeline/
+
+use strict;
+
+my $wwwDir = $ENV{'RDF_PIPELINE_WWW_DIR'} or &EnvNotSet('RDF_PIPELINE_WWW_DIR');
+my $devDir = $ENV{'RDF_PIPELINE_DEV_DIR'} or &EnvNotSet('RDF_PIPELINE_DEV_DIR');
+my $moduleDir = "$devDir/RDF-Pipeline";
+my $testsDir = "$moduleDir/t/tests";
+my $libDir = "$moduleDir/lib";
+
+$ENV{PERL5LIB} ||= "";
+$ENV{PERL5LIB} = "$libDir:$ENV{PERL5LIB}";
+# warn "PERL5LIB: $ENV{PERL5LIB}\n";
+# chdir($testsDir) or die "ERROR: Could not chdir('$testsDir')\n";
+
+@ARGV == 1 || die "Usage: $0 pipelineDir\n";
+my ($dir) = @ARGV;
+
+-d $wwwDir || die "$0: ERROR: \$RDF_PIPELINE_WWW_DIR directory not found: $ENV{RDF_PIPELINE_WWW_DIR}\n";
+
+# Clear out old $wwwDir files, then copy the given dir:
+!system("$moduleDir/t/helpers/copy-dir.perl '/dev/null' '$wwwDir'") or die;
+(mkdir("$wwwDir") || die) if !-d "$wwwDir";
+!system("$moduleDir/t/helpers/copy-dir.perl '$devDir/www-template' '$wwwDir'") or die;
+!system("$moduleDir/t/helpers/copy-dir.perl '$dir' '$wwwDir/node'") or die;
+
+exit 0;
+
+########## EnvNotSet #########
+sub EnvNotSet
+{
+@_ == 1 or die;
+my ($var) = @_;
+die "ERROR: Environment variable '$var' not set!  Please set it
+by editing set_env.sh and then (in bourne shell) issuing the
+command '. set_env.sh'\n";
+}
+

@@ -1,0 +1,42 @@
+# Ontology and inference rules used in describing an RDF data pipeline.
+# See http://dbooth.org/2011/pipeline/
+ 
+@prefix p: <http://purl.org/pipeline/ont#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+ 
+######### Example Node types ##########
+p:Node		a rdfs:Class .
+p:FileNode	rdfs:subClassOf p:Node ;
+  p:defaultContentType "text/plain" .
+p:ExampleHtmlNode	rdfs:subClassOf p:Node ;
+  p:defaultContentType "text/html" .
+p:JenaNode      rdfs:subClassOf p:Node .
+p:SesameNode    rdfs:subClassOf p:Node .
+p:PerlNode      rdfs:subClassOf p:Node .
+p:MysqlNode	rdfs:subClassOf p:Node .
+p:OracleNode	rdfs:subClassOf p:Node .
+ 
+######### Node properties ##########
+p:inputs 	rdfs:domain p:Node .
+p:parameters 	rdfs:domain p:Node .
+p:dependsOn 	rdfs:domain p:Node .	# Includes inputs and parameters
+p:contentType 	rdfs:domain p:Node .
+
+# p:state specifies the "state" cache for a node.
+# It is node-type-specific, e.g., filename for FileNode .
+# It may be set explicitly, otherwise a default will be used.
+p:state	rdfs:domain p:Node .
+ 
+# p:updater specifies the updater method for a Node.
+# It is node-type-specific, e.g., a script for FileNode .
+p:updater	rdfs:domain p:Node .
+ 
+# p:updaterType specifies the type of updater used.
+# It is node-type-specific.
+p:updaterType	rdfs:domain p:Node .
+ 
+######### Rules ##########
+# A Node dependsOn its inputs and parameters:
+{ ?a p:inputs ?b . }     => { ?a p:dependsOn ?b . } .
+{ ?a p:parameters ?b . } => { ?a p:dependsOn ?b . } .
+

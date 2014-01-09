@@ -1,0 +1,40 @@
+#!/usr/bin/env perl
+
+# Sesame 2.x Export a named graph as Turtle.  If no graph is specified,
+# export the default graph.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Usage: $0 [ namedGraph ]
+
+use URI::Encode qw(uri_encode uri_decode);
+
+################### Generic preparation ####################
+use warnings;
+my $debug = 0;
+$ENV{SPARQL_SERVER} or die "$0: ERROR: SPARQL_SERVER env var is not set.  Example:
+  export SPARQL_SERVER=http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test\n";
+@ARGV <= 1 or die "Usage: $0 [ namedGraph ] \n";
+my $graph = shift @ARGV || "";
+my $eGraph = uri_encode($graph);
+
+################### Server-type-specific code ####################
+my $sesameUrl = $ENV{SPARQL_SERVER};
+if ($eGraph) {
+	$sesameUrl =~ s|([\/\\])openrdf-workbench([\/\\])|${1}openrdf-sesame$2| or die "$0: ";
+	$sesameUrl .= "/rdf-graphs/service?Accept=text%2Fturtle";
+	# http://www.openrdf.org/doc/sesame2/system/ch08.html#d0e659
+	$sesameUrl .= "&graph=$eGraph";
+	}
+else	{
+	$sesameUrl .= "/export?Accept=text%2Fturtle";
+	}
+my $qss = quotemeta($sesameUrl);
+# http://localhost:8080/openrdf-sesame/repositories/rdf-pipeline-test/rdf-graphs/service?Accept=text%2Fturtle&graph=http%3A%2F%2Fexample%2Ffoo
+my $cmd = "/usr/bin/curl -s  $qss | perl -p -e 's/\\\\r//g'";
+warn "cmd: $cmd\n" if $debug;
+!system($cmd) or die "$0: $?\n";
+exit 0;
+

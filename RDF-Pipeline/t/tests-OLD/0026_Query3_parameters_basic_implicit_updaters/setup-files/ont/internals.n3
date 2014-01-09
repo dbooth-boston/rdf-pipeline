@@ -1,0 +1,45 @@
+################## Internals #####################
+# These are properties and rules that are used by the framework,
+# but would not normally be used directly by a user.
+
+@prefix p: <http://purl.org/pipeline/ont#> .
+# @prefix : <http://localhost/> .
+@prefix log: <http://www.w3.org/2000/10/swap/log#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+
+
+# p:cache specifies an input/parameter cache for a node.   The cache
+# is node-specific (e.g., filename for a FileNode) and is specified
+# as a pair: (inputNodeUri filename).  It is not 
+# normally asserted by users: the framework figures
+# out what the cache will be, either re-using inputNodeUri's 
+# output cache if it is in the same environment (i.e., the 
+# same server and node type) or making up a new cache otherwise.
+# Range is node-type-specific pair, e.g.:
+#   :c p:cache (:a "c/cache/a") .
+p:cache		rdfs:domain p:Node .
+
+
+######### Inference Rules ##########
+# Infer the class from the domain:
+{ ?p rdfs:domain ?c . ?a ?p ?b . } => { ?a a ?c . } .
+
+# Subclass / subsumption:
+{ ?sub rdfs:subClassOf ?super . ?a a ?sub . } => { ?a a ?super . } .
+
+# Inverse subClassOf:
+{ ?sub rdfs:subClassOf ?super . } => { ?super p:subClass ?sub . } .
+
+# Inverse class membership:
+{ ?s a ?class . } => { ?class p:member ?s . } .
+
+########## Testing ##########
+# This rule facilitates rapid testing, but is not something
+# that would necessarily be wanted in production.
+# It causes a node's updater to be run if the updater
+# itself has changed.
+{ ?a p:updater ?u . } => { ?a p:dependsOn ?u . } .
+
+# Force the parser to assert each Node's URI as a string:
+{ ?r a p:Node . ?r log:uri ?u . } => { ?r p:uri ?u . } .
+

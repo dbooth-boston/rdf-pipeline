@@ -1,0 +1,15 @@
+PROCESSED	Patient	id=001	name=Alice	dob=1979-01-23
+PROCESSED	Patient	id=002	name=Bob	dob=1950-12-21
+PROCESSED	Patient	id=003	name=Carol	dob=1944-06-12
+PROCESSED	Patient	id=004	name=Doug	dob=1949-08-27
+PROCESSED	Patient	id=005	name=Ellen	dob=1966-09-29
+PROCESSED	Patient	id=006	name=Frank	dob=1971-11-15
+PROCESSED	Lab	id=001	glucose=750	date=2012-02-01
+PROCESSED	Lab	id=002	glucose=850	date=2012-02-02
+PROCESSED	Lab	id=002	glucose=940	date=2012-02-03
+PROCESSED	Lab	id=004	glucose=720	date=2012-03-01
+PROCESSED	Lab	id=004	glucose=1040	date=2012-03-02
+PROCESSED	Lab	id=004	glucose=950	date=2012-03-03
+PROCESSED	Lab	id=005	glucose=980	date=2012-02-02
+PROCESSED	Lab	id=006	glucose=870	date=2012-01-15
+PROCESSED	Lab	id=006	glucose=910	date=2012-01-16

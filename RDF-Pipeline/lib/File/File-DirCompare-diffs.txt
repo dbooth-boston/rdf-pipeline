@@ -1,0 +1,81 @@
+*** DirCompare.pm.old	2013-07-29 22:42:22.184315186 -0400
+--- DirCompare.pm	2013-07-29 23:05:44.916299419 -0400
+***************
+*** 11,17 ****
+  
+  use vars qw($VERSION);
+  
+! $VERSION = '0.7';
+  
+  # ----------------------------------------------------------------------------
+  # Private methods
+--- 11,17 ----
+  
+  use vars qw($VERSION);
+  
+! $VERSION = '0.8';
+  
+  # ----------------------------------------------------------------------------
+  # Private methods
+***************
+*** 37,46 ****
+--- 37,48 ----
+    # Setup cmp and matches subs
+    my $cmp = $opts->{cmp} && ref $opts->{cmp} eq 'CODE' ? $opts->{cmp} : \&File::Compare::compare;
+    my $matches = $opts->{matches} if $opts->{matches} && ref $opts->{matches} eq 'CODE';
++   my $exclude = $opts->{exclude} if $opts->{exclude} && ref $opts->{exclude} eq 'CODE';
+  
+    # Iterate over sorted and uniquified file list
+    my %u;
+    for my $f (map { $u{$_}++ == 0 ? $_ : () } sort(keys(%d1), keys(%d2))) {
++     next if $exclude && $exclude->($f);
+      my $f1 = catfile($dir1, $f);
+      my $f2 = catfile($dir2, $f);
+      # Only in $dir1
+***************
+*** 203,208 ****
+--- 205,211 ----
+      ignore_cmp      => 1,
+      ignore_unique   => 1,
+      matches         => $matches_sub,
++     exclude         => $exclude_sub,
+    });
+  
+  =over 4
+***************
+*** 247,252 ****
+--- 250,266 ----
+  
+  These pairs are ordinarily ignored (unless C<ignore_cmp> is set).
+  
++ =item exclude
++ 
++ Subroutine to be called on every file or directory name (without
++ a leading directory path), with the following signature:
++ 
++   $sub->($f)
++ 
++ If the subroutine returns true given file or directory $f, then
++ $f (and its descendents if it is a directory) will be excluded 
++ from comparison, as with a diff -x option.
++ 
+  =back
+  
+  =head1 SEE ALSO
+***************
+*** 261,267 ****
+  Gavin Carr <gavin@openfusion.com.au>
+  
+  Thanks to Robin Barker for a bug report and fix for glob problems
+! with whitespace.
+  
+  =head1 COPYRIGHT AND LICENSE
+  
+--- 275,281 ----
+  Gavin Carr <gavin@openfusion.com.au>
+  
+  Thanks to Robin Barker for a bug report and fix for glob problems
+! with whitespace.  Exclude option added by David Booth.
+  
+  =head1 COPYRIGHT AND LICENSE
+  

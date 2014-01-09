@@ -1,0 +1,3 @@
+#! /bin/bash
+cat labs-data.txt | ./labs2rdf
+

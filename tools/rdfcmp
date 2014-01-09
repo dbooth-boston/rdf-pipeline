@@ -1,0 +1,83 @@
+#! /usr/bin/env perl
+
+# Compare two RDF documents.  This is just a wrapper around 
+# Dave Beckett's rdfdiff, but defaulting to turtle instead of rdfxml.
+# Options are as for rdfdiff.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Regression tests for this code:
+#	@@@@
+##################################################################
+
+use warnings;
+use strict;
+
+################# Usage ###################
+sub Usage
+{
+return "Usage: $0 [ options ] [ fileA fileB ]
+Options are as for rdfdiff:
+  -b, --brief
+	Report only whether files differ.
+
+  -h, --help
+	Print this usage info.
+
+  -f, --from-format=fromFormat
+	Specify the format of fileA.  Supported formats include
+	ntriples, rdfxml, turtle and maybe others.
+
+  -t, --to-format=toFormat
+	Specify the format of fileB.  Supported formats include
+	ntriples, rdfxml, turtle and maybe others.
+
+  -b, --base-uri=baseUri
+	Specify baseUri as the base URI of both fileA and fileB.
+
+Exit status is 0 if the RDF is the same (isomorphic); 1 if they differ.
+";
+}
+
+################# MAIN ###################
+
+my $optBrief = 0;
+my $optFrom = "turtle";
+my $optTo = "turtle";
+my $optBase = "";
+my $optHelp = 0;
+
+use Getopt::Long; # Perl
+if (!GetOptions(
+                "brief|b" => \$optBrief,
+                "from-format|f=s" => \$optFrom,
+                "to-format|t=s" => \$optTo,
+                "base-uri|u=s" => \$optBase,
+                "help|h" => \$optHelp,
+                )) {
+        warn "$0: Error reading options.\n";
+        die &Usage();
+        }
+if ($optHelp) {
+        print &Usage();
+        exit 0;
+        }
+
+
+my $fileA = shift @ARGV;
+my $fileB = shift @ARGV;
+my $cmd = "rdfdiff";
+my $qOptBase = quotemeta($optBase);
+$cmd .= " -u $qOptBase" if $optBase;
+$cmd .= " -b" if $optBrief;
+$cmd .= " -f $optFrom -t $optTo";
+my $qfileA = quotemeta($fileA);
+my $qfileB = quotemeta($fileB);
+$cmd .= " $qfileA $qfileB";
+# warn "cmd: $cmd\n";
+my $result = system($cmd);
+exit 1 if $result;
+exit 0;
+

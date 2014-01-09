@@ -1,0 +1,79 @@
+@prefix : <http://example/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix customer: <http://example/customer#> .
+@prefix patient: <http://example/patient#> .
+
+_:node181hn90ohx18 <http://example/med#name> "Alice" ;
+	<http://example/med#dob> "1979-01-23" .
+
+patient:p001 <http://example/med#lab> _:node181hn90ohx18 .
+
+_:node181hn90ohx19 <http://example/med#name> "Bob" ;
+	<http://example/med#dob> "1950-12-21" .
+
+patient:p002 <http://example/med#lab> _:node181hn90ohx19 .
+
+_:node181hn90ohx20 <http://example/med#name> "Carol" ;
+	<http://example/med#dob> "1944-06-12" .
+
+patient:p003 <http://example/med#lab> _:node181hn90ohx20 .
+
+_:node181hn90ohx21 <http://example/med#name> "Doug" ;
+	<http://example/med#dob> "1949-08-27" .
+
+patient:p004 <http://example/med#lab> _:node181hn90ohx21 .
+
+_:node181hn90ohx22 <http://example/med#name> "Ellen" ;
+	<http://example/med#dob> "1966-09-29" .
+
+patient:p005 <http://example/med#lab> _:node181hn90ohx22 .
+
+_:node181hn90ohx23 <http://example/med#name> "Frank" ;
+	<http://example/med#dob> "1971-11-15" .
+
+patient:p006 <http://example/med#lab> _:node181hn90ohx23 .
+
+_:node181hn90ohx9 <http://example/med#glucose> "750"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+	<http://example/med#date> "2012-02-01" .
+
+customer:p001 <http://example/med#lab> _:node181hn90ohx9 .
+
+_:node181hn90ohx10 <http://example/med#glucose> "850"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+	<http://example/med#date> "2012-02-02" .
+
+customer:p002 <http://example/med#lab> _:node181hn90ohx10 .
+
+_:node181hn90ohx11 <http://example/med#glucose> "940"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+	<http://example/med#date> "2012-02-03" .
+
+customer:p002 <http://example/med#lab> _:node181hn90ohx11 .
+
+_:node181hn90ohx12 <http://example/med#glucose> "720"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+	<http://example/med#date> "2012-03-01" .
+
+customer:p004 <http://example/med#lab> _:node181hn90ohx12 .
+
+_:node181hn90ohx13 <http://example/med#glucose> "1040"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+	<http://example/med#date> "2012-03-02" .
+
+customer:p004 <http://example/med#lab> _:node181hn90ohx13 .
+
+_:node181hn90ohx14 <http://example/med#glucose> "950"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+	<http://example/med#date> "2012-03-03" .
+
+customer:p004 <http://example/med#lab> _:node181hn90ohx14 .
+
+_:node181hn90ohx15 <http://example/med#glucose> "980"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+	<http://example/med#date> "2012-02-02" .
+
+customer:p005 <http://example/med#lab> _:node181hn90ohx15 .
+
+_:node181hn90ohx16 <http://example/med#glucose> "870"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+	<http://example/med#date> "2012-01-15" .
+
+customer:p006 <http://example/med#lab> _:node181hn90ohx16 .
+
+_:node181hn90ohx17 <http://example/med#glucose> "910"^^<http://www.w3.org/2001/XMLSchema#integer> ;
+	<http://example/med#date> "2012-01-16" .
+
+customer:p006 <http://example/med#lab> _:node181hn90ohx17 .

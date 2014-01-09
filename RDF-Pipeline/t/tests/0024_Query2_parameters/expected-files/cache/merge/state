@@ -1,0 +1,5 @@
+Patient	id=002	name=Bob	dob=1950-12-21
+Patient	id=005	name=Ellen	dob=1966-09-29
+Lab	id=002	glucose=850	date=2012-02-02
+Lab	id=002	glucose=940	date=2012-02-03
+Lab	id=005	glucose=980	date=2012-02-02

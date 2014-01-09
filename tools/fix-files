@@ -1,0 +1,85 @@
+#! /usr/bin/perl -w
+
+# This script is intended to be customized before being run.
+# Its purpose is to modify a set of files in a particular way.
+# Directories are skipped.  The list of files to modify may
+# either be specified on the command line, or passed as stdin,
+# one filename per line.
+#
+# Remember to BACKUP the files before running this, in case
+# it doesn't as planned.
+#
+# Usage:
+#	fix-files filesToBeModified...
+#
+# Copyright 2013 by David Booth
+# See license information at http://code.google.com/p/rdf-pipeline/
+
+use strict;
+
+if (!@ARGV) {
+	my @files = grep {m/\S/} map {chomp; &Trim($_)} <>;
+	@ARGV = @files;
+	}
+@ARGV || die "$0: No files specified.\n";
+my $tmp = "/tmp/fix-files-$$";
+my $nDirs = 0;
+my $nMod = 0;
+my $n = 0;
+foreach my $f (@ARGV) {
+	if (-d $f) {
+		$nDirs++;
+		next;
+		}
+	$n++;
+	my $qf = quotemeta($f);
+	open(my $fh, "<$f") || die "$0: ERROR: File not found: $f\n";
+	my $all = join("", <$fh>);
+	close $fh;
+	my $oldAll = $all;
+
+	########################################
+	########### Customize here #############
+	# $all =~ s/88/44/g;
+	$all =~ s/trunk\/www/trunk\/Private\/www/g;
+	$all =~ s/trunk\%2Fwww/trunk\%2FPrivate\%2Fwww/g;
+	########################################
+	########################################
+
+	if ($all ne $oldAll) {
+		$nMod++;
+		warn "Modified: $f\n";
+		# First, copy the file, to get the attributes:
+		!system("cp -p $qf $tmp") || die;
+		# Writing to tmp and then renaming reduces the chance
+		# of getting corrupted by interruption.
+		&WriteFile($tmp, $all);
+		rename($tmp, $f) || die "$0: ERROR: Failed to rename $tmp to $f\n";
+		}
+	unlink $tmp;
+	}
+warn "Skipped $nDirs directories\n" if $nDirs;
+warn "Modified $nMod / $n plain files\n";
+exit 0;
+
+############ WriteFile ##########
+# Perl function to write a string to a file.
+sub WriteFile
+{
+@_ == 2 || die;
+my ($f, $s) = @_;
+open(my $fh, ">$f") || die;
+print $fh $s;
+close($fh) || die;
+}
+
+########## Trim ############
+# Perl function to remove whitespace from beginning and end of a string.
+sub Trim
+{
+my $s = shift @_;
+$s =~ s/\A[\s\n\r]+//s;
+$s =~ s/[\s\n\r]+\Z//s;
+return $s;
+}
+

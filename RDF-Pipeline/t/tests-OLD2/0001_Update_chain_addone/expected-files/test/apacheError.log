@@ -1,0 +1,11 @@
+          UPDATED query parameters of http://localhost/node/addone
+          UPDATED depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              UPDATED query parameters of http://localhost/node/odds
+                  UPDATED query parameters of http://localhost/node/max
+                UPDATING http://localhost/node/max {/home/dbooth/rdf-pipeline/trunk/Private/www/node/max} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/max/state
+              UPDATED depUri http://localhost/node/max of http://localhost/node/odds
+              UPDATED depUri http://localhost/node/odds-updater of http://localhost/node/odds
+            UPDATING http://localhost/node/odds {odds-updater} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/odds/state
+          UPDATED depUri http://localhost/node/odds of http://localhost/node/addone
+        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/addone/state
+----------------------------------------------------------------------

@@ -1,0 +1,15 @@
+          NO CHANGE to query parameters of http://localhost/node/addone
+          NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              NO CHANGE to query parameters of http://localhost/node/mult
+              NO CHANGE to depUri http://localhost/node/mult-updater of http://localhost/node/mult
+                UPDATING http://localhost/node/multiplier.txt inSerCache: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/multiplier.txt/serCache of http://localhost/node/mult
+              UPDATED depUri http://localhost/node/multiplier.txt of http://localhost/node/mult
+                  NO CHANGE to query parameters of http://localhost/node/odds
+                      NO CHANGE to query parameters of http://localhost/node/max
+                  NO CHANGE to depUri http://localhost/node/max of http://localhost/node/odds
+                  NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
+              NO CHANGE to depUri http://localhost/node/odds of http://localhost/node/mult
+            UPDATING http://localhost/node/mult {mult-updater} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/mult/state
+          UPDATED depUri http://localhost/node/mult of http://localhost/node/addone
+        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/addone/state
+----------------------------------------------------------------------

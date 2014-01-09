@@ -1,0 +1,607 @@
+RDF Pipeline Framework, Copyright 2011-2014 David Booth <david@dbooth.org>
+This is part of the project at http://code.google.com/p/rdf-pipeline/ .
+It is licensed for use under the license in License.txt
+----------------------------------------------------------------
+
+These are my (dbooth) personal notes and "To Do" list from
+before I used code.google.com and had any formal bug tracker
+or issues list.  It is currently being used as a place for recording
+notes or ideas.
+
+10/29/13: Brainstorming how to write map pipelines.
+[[
+########### Sub-pipeline template, in s.ttl:
+:s a p:PipelineTemplate ;
+  p:formalInputs ( :pa :pb ) ;
+  p:formalOutputs ( :px :py ) ;
+  p:formalNodes ( :p ) .
+
+:p a p:FileNode ;
+  p:inputs ( :pa :pb ) ;
+  p:outputs ( :px :py ) .
+]]
+
+[[
+########### Explicitly using it twice:
+:s1 a p:PipelineNode ;
+  p:inputs ( :a :b1 ) ;
+  p:outputs ( :x :y1 ) ;
+  p:updater "s.ttl" .
+
+:s2 a p:PipelineNode ;
+  p:inputs ( :a :b2 ) ;
+  p:outputs ( :x :y2 ) ;
+  p:updater "s.ttl" .
+]]
+
+[[
+########### End result after expansion:
+:s1-p a p:FileNode ;
+  p:inputs ( :a :b1 ) ;
+  p:outputs ( :x :y1 ) .
+
+:s2-p a p:FileNode ;
+  p:inputs ( :a :b2 ) ;
+  p:outputs ( :x :y2 ) .
+]]
+
+[[
+########### And if a downstream node used p as its input:
+:x a p:FileNode ;	# Downstream node
+  p:inputs ( ( p:all :x ) 
+
+7/27/12: Thinking more about how to provide configuration information
+for GraphNodes.  For each node or nodetype, prefix or pipeline, need to specify
+the endpoint URI and the driver.  Somehow, security credentials may 
+also be needed.  I guess credentials could be passed as encrypted 
+parameters.
+
+# On a node:
+:x a p:GraphNode ; p:driver p:ParliamentDriver .
+# On a nodetype:
+:MyGraphNode rdfs:subClassOf p:GraphNode ;
+	p:driver "RDF::Pipeline::GraphNode::Drivers::BigData" ;
+	p:endpoint "http://localhost:8080/parliament/"  .
+:y a :MyGraphNode .
+
+5/5/12: It would be nice to add a visualization component, such as
+Cytoscape, to display in realtime the flow through a pipeline.
+It would be nice if it could also show map nodes created and destroyed.
+
+4/25/12: To know when a pipeline has been propagated all the way
+to its outputs, tokens can be passed to certain inputs, and when all
+tokens appear on the output, then those inputs have propagated through.
+For example, tokens X and Y may be passed to inputs A and B,
+respectively, and when they have both shown up at the output,
+then we know what those inputs have propagated all the way through.
+The tokens could be passed in hidden metadata.
+
+4/25/12: Metadata could be passed automatically from inputs to outputs,
+and would include things like provenance and LMs.  For simplicity,
+the metadata could be in RDF.
+
+4/22/12: I think I should change the format of LM files to be RDF
+triples, as that would allow them to be easily extensible.
+
+2/8/12: I'm thinking of doing SPARQL templates like sub-pipelines,
+because they both require a way to bind formal with actual parameters.
+
+2/8/12: The inputs/outputs of SPARQL nodes do not need to be named
+graphs.  Since it is only a URI that is substituted into the SPARQL
+template, that URI could represent anything.  However, the substitution
+business may be easier for the user if prefixes are used instead
+of full URIs.
+
+Where a sub-pipeline definition would write:
+
+    p:inputNames ( :sb :sc ) .
+
+  and be used as:
+
+    :s a p:PipelineNode ;
+      p:inputs ( :b :c ) ;
+      p:outputNames   ( :sd :se ) ;
+      p:updater "s.n3" .
+
+    :e a p:FileNode ;
+      p:inputs ( :sd :se ) .
+
+In a SPARQL template that might be written as:
+
+    # [pipeline-meta]
+    # <> p:inputNames ( sb: sc: ) .
+    # [/pipeline-meta]
+    PREFIX sb: <http://example/sb>
+    PREFIX sc: <http://example/sc>
+    PREFIX sd: <http://example/sd>
+    PREFIX se: <http://example/se>
+
+  where the PREFIXes appearing in the SPARQL code are used, and p: 
+  defaults to the pipeline prefix.
+  And it could be used as:
+
+    :s a p:PipelineNode ;
+      p:inputs ( :b :c ) ;
+      p:outputNames   ( sd: se: ) ;
+      p:updater "s.n3" .
+
+    :e a p:FileNode ;
+      p:inputs ( sd: se: ) .
+
+This means that full URIs would be substituted in at runtime, rather
+than just prefixes.  In practice this would probably mean that a 
+SPARQL template would have to use each full URI in a prefix definition,
+to avoid having to fully parse the SPARQL and expand prefixed local
+names.
+
+Another option would be to make the SPARQL template not conform to
+standard SPARQL syntax (until actual parameters have been substituted
+for formal parameters).  This is the Callimachus approach, and it means
+that those SPARQL templates would only be testable from a tool that
+will do the substitution.
+
+2/7/12: Thinking about how to do pipeline hierarchies, or sub-pipelines.
+I wrote up some thoughts in issue #18:
+http://code.google.com/p/rdf-pipeline/issues/detail?id=18
+
+2/1/12: In thinking about implementing ParliamentRdfNode, it occurred
+to me that we need a way to indicate the root location that will
+be used by that wrapper, for accessing the Parliament server
+on a particular host, because it will vary depending on the host.
+Perhaps something like this:
+[[
+# Root location (as local name) for ParliamentRdfNodes on host ":"
+# (which is @prefix defined as http://localhost/node/):
+p:ParliamentRdfNode p:root ( : <http://localhost:8080/parliament/> ) .
+# Or get it from an env var:
+p:ParliamentRdfNode p:root ( : "$PARLIAMENT_ROOT" ) .
+# Or via a config document:
+p:ParliamentRdfNode p:root ( : "@http://example/parliament-config.n3" ) .
+
+# Or maybe a configuration file should be supplied:
+p:ParliamentRdfNode p:config ( : <http://example/parliament-config.n3> ) .
+p:ParliamentRdfNode p:config ( : <relativeUri/parliament-config.n3> ) .
+<> owl:imports <...possibly relativeUri config file...> .
+]]
+
+1/31/12: Thinking about how to do SPARQL Update templates, i.e.,
+how to parameterize a SPARQL Update by graph names.  A few ideas:
+
+1. Use special comments to indicate inputs and output:
+	# inputs: foo: bar: 
+	# output: fum:
+	PREFIX foo: <http://example/foo>
+	PREFIX bar: <http://example/bar>
+	PREFIX fum: <http://example/fum>
+
+1.a. 	# __START__
+	# inputs: foo: bar:
+	# output: fum:
+	# __END__
+
+1.b. http://jinja.pocoo.org/docs/templates/
+	# {%
+	# inputs: foo: bar:
+	# output: fum:
+	# %}
+
+1.c. 	# <%
+	# inputs: foo: bar:
+	# output: fum:
+	# %>
+
+1.d. http://template-toolkit.org/docs/manual/Syntax.html
+ 	# [%
+	# inputs: foo: bar:
+	# output: fum:
+	# %]
+
+1.e. 	# <rdf-pipeline>
+	# inputs: foo: bar:
+	# output: fum:
+	# </rdf-pipeline>
+
+2. Use special PREFIX declarations:
+	PREFIX input1: <foo:>
+	PREFIX input2: <bar:>
+	PREFIX output: <fum:>
+	PREFIX foo: <http://example/foo>
+	PREFIX bar: <http://example/bar>
+	PREFIX fum: <http://example/fum>
+
+3. Use pre-established PREFIXes:
+	PREFIX input1: <http://example/foo>
+	PREFIX input2: <http://example/bar>
+	PREFIX output: <http://example/fum>
+	PREFIX parameters: <http://example/allpar>
+	PREFIX thisUri: <http://example/anything>
+	PREFIX pipeline: <...pipeline definition...>
+
+This may be simplest.   Not sure what to do about parameters,
+though, because they're not supposed to be known to the node in advance.
+Maybe just have a graph called "parameters:", with all parameters merged.
+
+	...
+	GRAPH parameters: {
+		thisUri: p:parameter ?param .
+		...
+
+It may also be useful to be able to parameterize entire portions of
+a query, rather than just a graph or URI, but that may be a Pandora's box.
+
+4. Use relative URIs?
+
+5. See what Callimachus does for SPARQL templates:
+http://code.google.com/p/callimachus/wiki/ServicePatterns#Action_With_No_Side-Effects
+
+1/25/12: Got testing working, so now it is easy to add and run tests.
+Previously got caching working, though it has not yet been tested
+with a Node type that requires serialization.
+
+12/30/11: I have not thought a whole lot about locking and deadlock,
+but one idea that seems appealing (when we get to addressing it) is
+to use a sort of "snapshot locking" scheme.
+When an updater is run, all ins are "snapshot locked", which causes them to be
+treated as (coherent) snapshots.  Instead of blocking
+concurrent writing, newly written data will be written
+to a new instance, which in turn will be treated as a snapshot
+if another updater "snapshot locks" that instance.  Each
+snapshot will be released when it has no (downstream) updaters
+reading it.  If an instance is large and only a small portion
+is updated, then it can be handled in a mapcar manner, such that
+its constituents are recursively snapshot-locked, and constituents
+that did not change are merely linked from the new instance.
+
+Also, I'm thinking that instead of passing $callerUri and $callerLM,
+we might want to pass a %callers hashref, which would contain all
+callers in the call chain (to detect loops).  A node that is designed
+to handle a call chain loop could be marked as something like:
+
+  :myNode p:allowRecursiveNotify true .
+
+On the other hand, it would be better to check for dependency loops
+during compiletime (when analyzing the pipeline) instead of at runtime.
+In that case a node marked p:allowRecursiveNotify could be treated as 
+a break in the dependency graph.
+
+12/25/11: Instead of using "scope", I've shifted to using &IsSameServer
+and &IsSameType, both because these are two separate questions and
+because the URI prefix for a different env must be a different server
+anyway if the type is the same.
+
+12/15/11: When an input is not a node (such as file "max" in simple pipeline),
+this causes "ERROR: http://localhost/max is not a Node" and 404 response.
+Where should such files be placed?  If we put nodes under $baseUri/nodes
+then this would help the Apache config, and files not under that could
+be served as regular files or treated however Apache normally would
+treat them (since they could also be CGI scripts). 
+BTW, I should still test other code paths in initializing $nm.
+
+TODO: Continue transforming code to use $nm.  At present addone is
+reading from the old cache location for odds.
+
+12/15/11: Internal naming: 
+$baseUri: URI prefix for this server.
+$basePath: File path corresponding to $baseUri, i.e., $ENV{DOCUMENT_ROOT}
+Maybe should put pipeline nodes under $baseUri/nodes.
+
+12/14/11: Thinking briefly about how to handle changes to the pipeline
+definition.  Some thoughts:
+ - A deleted node needs its own and downstream caches, LMs, etc. cleaned up.
+ - Nodes that are added need to be fired according to their update policies.
+ - Nodes whose updater changed need to have their caches flushed.
+ - A node whose type changed can be treated as a delete+add.
+ - A node with inputs/dependsOns deleted need caches cleaned up.
+ - A node with inputs/dependsOns added needs caches created.
+
+12/9/11: POST data can be read using Apache2::RequestIO:
+> while($r->read($buffer, 1024)) {}
+See today's email to modperl@perl.apache.org.
+
+12/8/11: Thinking of using the word "scope" instead of "environment",
+because "environment" is apt to be confused with env vars.
+However, at present the "scope" predicate only provides the URI prefix
+of the environment -- not the node type.  Not sure if I should also
+use a "scopeType" predicate that combines the scope URI prefix with
+the node type.  Also thinking of using these words for the caches:
+  cache 	-- Updater output/result (may be set by user)
+  serCache	-- Serialized cache
+  serCopy	-- Remote copy of serCache 
+  copy		-- Remote copy of cache
+
+12/3/11: Working on switching the code to use %nm (Node Metadata)
+and $tm (This Metadata, aka $nm->{values}->{$thisUri}).  I wrote a
+first version of &LoadNodeMetadata, 
+but still need the specialized logic or inference somewhere
+to properly set things like $tm->{nodeType}, $tm->{envPrefix}, etc.
+
+11/29/11: I've got the algorithms sketched out for handling and sending
+downstream NOTIFY and upstream REQUEST events, as well as upstream
+QGET event, which is only used to retrieve the latest serialized
+state of a node without updating that node.  They're in my draft
+slides 2012/pipeline/.
+
+11/24/11: Info about flock and locking:
+http://perl.apache.org/docs/1.0/guide/debug.html
+http://modperlbook.org/html/6-9-2-2-Safe-resource-locking-and-cleanup-code.html
+
+11/14/11: Typical HTTP response headers:
+[[
+HTTP/1.1 200 OK
+Date: Mon, 14 Nov 2011 19:51:49 GMT
+Server: Apache/2.2.20
+X-Powered-By: PHP/5.3.8
+P3P: CP="NOI NID ADMa OUR IND UNI COM NAV"
+ETag: "8002cca87d79536d4479bd9da0b8f977"
+Vary: Accept-Encoding
+Last-Modified: Fri, 17 Dec 2010 09:51:23 GMT
+Content-Length: 5971
+Connection: close
+Content-Type: text/html; charset=iso-8859-1
+]]
+
+11/12/11:
+# Documentation on handlers:
+# http://perl.apache.org/docs/2.0/user/handlers/http.html#PerlResponseHandler
+# http://perl.apache.org/docs/2.0/api/Apache2/RequestRec.html
+# Getting the request URI:
+# http://search.cpan.org/~rkobes/CGI-Apache2-Wrapper-0.215/lib/CGI/Apache2/Wrapper.pm#Apache2::URI
+# Header examples/viewer: http://web-sniffer.net/
+# Apparently the handler is called with an Apache2::RequestIO object:
+# http://perl.apache.org/docs/2.0/api/Apache2/RequestIO.html
+# and Apache2::RequestIO extends Apache2::RequestRec:
+# http://perl.apache.org/docs/2.0/api/Apache2/RequestRec.html
+
+11/11/11: Thinking about how to rewrite FileNodeHandler to be
+closer to a generic NodeHandler.
+
+11/10/11: It looks like the main body of Chain.pm (outside 
+of any functions) is executed once when a request comes in
+and a new PerlInterpreter needs to be initialized.
+Thereafter, each PerlInterpreter instance retains all
+of the "my" variables that are in the main body, in
+between requests.  However, I believe each PerlInterpreter
+instance has its own separate set of "my" variables.
+Reading on Apache2 thread support and the PerlInterpreters pool:
+http://perl.apache.org/docs/2.0/user/design/design.html#Interpreter_Management
+http://modperlbook.org/html/24-3-1-Thread-Support.html
+
+11/10/11: I tried the following, but then discovered that
+I had been working on a different copy of Chain.pm, and
+thus none of my tests had taken effect.  So I need to
+try them again.  They are:
+[[
+I tried changing %config and a few other variables to
+package variables, but ont.n3 still gets reloaded on every HTTP
+request.  I then tried using threads::shared and marking them
+as shared (both as package and as my variable), but got the 
+same behavior.  Then I tried Apache::Session::File, but I
+could not figure out any way to initialize the session ID.
+The documentation unhelpfully says:
+http://search.cpan.org/~chorny/Apache-Session-1.89/lib/Apache/Session.pm#Sharing_data_between_Apache_processes
+[[
+When you share data between Apache processes, you need to decide on a
+session ID number ahead of time and make sure that an object with that
+ID number is in your object store before starting your Apache. How you
+accomplish that is your own business. I use the session ID "1".
+]]
+AFAICT, I would have to figure out how to use Storable (since
+Apache::Session::File seems to use that) to initialize the
+session ID, which seems like a ridiculous pain.  The alternate
+seems to be to use undef for the session ID when starting,
+let it generate one for me, and then store that somewhere
+where all Apache threads/processes can access it.  (In a
+file?  Trying to put it in $ENV{RDF_PIPELINE_SESSION_ID} 
+did not work, as it was cleared on each HTTP request.)
+]]
+
+11/10/11: Apache2::Reload did not seem to work for me when
+I tried it:
+[[
+package MyApache2::Chain;
+# http://perl.apache.org/docs/2.0/api/Apache2/Reload.html
+use Apache2::Reload;
+]]
+I still seem to have to stop and restart apache2 to get it
+to use my latest Chain.pm.
+
+11/10/11: Based on the example I have added to my slides:
+[[
+Input caching: Foreign environments
+ - “Foreign environment” means different servers or node types
+ - Node inputs are locally cached.  E.g. for node C: 
+   - A-output' is a local copy of A-output
+   - B-output' is a local copy of B-output
+
+Input caching: Local environment
+ - “Local environment” means same server and node type
+ - Node inputs are accessed directly from predecessor node outputs
+   - No separate copy
+ - Node C accesses A-output and B-output directly
+
+Input caching: Mixed foreign and local
+ - Local cache is used for foreign input nodes
+ - Direct access is used for local input nodes
+
+Input caching: Shared local caches
+ - Nodes C and E share the same local cache B-output'
+
+Internals: Freshness and response headers
+ - For each output cache, the server remembers the input response headers on which the current output was based, e.g., Last-Modified, ETag, etc.
+ - E-output is stale
+ - C-output is fresh
+]]
+
+It looks like a special, hidden node could be used for B-output', 
+and then AnyChanged would always do the equivalent of HEAD 
+requests -- never GETs -- though they are internal to server.
+
+11/10/11: A node dependsOn both its inputs and its parameters
+(which could be viewed as a subclass of inputs) and potentially
+other things, such as its updater.  What should these things
+be called collectively?  "Dependency" is ambiguous about its
+direction.  How about "intakes" or even "ins"?  Might be good enough.
+
+Example of ambiguity of "dependency": In "George has an alcohol
+dependency", George dependsOn alcohol.  But in "England has
+India as a dependency", India dependsOn England, which is
+the opposite way around.  I.e., it is not clear whether
+"X hasDependency Y" means "X dependsOn Y" or "Y dependsOn X".
+
+11/9/11: If an RDF Pipeline is going to be used with many rapid requests
+then it will become necessary to make nodes have the usual ACID
+database properties. 
+
+11/8/11: This finally worked for importing the files to code.google's
+svn:
+
+  dbooth@dbooth-laptop:~/rdf-pipeline/trunk$ svn import . https://rdf-pipeline.googlecode.com/svn/trunk/ --username david@dbooth.org -m "Initial import"
+
+10/17/11: Another issue: how should the SPARQL rules be specified in a way that is easy
+to test in isolation, but also generalizable as a node in a pipeline?
+Temp graphs would have to be unique in order to run multiple nodes
+safely on the same host. 
+
+9/2/11: Modified /etc/apache2/sites-enabled/000-default
+to make the www directory point to ~/pangenx/www instead
+of ~/pcache/www , so I can run pangenx cytoscape.  It will
+have to be changed back to use pcache again.
+
+6/9/11: I should explain and hype the term "virtual cache".
+
+5/26/11: I got RDF::LinkedData working using Plack, thanks to
+http://www.perlrdf.org/slides/perlrdf-intro.xhtml
+This provides a LinkedData server, so that individual RDF URIs
+can be dereferenced, which isn't quite what I need.  I need
+to set up a SPARQL server that responds to HTTP requests.
+
+
+5/25/11: Why INSERT instead of CONSTRUCT?  Efficiency: CONSTRUCT merely
+*returns* the constructed graph, so in SPARQL it would be necessary
+to re-insert it into a new graph anyway.
+
+5/9/11: PURL domain was approved, so I'm renaming all of
+the p: namespaces to use it.
+
+5/1/11: I did some hacking on CachingRequest . . . and that
+got me thinking that the RDF should assert cache filenames
+for a node's:
+	output cache:      :c p:output "c/output" .
+	input caches:      :c p:cache (:a "c/cache/a") .
+	                   :c p:cache (:b "c/cache/b") .
+	parameter caches:  :c p:cache (:d "c/cache/d") .
+	                   :c p:cache (:e "c/cache/e") .
+I added these two properties to rules.n3, though I'm thinking
+that maybe I should move p:cache to an internals.n3 file.
+The output cache might be asserted by the user, but others
+would be asserted by the framework.  But this involves 
+string operations on the URIs, and I don't know how to
+do this in n3.  BTW, I don't think caches need to be used
+for other p:dependsOn nodes, because the framework does
+not pass them as parameters to the updater.
+I also started writing InferFileNodeCaches but got bogged
+down and realized it would take too long to get it working,
+so I abandoned it for the moment, in order to focus on
+jena and my presentation.
+
+4/28/11:
+TODO: I think I have the logic of AnyChanged wrong.  I need to think
+through HEAD versus GET requests, and figure out whether AnyChanged
+should ever issue HEAD requests, and if so, under what conditions.
+(Perhaps only if the original request is HEAD?)  Basically, if the
+original request is GET, then it seems like AnyChanged should issue
+conditional GETs, because if any node has changed, then we would have
+to do another GET on it anyway, to get the latest content.  But if
+the original request was HEAD, what should be done?  In order to return
+a new Last-Modified header, it seems to me that the node *must* update
+its output cache, and that would mean that upstream request should
+all be conditional GETs, instead of HEADs, just as if the original
+request were a GET.  In other words, it seems like the 
+transitive behavior would be the same as with a GET request.  It
+is only the original request that would become an internal redirect
+to a HEAD request on the output cache.
+
+TODO: Furthermore, the caching should only use files, and (to optimize)
+when possible the file that is returned by CachingRequest should be 
+the input/parameter node's output cache (if local).  I don't think
+there's a need for hashmap caching of inputs/parameters in memory,
+because all we need to do is pass the filenames as arguments to the 
+updaters.
+
+4/28/11:
+TODO: I should fix the file cache naming to use URL encoding.
+Package URI::Escape seems to work beautifully.  This test program:
+[[
+#!/usr/bin/perl
+use URI::Escape;
+my $string = shift;
+my $encode = uri_escape($string);
+my $s = uri_unescape($encode);
+print "Original string: $string\n";
+print "URL Encoded string: $encode\n";
+print "Original string: $s\n";
+]]
+produced this output:
+[[
+$ ./test.perl 'http://www.perlhowto.com/encode_and_decode_url_strings'
+Original string: http://www.perlhowto.com/encode_and_decode_url_strings
+URL Encoded string: http%3A%2F%2Fwww.perlhowto.com%2Fencode_and_decode_url_strings
+Original string: http://www.perlhowto.com/encode_and_decode_url_strings
+]]
+
+
+4/28/11:
+I did an experiment to see if a GET request on a file://... URI
+using LWP::UserAgent would return a 200 code and Last-Modified,
+and it does!  Code:
+[[
+	# Testing whether a GET on a file: URI will work and
+	# return a 200 code and Last-Modified, and it does!
+	# This means that I could always use URIs, instead of
+	# sometimes using URIs and sometimes filenames.
+	my $fUri = "file:///home/dbooth/pcache/update.txt";
+	my $res = &CachingRequest("GET", $thisUri, $fUri);
+	my $t = $res->decoded_content() || "(undef)";
+	my $success = $res->is_success || "(undef)";
+	my $code = $res->code || "(undef)";
+	my $oldLM = $res->header('Last-Modified') || "(undef)";
+	my $oldETag = $res->header('ETag') || "(undef)";
+	&PrintLog("CachingRequest($thisUri, $fUri) returned success: $success code: $code oldLM: $oldLM oldETag: $oldETag content:\n[[\n$t]]\n");
+]]
+Log file result:
+[[
+CachingRequest(http://localhost/b, file:///home/dbooth/pcache/update.txt) returned success: 1 code: 200 oldLM: Wed, 27 Apr 2011 16:02:40 GMT oldETag: (undef) content:
+[[
+1. /* Called before getting data from child */
+2. function LazyUpdate(PCache child) {
+3.   /* “contributes to” is the inverse of “depends on” */
+4.   foreach PCache parent that contributes to child {
+5.       LazyUpdate(parent);
+6.     }
+7.   if IsOutOfDate(child) then child.update();
+8. }
+]]
+]]
+
+
+3/11/11:
+Apache normally runs under user www-data.  This means that my updater
+scripts cannot write to a dbooth-owned directory unless setuid is done.
+I wrote a setuid-wrapper that works (though it probably opens a big
+security hole), but then when I tried to let a script write to stdout
+and redirect that to a file, I again had a problem.  So I wrote
+redirect-stdout, but then decided that this path is not the right
+approach, because it requires that every updater be setuid.  
+
+I've now decided to change Apache to run under user dbooth instead
+of www-data.  For security, it is important that it only respond
+to local requests (from 127.0.0.1).  Instructions for setting this:
+https://help.ubuntu.com/10.04/serverguide/C/httpd.html
+The setting was made in /etc/apache2/ports.conf
+
+I changed the Apache user to dbooth in
+/etc/apache2/envvars
+and expect to also have to chown the logs.  Actually, I see that
+/var/log/apache2/access.log
+is already owned by root, so I guess I don't have to chown the logs.
+

@@ -1,0 +1,195 @@
+#! /usr/bin/env perl
+
+# Extract a sample of RDF triples, retaining only one
+# instance of each class and one value of each datatype.  
+# Input must be a file in ntriples format.
+# This script is intended for use on large files, to get a
+# reduced set of triples in preparation for analyzing
+# the classes and properties used.
+#
+# CAVEAT: Multiple files are treated as part of the same graph,
+# so the same blank node label in different files will be
+# treated as the *same* node instead of being relabeled.
+# This is probably a bug.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Regression test for this code is 0038_Test_sample-rdf .
+
+use warnings;
+
+# Not using RedLand parser, and hopefully won't need to,
+# since the input is ntriples, which is easy to parse.
+# If the input is changed to be more general, the a proper RDF
+# parser will be needed.
+### use RDF::Redland;
+
+my $debug = 0;
+
+# Constants for detecting class declarations:
+my $rdfType = '<http://www.w3.org/1999/02/22-rdf-syntax-ns#type>';
+my %isClass = map {($_,1)} (
+	'<http://www.w3.org/2000/01/rdf-schema#Class>',
+	'<http://www.w3.org/2002/07/owl#Class>',
+	);
+
+# These variables are generally for keeping track of what class have
+# been seen, and remembering one instance value per class or datatype.
+my $integer;	# Sample instance of an integer
+my $decimal;	# Sample instance of a decimal
+my $double;	# Sample instance of a double
+my %class;		# Class by subject
+my %classInstance; 	# An instance of this class
+my %dtLangInstance;	# An instance of this ^^Datatype or @lang
+my %datatypeInstance; 	# An instance of this datatype
+
+# Unique-ify the result.  We either use a hash table or
+# pipe the result through "sort -u" (to reduce memory usage, which
+# may help in case of large input files, though this has not been
+# measured).
+my $useSort = 0; # Use "sort -u" to uniquify triples, instead of %seen?
+my %seen;	# Hashmap to uniquify triples
+my $maxSeen = 1000;	# Reset %seen when size exceeds this and $useSort
+my $nSeen = 0;		# Number of items in %seen.
+my $outfh = STDOUT;
+open($outfh, "|-", "sort -u") or die if $useSort;
+# Prevent this from being used on multiple files, since it does not
+# relabel blank nodes across multiple files:
+#### @ARGV or die "Usage: $0 file.nt ...\n";
+@ARGV == 1 or die "Usage: $0 file.nt\n";
+
+# First pass scans the files for all class declarations:
+print $outfh "========== Pass 1 ==============\n" if $debug;
+foreach my $f (@ARGV) {
+	open(my $fh, "<$f") or die "$0: ERROR -- Cannot open $f\n";
+	while (my $line = <$fh>) {
+		my ($s, $p, $v) = &ParseTriple($f, $line);
+		print $outfh "s: $s p: $p v: $v\n" if $debug;
+		next if !defined($v);	# Empty line or comment
+		if ($p eq $rdfType && !$isClass{$v}) {
+			print $outfh "TYPE of $s is $v\n" if $debug;
+			$class{$s} = $v;
+			$classInstance{$v} = $s if !exists($classInstance{$v});
+			}
+		}
+	close($fh);
+	}
+
+# Second pass replaces URIs with class instances
+# and literal values with one of that datatype.
+print $outfh "========== Pass 2 ==============\n" if $debug;
+foreach my $f (@ARGV) {
+	open($fh, "<$f") or die "$0: ERROR -- Cannot open $f\n";
+	while (my $line = <$fh>) {
+		my ($s, $p, $v) = &ParseTriple($f, $line);
+		next if !defined($v);
+		my $sc = $class{$s};
+		if (defined($sc)) {
+			$s = $classInstance{$sc};
+			print $outfh "SUBJECT INSTANCE: $s\n" if $debug;
+			die "$0: INTERNAL ERROR " if !defined($s);
+			}
+		my $vc = $class{$v};
+		if (defined($vc)) {
+			$v = $classInstance{$vc};
+			print $outfh "VALUE INSTANCE: $s\n" if $debug;
+			die "$0: INTERNAL ERROR " if !defined($v);
+			}
+		# Handle ^^datatype, @lang and plain string literal.
+		# [144s] LANGTAG ::= '@' [a-zA-Z]+ ('-' [a-zA-Z0-9]+)*
+		my $langPattern = "\@[a-zA-Z]+(\-[a-zA-Z0-9]+)*";
+		if ($v =~ m/^(\".*\")((\^\^\<[^\>\"\s]*\>)|($langPattern))?$/) {
+			my $value = $1;
+			my $dtLang = $2;
+			$dtLang = "" if !defined($dtLang);
+			my $instance = $dtLangInstance{$dtLang};
+			if (defined($instance)) {
+				$v = $instance;
+				print $outfh "DATATYPE $dtLang  INSTANCE: $v\n" if $debug;
+				} 
+			else {
+				$dtLangInstance{$dtLang} = $v;
+				}
+			}
+		# Integer
+		if ($v =~ m/^([\+\-]?[0-9]+)$/) {
+			my $value = $1;
+			if (defined($integer)) {
+				$v = $integer;
+				print $outfh "INTEGER INSTANCE: $v\n" if $debug;
+				} 
+			else {
+				$integer = $v;
+				}
+			}
+		# Decimal
+		if ($v =~ m/^([\+\-]?[0-9]*\.[0-9]+)$/) {
+			my $value = $1;
+			if (defined($decimal)) {
+				$v = $decimal;
+				print $outfh "DECIMAL INSTANCE: $v\n" if $debug;
+				} 
+			else {
+				$decimal = $v;
+				}
+			}
+		# Double
+		if ($v =~ m/^([\+\-]?[0-9]*\.?[0-9]*[eE][\+\-][0-9]+)$/) {
+			my $value = $1;
+			if (defined($double)) {
+				$v = $double;
+				print $outfh "DOUBLE INSTANCE: $v\n" if $debug;
+				} 
+			else {
+				$double = $v;
+				}
+			}
+
+		# Output the simplified triple.  If $useSort then this 
+		# may create lots of duplicate triples that are 
+		# later eliminated.
+		my $triple = "$s $p $v .\n";
+		next if $seen{$triple};
+		print $outfh $triple;
+		if ($useSort && $nSeen >= $maxSeen) {
+			%seen = ();
+			$nSeen = 0;
+			}
+		$seen{$triple} = 1;
+		$nSeen++;
+		}
+	close($fh);
+	}
+close($outfh);
+exit 0;
+
+########### ParseTriple ############
+sub ParseTriple
+{
+my $f = shift;
+my $line = shift;
+return(undef, undef, undef) if !defined($line);
+$line = &Trim($line);
+$line =~ s/^\#.*//;
+return(undef, undef, undef) if $line eq "";
+if ($line !~ m/^(\S+)\s+(\S+)\s+(\S.*\S)\s*\.$/) {
+	die "$0: PARSE ERROR at file $f line $.: $line\n";
+	}
+my $s = $1;
+my $p = $2;
+my $v = $3;
+return($s, $p, $v);
+}
+
+########## Trim ############
+# Perl function to remove whitespace from beginning and end of a string.
+sub Trim
+{
+my $s = shift @_;
+$s =~ s/\A[\s\n\r]+//s;
+$s =~ s/[\s\n\r]+\Z//s;
+return $s;
+}
+

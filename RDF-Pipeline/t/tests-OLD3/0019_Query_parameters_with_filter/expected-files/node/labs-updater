@@ -1,0 +1,13 @@
+#! /bin/bash
+
+# echo Labs QUERY_STRING: $QUERY_STRING
+# echo Labs QUERY_STRINGS: $QUERY_STRINGS
+
+# QUERY_STRING "key=(002,003,004)" --> PATTERN "key=(002|003|004)"
+export PATTERN=`echo "$QUERY_STRING" | sed 's/,/|/g'`
+
+echo Labs PATTERN: "$PATTERN"
+
+egrep "$PATTERN" labs-data.txt
+exit 0
+

@@ -1,0 +1,41 @@
+#! /usr/bin/perl -w
+
+# This script will be invoked by run-test.perl as:
+#
+#	cd '$TESTDIR'
+# 	test-script '$RDF_PIPELINE_WWW_DIR'
+#
+# where $TESTDIR is the full path of the nnnn numbered test directory
+# that is being tested, and $RDF_PIPELINE_WWW_DIR is the full path
+# of the RDF Pipeline's Apache DOCUMENT_ROOT.
+#
+# You may customize any part of this script as needed for this test,
+# though the most commonly customized part is marked "CUSTOMIZE HERE".  
+# The script must exit(0) iff the test passes.
+
+use strict;
+
+my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
+# Ensure this env var is set, so that pipeline-request.perl can find it:
+$ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
+
+############ CUSTOMIZE HERE ################
+# Test ste.perl (simple template expansion).
+my $devDir = $ENV{RDF_PIPELINE_DEV_DIR} || die "ERROR: This test requires the \$RDF_PIPELINE_DEV_DIR \n environment variable to be set, so that it can find \n the tools directory\n";
+my $toolsDir = "$devDir/tools";
+-d $toolsDir or die "ERROR: Tools directory not found: $toolsDir\n";
+my $ste = "$toolsDir/ste.perl";
+-x $ste or die "ERROR: Cannot execute $ste\n";
+### First test:
+$ENV{FOO} = 'BAR';
+$ENV{QUERY_STRING} = 'min=2&max=99';
+my $cmd = "$ste setup-files/sample-template.txt -t http://example/this -i http://example/in -i William -i Taffy -o http://example/out > $wwwDir/test/sample-template-expanded.txt";
+!system($cmd) or die;
+### second test:
+$ENV{QUERY_STRING} = 'min=2&max=99&property=givenName';
+$cmd = "ste.perl setup-files/sample-updater.rut -t http://example/this -i http://example/in -i William -i Taffy -o http://example/out > $wwwDir/test/sample-updater-expanded.ru";
+!system($cmd) or die;
+############################################
+
+exit 0;
+

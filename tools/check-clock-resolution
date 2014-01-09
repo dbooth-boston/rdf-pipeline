@@ -1,0 +1,84 @@
+#! /usr/bin/perl -w
+
+# Check the actual resolution of the file modification times
+# by counting how many times a file can be modified between
+# changes in the reported modification time.  This is done
+# by creating a temp file, checking its modification time,
+# then appending a newline to it (and closing it) and then
+# checking the modification time again.  If the reported
+# modification time did not change, then another newline
+# is appended and the modification time is checked again.
+# This is repeated until the modification time is observed
+# to have changed.  The difference in the two modification 
+# times is treated as the observed clock tick.  Finally, this 
+# whole process is done 100 times in order to compute an average.
+#
+# Usage:
+#
+#  	./check-clock-resolution
+#
+# Copyright 2013 by David Booth
+# See license information at http://code.google.com/p/rdf-pipeline/
+
+use strict;
+
+my $n = 100;	# Number of times to try
+
+use Time::HiRes qw( CLOCK_REALTIME );
+
+my $res = Time::HiRes::clock_getres( CLOCK_REALTIME );
+print "Supposed clock resolution: " . sprintf("%14.12f", $res) . " sec\n";
+
+my $filename = "/tmp/check-clock-resolution-$$.txt";
+my $totalIterations = 0;
+my $totalTicktime = 0.0;
+for (my $i=0; $i<$n; $i++) {
+	open(my $fh, "> $filename") || die;
+	close $fh;
+	my $oldMtime = &MTime($filename);
+	my $j = 0;
+	my $mtime = $oldMtime;
+	while ($mtime == $oldMtime) {
+		$j++;
+		open(my $fh, ">> $filename") || die;
+		print $fh "\n";
+		close $fh;
+		$mtime = &MTime($filename);
+		}
+	$totalIterations += $j;
+	$totalTicktime += ($mtime - $oldMtime);
+	}
+unlink $filename;
+
+my $average = $totalIterations / $n;
+print "Average file operations per clock tick: $average\n";
+my $aveRes = $totalTicktime / $n;
+print "Average time between observed clock ticks: " . sprintf("%14.12f", $aveRes) . " sec\n";
+exit 0;
+
+
+############# MTimeAndInode ##############
+# Return the $mtime (modification time) and inode of a file.
+sub MTimeAndInode
+{
+@_ == 1 || die;
+my $f = shift;
+my ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+              $atime,$mtime,$ctime,$blksize,$blocks)
+                  = Time::HiRes::stat($f);
+# Avoid unused var warning:
+($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+              $atime,$mtime,$ctime,$blksize,$blocks)
+        = ($dev,$ino,$mode,$nlink,$uid,$gid,$rdev,$size,
+              $atime,$mtime,$ctime,$blksize,$blocks);
+# warn "MTime($f): $mtime\n";
+return ($mtime, $ino);
+}
+
+############# MTime ##############
+# Return the $mtime (modification time) of a file.
+sub MTime
+{
+return (&MTimeAndInode(@_))[0];
+}
+

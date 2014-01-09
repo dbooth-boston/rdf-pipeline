@@ -1,0 +1,5 @@
+# Immunology patient data for id=(003|006)
+PROCESSED	Patient	id=003	name=Carol	dob=1944-06-12
+PROCESSED	Patient	id=006	name=Frank	dob=1971-11-15
+PROCESSED	Lab	id=006	glucose=870	date=2012-01-15
+PROCESSED	Lab	id=006	glucose=910	date=2012-01-16

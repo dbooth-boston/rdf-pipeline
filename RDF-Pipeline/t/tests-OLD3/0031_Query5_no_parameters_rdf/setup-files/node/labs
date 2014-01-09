@@ -1,0 +1,4 @@
+#! /bin/sh
+# This is the labs node updater.
+cat $1 | ./labs2rdf
+

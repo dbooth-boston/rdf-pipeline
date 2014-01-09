@@ -1,0 +1,4 @@
+#! /bin/bash
+# This is the process node updater.
+sed 's/$/\t# PROCESSED/'  $1
+

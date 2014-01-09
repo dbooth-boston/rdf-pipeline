@@ -1,0 +1,4 @@
+The presence of this file causes run-test.perl to not die if the word
+"error" appears in the output.  See:
+http://code.google.com/p/rdf-pipeline/wiki/Testing#Ignoring_%22error%22_or_%22died%22_messages
+

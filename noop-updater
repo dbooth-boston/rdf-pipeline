@@ -1,0 +1,6 @@
+#! /usr/bin/perl -w 
+
+my $cacheFile = $ARGV[1] || die "$0: Insufficient args\n";
+die "$?\n" if system("touch", $cacheFile);
+exit 0;
+

@@ -1,0 +1,7 @@
+
+# comment
+
+_:b111 <http://example/p> _:b222 .
+_:b111 <http://example/sym> _:b111 .
+<http://example/foo> <http://example/bar> <http://example/baz> .
+

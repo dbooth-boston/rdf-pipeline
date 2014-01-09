@@ -1,0 +1,50 @@
+# Test data for sample-rdf
+
+<a> <b> <c> .
+<d> <e> "foo"^^<dt1> .
+
+<class1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#Class> .
+<class2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/2000/01/rdf-schema#Class> .
+<owlClass1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>   <http://www.w3.org/2002/07/owl#Class> .
+<owlClass2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>   <http://www.w3.org/2002/07/owl#Class> .
+
+<i1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>  <classA> .
+<i2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>  <classA> .
+<i3> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>  <classA> .
+
+<o1> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>  <classA> .
+<o2> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>  <classA> .
+<o3> <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>  <classA> .
+
+<i1> <p> <i2> .
+<i3> <p> <i2> .
+<i2> <p> <i2> .
+<i2> <p> <o2> .
+<o2> <p> <o2> .
+<o3> <p> <o2> .
+<o3> <p> "foo"^^<dt1> .
+<o3> <p> "bar"^^<dt1> .
+<o3> <p> "frib"^^<dt2> .
+<o3> <p> "jam"^^<dt2> .
+
+<o4> <p> "four" .
+<o4> <p> "five" .
+<o4> <p> "six"@en .
+<o4> <p> "seven"@en .
+<o4> <p> "eight"@en-us .
+<o4> <p> "nine"@en-us .
+
+<o5> <p> 111 .
+<o5> <p> 222 .
+<o5> <p> 111 .
+<o5> <p> 11.11 .
+<o5> <p> 22.22 .
+<o5> <p> 111 .
+<o5> <p> .22 .
+<o5> <p> 111 .
+<o5> <p> 11.11e+11 .
+<o5> <p> 22.22e+11 .
+<o5> <p> .22e+11 .
+<o5> <p> 22.e+11 .
+<o5> <p> 22e+11 .
+

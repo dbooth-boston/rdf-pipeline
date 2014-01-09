@@ -1,0 +1,16 @@
+<PlainString> <p> "PLAIN" .
+<string> <p> "foo"^^<http://www.w3.org/2001/XMLSchema#string> .
+<integer> <p> "123456789"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<decimal> <p> "123.456789"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<decimal> <p> "123"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<decimal> <p> "123."^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<decimal> <p> ".123"^^<http://www.w3.org/2001/XMLSchema#decimal> .
+<double> <p> "123.4567E+89"^^<http://www.w3.org/2001/XMLSchema#double> .
+<double> <p> "4567"^^<http://www.w3.org/2001/XMLSchema#double> .
+<double> <p> "45.67"^^<http://www.w3.org/2001/XMLSchema#double> .
+<double> <p> ".67"^^<http://www.w3.org/2001/XMLSchema#double> .
+<double> <p> ".67e0"^^<http://www.w3.org/2001/XMLSchema#double> .
+<double> <p> "67e0"^^<http://www.w3.org/2001/XMLSchema#double> .
+<double> <p> "67.e0"^^<http://www.w3.org/2001/XMLSchema#double> .
+<boolean> <p> "true"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+

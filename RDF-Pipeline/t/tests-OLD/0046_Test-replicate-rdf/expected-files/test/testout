@@ -1,0 +1,40 @@
+# Total replicas: 2
+######### Replica 1 (20 lines) ###########
+
+# comment
+
+_:b1 <http://example/p> _:b2 .
+_:b1 <http://example/sym> _:b1 .
+_:b3 <http://example/sym> _:b4 .
+<http://example/foo4> <http://example/bar> <http://example/baz5> .
+<http://example/foo4> <http://example/bar> <http://example/baz1> .
+<http://example/foo4> <http://example/bar> <http://example/baz2> .
+<http://example/bar> <http://example/foo4> "fellow"^^<http://example/baz> .
+<http://example/bar> <http://example/foo4> "embedded\"quote" .
+<http://example/bar> <http://example/foo4> "hi6" .
+<http://example/bar> <http://example/foo4> "bye bye7"@en .
+<http://example/bar> <http://example/foo4> "hello8"^^<http://www.w3.org/2001/XMLSchema#string> .
+<http://example/bar> <http://example/foo4> "9"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<http://example/bar> <http://example/foo4> "12.34"^^<http://www.w3.org/2001/XMLSchema#float> .
+<http://example/bar> <http://example/foo4> "-10.34E3"^^<http://www.w3.org/2001/XMLSchema#double> .
+<http://example/bar> <http://example/foo4> "-10.34E3"^^<http://www.w3.org/2001/XMLSchema#double> .
+<http://example/un> <http://example/modified> <http://example/line> .
+
+
+######### Replica 2 (15 lines) ###########
+_:b5 <http://example/p> _:b6 .
+_:b5 <http://example/sym> _:b5 .
+_:b7 <http://example/sym> _:b8 .
+<http://example/foo12> <http://example/bar> <http://example/baz13> .
+<http://example/foo12> <http://example/bar> <http://example/baz1> .
+<http://example/foo12> <http://example/bar> <http://example/baz2> .
+<http://example/bar> <http://example/foo12> "fellow"^^<http://example/baz> .
+<http://example/bar> <http://example/foo12> "embedded\"quote" .
+<http://example/bar> <http://example/foo12> "hi14" .
+<http://example/bar> <http://example/foo12> "bye bye15"@en .
+<http://example/bar> <http://example/foo12> "hello16"^^<http://www.w3.org/2001/XMLSchema#string> .
+<http://example/bar> <http://example/foo12> "17"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<http://example/bar> <http://example/foo12> "12.34"^^<http://www.w3.org/2001/XMLSchema#float> .
+<http://example/bar> <http://example/foo12> "-18.34E3"^^<http://www.w3.org/2001/XMLSchema#double> .
+<http://example/bar> <http://example/foo12> "-18.34E3"^^<http://www.w3.org/2001/XMLSchema#double> .
+

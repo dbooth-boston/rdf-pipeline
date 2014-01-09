@@ -1,0 +1,23 @@
+SELECT ?foo ?bar
+WHERE {
+?purple p2:hasElevator ?elevator .
+ ?elevator  p2:hasOrientation ?object2  .  
+  ?object2 p2:panel <http://example/p2/otis#E_123> ; 
+    p2:hasController "the end" . 
+    <http://example/p2/otis#p32> skos:narrower* ?value2   .  
+ 
+  ?object2 <http://www.example/p2#bolts> ?object103 ,  "foo" ; 
+    <http://www.example/p2#nuts> ?object33 ,  "bar" , "baz".
+  ?object103 (p2:panel|p2:panels)/^p2:subpanel? <http://example/p2/otis#E_912> .
+  ?object103 p2:hasController+ ?value1133 .
+  ?object103 p2:hasOptimizer+ ?value1133 .
+  { <http://example/p2/otis#panel> skos:narrower* ?value1133 }
+ 
+?object2 <http://www.example/p2#nuts> "baz" .
+ ?object103  (p2:panel|p2:panels)/^p2:subpanel? <http://example/p2/otis#E_912> .
+  ?object103 p2:hasController+ ?value1133 .
+  ?object103 p2:hasOptimizer+ ?value1133.
+  <http://example/p2/otis#panel> skos:narrower* ?value1133  
+}
+LIMIT 100 ;
+

@@ -1,0 +1,55 @@
+#! /usr/bin/perl -w
+
+# This script will be invoked by run-test.perl as:
+#
+#	cd '$TESTDIR'
+# 	test-script '$RDF_PIPELINE_WWW_DIR'
+#
+# where $TESTDIR is the full path of the nnnn numbered test directory
+# that is being tested, and $RDF_PIPELINE_WWW_DIR is the full path
+# of the RDF Pipeline's Apache DOCUMENT_ROOT.
+#
+# You may customize any part of this script as needed for this test,
+# though the most commonly customized part is marked "CUSTOMIZE HERE".  
+# The script must exit(0) iff the test passes.
+
+use strict;
+
+my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
+# Ensure this env var is set, so that pipeline-request.perl can find it:
+$ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
+
+############ CUSTOMIZE HERE ################
+
+# This test verifies that serState is not refreshed on a HEAD request.
+my $serState = "$wwwDir/cache/aba/serState";
+my $serStateLM = "$wwwDir/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2Fwww%2Fcache%2Faba%2FserState";
+# warn "serState: $serState\n";
+# warn "serStateLM: $serStateLM\n";
+
+# First, use GET to make sure that serState is refreshed:
+my $testUrl = 'http://localhost/node/aba';
+!system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
+
+# Delete serState and serState LM:
+unlink($serState) or die;
+unlink($serStateLM) or die;
+
+# Now use HEAD, and serState should not be refreshed:
+!system("../../helpers/pipeline-request.perl HEAD '$testUrl'") or die;
+
+# Verify:
+!-e $serState or die "FAILED: serState was updated on HEAD request: $serState\n";
+!-e $serStateLM or die "FAILED: serStateLM was updated on HEAD request: $serStateLM\n";
+
+# Now use GET, and serState should be refreshed:
+!system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
+
+# Verify:
+-e $serState or die "FAILED: serState was NOT updated on GET request: $serState\n";
+-e $serStateLM or die "FAILED: serStateLM was NOT updated on GET request: $serStateLM\n";
+
+############################################
+
+exit 0;
+

@@ -1,0 +1,7 @@
+#! /usr/bin/perl
+# Multiply glucose measurements by 10
+while (<>) {
+  s/glucose(\W+)([0-9]+)/"glucose$1".($2*10)/e;
+  print;
+  }
+exit 0;

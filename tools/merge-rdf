@@ -1,0 +1,83 @@
+#! /usr/bin/env perl
+
+# Merge RDF graphs, relabeling blank nodes as needed.
+# Input files must be in ntriples format.
+# Each input file is considered a separate graph.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Regression test for this code is 0045_Test-merge-rdf
+
+use strict;
+use warnings;
+
+# Not using RedLand parser, and hopefully won't need to,
+# since the input is ntriples, which is easy to parse.
+# If the input is changed to be more general, then a proper RDF
+# parser will be needed.
+### use RDF::Redland;
+
+my $debug = 0;
+
+@ARGV or die "Usage: $0 file.nt ...\n";
+
+my $nextBnode = 1;
+foreach my $f (@ARGV) {
+	my %seen = ();	# Maps old bnode label to new bnode label
+	open(my $fh, "<$f") or die "$0: ERROR: Cannot open $f\n";
+	while (my $line = <$fh>) {
+		if ($line =~ m/^\s*(\#.*)?$/) {
+			# Blank line or comment.  Output as is.
+			print $line;
+			next;
+			}
+		my @terms = &ParseTriple($f, $line);
+		die if @terms != 3;
+		for (my $i=0; $i<@terms; $i++) {
+			defined($terms[$i]) || die;
+			# Relabel blank nodes:
+			if ($terms[$i] =~ m/^_\:/) {
+				my $bnode = $seen{$terms[$i]};
+				if (!defined($bnode)) {
+					$bnode = "_:b" . $nextBnode++;
+					$seen{$terms[$i]} = $bnode;
+					}
+				$terms[$i] = $bnode;
+				}
+			}
+		# Output the resulting triple:
+		print "@terms .\n";
+		}
+	close($fh);
+	}
+
+########### ParseTriple ############
+sub ParseTriple
+{
+my $f = shift;
+my $line = shift;
+return(undef, undef, undef) if !defined($line);
+$line = &Trim($line);
+$line =~ s/^\#.*//;
+return(undef, undef, undef) if $line eq "";
+if ($line !~ m/^(\S+)\s+(\S+)\s+(\S.*\S)\s*\.$/) {
+	die "$0: PARSE ERROR at file $f line $.: $line\n";
+	}
+my $s = $1;
+my $p = $2;
+my $v = $3;
+return($s, $p, $v);
+}
+
+########## Trim ############
+# Perl function to remove whitespace from beginning and end of a string.
+sub Trim
+{
+my $s = shift @_;
+$s =~ s/\A[\s\n\r]+//s;
+$s =~ s/[\s\n\r]+\Z//s;
+return $s;
+}
+

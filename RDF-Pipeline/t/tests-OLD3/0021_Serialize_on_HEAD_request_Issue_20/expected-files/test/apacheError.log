@@ -1,0 +1,35 @@
+          UPDATED query parameters of http://localhost/node/aba
+            UPDATING http://localhost/node/a.html inSerCache: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/a.html/serCache of http://localhost/node/aba
+            UPDATING http://localhost/node/a.html local cache: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/ExampleHtmlNode/a.html/cache of http://localhost/node/aba
+          UPDATED depUri http://localhost/node/a.html of http://localhost/node/aba
+              UPDATED query parameters of http://localhost/node/ab
+              UPDATED depUri http://localhost/node/a.html of http://localhost/node/ab
+                UPDATING http://localhost/node/b.html inSerCache: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/b.html/serCache of http://localhost/node/ab
+                UPDATING http://localhost/node/b.html local cache: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/ExampleHtmlNode/b.html/cache of http://localhost/node/ab
+              UPDATED depUri http://localhost/node/b.html of http://localhost/node/ab
+              UPDATED depUri http://localhost/node/cat-updater of http://localhost/node/ab
+            UPDATING http://localhost/node/ab {cat-updater} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/ab/state
+          UPDATED depUri http://localhost/node/ab of http://localhost/node/aba
+          UPDATED depUri http://localhost/node/cat-updater of http://localhost/node/aba
+        UPDATING http://localhost/node/aba {cat-updater} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/aba/state
+      UPDATING http://localhost/node/aba serState: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/aba/serState
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/aba
+          NO CHANGE to depUri http://localhost/node/a.html of http://localhost/node/aba
+              NO CHANGE to query parameters of http://localhost/node/ab
+              NO CHANGE to depUri http://localhost/node/a.html of http://localhost/node/ab
+              NO CHANGE to depUri http://localhost/node/b.html of http://localhost/node/ab
+              NO CHANGE to depUri http://localhost/node/cat-updater of http://localhost/node/ab
+          NO CHANGE to depUri http://localhost/node/ab of http://localhost/node/aba
+          NO CHANGE to depUri http://localhost/node/cat-updater of http://localhost/node/aba
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/aba
+          NO CHANGE to depUri http://localhost/node/a.html of http://localhost/node/aba
+              NO CHANGE to query parameters of http://localhost/node/ab
+              NO CHANGE to depUri http://localhost/node/a.html of http://localhost/node/ab
+              NO CHANGE to depUri http://localhost/node/b.html of http://localhost/node/ab
+              NO CHANGE to depUri http://localhost/node/cat-updater of http://localhost/node/ab
+          NO CHANGE to depUri http://localhost/node/ab of http://localhost/node/aba
+          NO CHANGE to depUri http://localhost/node/cat-updater of http://localhost/node/aba
+      UPDATING http://localhost/node/aba serState: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/aba/serState
+----------------------------------------------------------------------

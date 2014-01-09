@@ -1,0 +1,75 @@
+#! /usr/bin/perl -w
+
+# This script is intended to be customized before being run.
+# Its purpose is to rename a set of files in a particular way.
+# Directories are NOT skipped.  The list of files to modify may
+# either be specified on the command line, or passed as stdin,
+# one filename per line.
+#
+# Remember to BACKUP the files before running this, in case
+# it doesn't as planned.
+#
+# Usage:
+#	rename-files filesToBeModified...
+#
+# Copyright 2013 by David Booth
+# See license information at http://code.google.com/p/rdf-pipeline/
+
+use strict;
+
+if (!@ARGV) {
+	my @files = grep {m/\S/} map {chomp; &Trim($_)} <>;
+	@ARGV = @files;
+	}
+@ARGV || die "$0: No files specified.\n";
+my $tmp = "/tmp/fix-files-$$";
+my $nDirs = 0;
+my $nMod = 0;
+my $n = 0;
+foreach my $f (@ARGV) {
+	$n++;
+	my $qf = quotemeta($f);
+	open(my $fh, "<$f") || die "$0: ERROR: File not found: $f\n";
+	my $all = join("", <$fh>);
+	close $fh;
+	my $oldF = $f;
+
+	########################################
+	########### Customize here #############
+	# $f =~ s/88/44/g;
+	my $qOld = quotemeta('trunk%2Fwww');
+	my $new = 'trunk%2FPrivate%2Fwww';
+	$f =~ s/$qOld/$new/g;
+	########################################
+	########################################
+
+	if ($f ne $oldF) {
+		$nMod++;
+		warn "Renaming: $oldF -> $f\n";
+		rename($oldF, $f) || die "$0: ERROR: Failed to rename $oldF to $f\n";
+		}
+	}
+warn "Renamed $nMod / $n files/directories\n";
+exit 0;
+
+############ WriteFile ##########
+# Perl function to write a string to a file.
+sub WriteFile
+{
+@_ == 2 || die;
+my ($f, $s) = @_;
+open(my $fh, ">$f") || die;
+print $fh $s;
+close($fh) || die;
+}
+
+########## Trim ############
+# Perl function to remove whitespace from beginning and end of a string.
+sub Trim
+{
+my $s = shift @_;
+$s =~ s/\A[\s\n\r]+//s;
+$s =~ s/[\s\n\r]+\Z//s;
+return $s;
+}
+

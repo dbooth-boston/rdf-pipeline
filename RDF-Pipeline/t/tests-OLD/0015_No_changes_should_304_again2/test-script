@@ -1,0 +1,29 @@
+#! /usr/bin/perl -w
+
+# This script will be invoked by run-test.perl as:
+#
+#	cd '$TESTDIR'
+# 	test-script '$RDF_PIPELINE_WWW_DIR'
+#
+# where $TESTDIR is the full path of the nnnn numbered test directory
+# that is being tested, and $RDF_PIPELINE_WWW_DIR is the full path
+# of the RDF Pipeline's Apache DOCUMENT_ROOT.
+#
+# You may customize any part of this script as needed for this test,
+# though the most commonly customized part is marked "CUSTOMIZE HERE".  
+# The script must exit(0) iff the test passes.
+
+use strict;
+
+my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
+# Ensure this env var is set, so that pipeline-request.perl can find it:
+$ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
+
+############ CUSTOMIZE HERE ################
+# Invoke the URL, concatenating its output to $wwwDir/test/testout :
+my $testUrl = 'http://localhost/node/addone';
+!system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
+############################################
+
+exit 0;
+

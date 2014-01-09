@@ -1,0 +1,10 @@
+#! /usr/bin/perl -w
+# Multiply each number in the first input by the number in the second input.
+
+my $multiplier = `cat $ARGV[1]`;
+
+foreach my $n (`cat $ARGV[0]`) {
+	my $product = $n * $multiplier;
+	print "$product\n";
+	}
+

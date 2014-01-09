@@ -1,0 +1,375 @@
+#! /usr/bin/env perl
+
+# Convert RDF absolute URIs such as 
+# <http://purl.org/dc/elements/1.1/creator>
+# into prefixed terms like dc:creator .  Or, with the -u option,
+# does the opposite.  The input
+# does *not* need to be Turtle or SPARQL.  This is intentional, so 
+# that this program can operate on any kind of text file.
+# The program knows about the top 100 RDF prefixes (according
+# to http://prefix.cc/popular/all.file.txt ), but they can
+# be silently overridden by user-supplied definitions, either
+# in the input or via the -p option.
+#  
+# Reads stdin, writes stdout.
+#
+# CAVEAT 1: The program uses a two-pass algorithm: the first pass
+# finds all prefix definitions, and the second pass performs
+# substitutions on the input.  Prefix 
+# definitions are processed in the first pass, before performing
+# any substitutions on the input, so if you re-define a prefix,
+# the last definition will be applied even to earlier occurrences
+# of the term in the input. 
+#
+# CAVEAT 2: No percent-encoding is done, so prefixing may result
+# in invalid local names.  For example "#" is not legal in a local
+# name, but:
+#
+#  PREFIX p: <http://example/>
+#  <http://example/foo#bar>
+#
+# will be (erroneously) prefixed as:
+#
+#  PREFIX p: <http://example/>
+#  p:foo#bar
+#
+# CAVEAT 3: When the -u option is used, the program is not 
+# smart enough to expand prefixes that appear with no
+# local name, as in the following:
+#
+#  PREFIX g: <http://example/g>
+#  SELECT * WHERE { GRAPH g: { ... } }
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Regression tests for this code: 
+#	0040_Test-tools-prefix
+#	0042_Test-tools-unprefix
+##################################################################
+
+use warnings;
+use strict;
+
+################# Usage ###################
+sub Usage
+{
+return "Usage: $0 [ options ] [ inputFile.txt ... ]
+Options:
+  -p, --prefix=prefixFile
+	Read prefix definitions from prefixFile, which may be
+	in Turtle or SPARQL format.  Other content in prefixFile
+	is ignored.  A warning will be issued if the same prefix
+	is defined in different ways, and the last definition
+	will win.  Each prefix definition must be on a line
+	by itself, though leading whitespaces is okay.  This option 
+	may be used more than once.
+
+  -u, --unprefix
+	Does the opposite of prefixing: given prefix definitions,
+	expand prefixed terms like foo:bar to full URI form 
+	like <http://example/foo#bar>.
+
+  -s, --show
+	Show the prefix definitions used, instead of outputting the
+	transformed input.
+
+  -h, --help
+	Show this usage message.\n";
+}
+
+################# MAIN ###################
+
+my $debug = 0;
+my @optPrefixes = ();
+my $optUnprefix = 0;
+my $optShow = 0;
+my $optHelp = 0;
+
+use Getopt::Long; # Perl
+if (!GetOptions(
+                "prefix|p=s" => \@optPrefixes,
+                "unprefix|u" => \$optUnprefix,
+                "show|s" => \$optShow,
+                "help|h" => \$optHelp,
+                )) {
+        warn "$0: Error reading options.\n";
+        die &Usage();
+        }
+if ($optHelp) {
+        print &Usage();
+        exit 0;
+        }
+
+# Prefix pattern from SPARQL 1.1, but ignoring weird chars:
+# [164]  	PN_CHARS_BASE	  ::=  	[A-Z] | [a-z] | [#x00C0-#x00D6] | [#x00D8-#x00F6] | [#x00F8-#x02FF] | [#x0370-#x037D] | [#x037F-#x1FFF] | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
+# [165]  	PN_CHARS_U	  ::=  	PN_CHARS_BASE | '_'
+# [167]  	PN_CHARS	  ::=  	PN_CHARS_U | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]
+# [168]  	PN_PREFIX	  ::=  	PN_CHARS_BASE ((PN_CHARS|'.')* PN_CHARS)?
+#                         12
+my $prefixPattern = "[a-zA-Z](([a-zA-Z_\\-0-9\\.])*[a-zA-Z_\\-0-9])?\\:";
+
+# [164]  	PN_CHARS_BASE	  ::=  	[A-Z] | [a-z] | [#x00C0-#x00D6] | [#x00D8-#x00F6] | [#x00F8-#x02FF] | [#x0370-#x037D] | [#x037F-#x1FFF] | [#x200C-#x200D] | [#x2070-#x218F] | [#x2C00-#x2FEF] | [#x3001-#xD7FF] | [#xF900-#xFDCF] | [#xFDF0-#xFFFD] | [#x10000-#xEFFFF]
+# [165]  	PN_CHARS_U	  ::=  	PN_CHARS_BASE | '_'
+# [166]  	VARNAME	  ::=  	( PN_CHARS_U | [0-9] ) ( PN_CHARS_U | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040] )*
+# [167]  	PN_CHARS	  ::=  	PN_CHARS_U | '-' | [0-9] | #x00B7 | [#x0300-#x036F] | [#x203F-#x2040]
+# [168]  	PN_PREFIX	  ::=  	PN_CHARS_BASE ((PN_CHARS|'.')* PN_CHARS)?
+# [169]  	PN_LOCAL	  ::=  	(PN_CHARS_U | ':' | [0-9] | PLX ) ((PN_CHARS | '.' | ':' | PLX)* (PN_CHARS | ':' | PLX) )?
+# [170]  	PLX	  ::=  	PERCENT | PN_LOCAL_ESC
+# [171]  	PERCENT	  ::=  	'%' HEX HEX
+# [172]  	HEX	  ::=  	[0-9] | [A-F] | [a-f]
+# [173]  	PN_LOCAL_ESC	  ::=  	'\' ( '_' | '~' | '.' | '-' | '!' | '$' | '&' | "'" | '(' | ')' | '*' | '+' | ',' | ';' | '=' | '/' | '?' | '#' | '@' | '%' )
+# $localPattern is simplified by ignoring \ escapes and allowing ill-formed
+# percent-encodings:
+my $localPattern = "[a-zA-Z_\\:0-9\\%]([a-zA-Z_\\-0-9\\.\\:\\%]*[a-zA-Z_\\-0-9\\:\\%])?";
+
+# Real URI pattern is too complicated, so use this:
+my $uriPattern = "[a-z]+\\:[^\\<\\>\\'\\\"\\s]+";
+
+# Collect prefix definitions from -p files:
+my $prefix2def = {};
+my $def2prefix = {};
+foreach my $f (@optPrefixes) {
+	open(my $fh, "<$f") or die "$0: ERROR: Failed to open prefix file: $f\n";
+	my @lines = <$fh>;
+	close($fh);
+	&CollectPrefixes($prefix2def, $def2prefix, 1, @lines);
+	}
+
+# Collect more prefix definitions from stdin:
+my @lines = <>;
+&CollectPrefixes($prefix2def, $def2prefix, 1, @lines);
+
+# Add standard prefixes non-destructively:
+&CollectPrefixes($prefix2def, $def2prefix, 0, split(/\n/, &StandardPrefixes()));
+
+my $defPattern = join("|", map {quotemeta($_)} keys %{$def2prefix});
+warn "$0: WARNING: No prefix definitions.\n" if !$defPattern;
+# die "defPattern: $defPattern\n\n";
+die if $defPattern && "" =~ m/\A($defPattern)\Z/;
+
+my $prefixesPattern = join("|", map {quotemeta($_)} keys %{$prefix2def});
+# die "prefixesPattern: $prefixesPattern\n\n";
+die if $prefixesPattern && "" =~ m/\A($prefixesPattern)\Z/;
+
+# Transform the input, remembering which prefixes were substituted:
+my %used;	# Maps prefix -> def
+for (my $i=0; $i<@lines; $i++) {
+	# Don't transform prefix or base definitions themselves:
+	my ($prefix, $def) = &GetPrefixDef($lines[$i]);
+	next if defined($def) or $lines[$i] =~ m/^\s*(\@?)base\s+\</i;
+	# Transform regular line:
+	if ($optUnprefix) {
+		# Expand foo:bar --> <http://example/foo#bar>
+		# TODO: \b is not correct at the end, because local name
+		# is now allowed to end with "-" or ":"  (grrr).
+		#                                            1                 2
+		while ($prefixesPattern && $lines[$i] =~ s/\b($prefixesPattern)($localPattern)\b/"<" . $prefix2def->{$1} . "$2>"/ie) {
+			my $prefix = $1;
+			my $local = $2;
+			my $def = $prefix2def->{$prefix};
+			defined($def) || die;
+			defined($def2prefix) || die;
+			defined($def2prefix->{$def}) || die;
+			defined($local) || die "ERROR: local undefined for prefix $prefix : $lines[$i] ";
+			$used{$def2prefix->{$def}} = $def;
+			# warn "DEF: $def LOCAL: $local\n";
+			}
+		}
+	else	{
+		# Prefix <http://example/foo#bar> --> foo:bar
+		while ($defPattern && $lines[$i] =~ s/\<($defPattern)([^\<\>\"\'\s]*)\>/$def2prefix->{$1} . $2/ie) {
+			my $def = $1;
+			my $local = $2;
+			defined($def) || die;
+			defined($def2prefix) || die;
+			defined($def2prefix->{$def}) || die;
+			$used{$def2prefix->{$def}} = $def;
+			# warn "DEF: $def LOCAL: $local\n";
+			}
+		}
+	}
+
+if ($optShow) {
+	foreach my $prefix (sort keys %used) {
+		print "prefix $prefix <$used{$prefix}>\n";
+		}
+	}
+else	{
+	print @lines;
+	}
+exit 0;
+
+############ CollectPrefixes ##########
+# Called as &CollectPrefixes($prefix2def, $def2prefix, $override, @lines);
+sub CollectPrefixes
+{
+my $prefix2def = shift || die;
+my $def2prefix = shift || die;
+my $override = shift;
+defined($override) || die;
+foreach my $line (@_) {
+	my ($prefix, $def) = &GetPrefixDef($line);
+	if (defined($def)) {
+		if ((exists($prefix2def->{$prefix}) 
+				&& $prefix2def->{$prefix} ne $def)) {
+			warn "DEBUG: Prefix $prefix redefined from <$prefix2def->{$prefix}> to <$def>\n" if $debug;
+			if ($override) {
+				warn "$0: WARNING: Prefix $prefix redefined from <$prefix2def->{$prefix}> to <$def>\n";
+				my $oldDef = $prefix2def->{$prefix};
+				delete($def2prefix->{$oldDef});
+				$prefix2def->{$prefix} = $def;
+				$def2prefix->{$def} = $prefix;
+				}
+			}
+		elsif ((exists($def2prefix->{$def}) 
+				&& $def2prefix->{$def} ne $prefix)) {
+			warn "DEBUG: Changed prefix for URI <$def> from $def2prefix->{$def} to $prefix\n" if $debug;
+			if ($override) {
+				warn "$0: WARNING: Prefix changed for URI <$def> from $def2prefix->{$def} to $prefix\n";
+				my $oldPrefix = $def2prefix->{$def};
+				delete($prefix2def->{$oldPrefix});
+				$prefix2def->{$prefix} = $def;
+				$def2prefix->{$def} = $prefix;
+				}
+			}
+		else	{
+			$prefix2def->{$prefix} = $def;
+			$def2prefix->{$def} = $prefix;
+			}
+		}
+	}
+return;
+}
+
+############### GetPrefixDef ##################
+# Given a line that *might* be a prefix definition, 
+# return($prefix, $def) if it is a prefix definition;
+# otherwise return(undef, undef).
+sub GetPrefixDef
+{
+my $line = shift;
+defined($line) or die;
+my $prefix = undef;
+my $def = undef;
+# $prefix pattern has 2 parens:
+#                  1             2 (34)               5
+if ($line =~ m/^\s*(\@?)prefix\s+($prefixPattern)\s+\<($uriPattern)\>/i) {
+	$prefix = $2;
+	$def = $5;
+	}
+return($prefix, $def);
+}
+
+############### StandardPrefixes ##################
+sub StandardPrefixes
+{
+return '
+# 100 most popular RDF prefixes as of 6-Jul-2013 according to 
+# http://prefix.cc/popular/all.file.txt
+# The most popular is listed first, and will take precedence
+# over a later definition of the same prefix or URI.
+prefix yago:	<http://dbpedia.org/class/yago/>
+prefix rdf:	<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+prefix foaf:	<http://xmlns.com/foaf/0.1/>
+prefix dbp:	<http://dbpedia.org/property/>
+prefix owl:	<http://www.w3.org/2002/07/owl#>
+prefix dc:	<http://purl.org/dc/elements/1.1/>
+prefix rdfs:	<http://www.w3.org/2000/01/rdf-schema#>
+prefix dbo:	<http://dbpedia.org/ontology/>
+prefix rss:	<http://purl.org/rss/1.0/>
+prefix sc:	<http://purl.org/science/owl/sciencecommons/>
+prefix skos:	<http://www.w3.org/2004/02/skos/core#>
+prefix fb:	<http://rdf.freebase.com/ns/>
+prefix geo:	<http://www.w3.org/2003/01/geo/wgs84_pos#>
+prefix geonames:	<http://www.geonames.org/ontology#>
+prefix sioc:	<http://rdfs.org/sioc/ns#>
+prefix gldp:	<http://www.w3.org/ns/people#>
+prefix gr:	<http://purl.org/goodrelations/v1#>
+prefix cyc:	<http://sw.opencyc.org/concept/>
+prefix akt:	<http://www.aktors.org/ontology/portal#>
+prefix xsd:	<http://www.w3.org/2001/XMLSchema#>
+prefix dbpedia:	<http://dbpedia.org/resource/>
+prefix dcterms:	<http://purl.org/dc/terms/>
+prefix dct:	<http://purl.org/dc/terms/>
+prefix dbpprop:	<http://dbpedia.org/property/>
+prefix swrc:	<http://swrc.ontoware.org/ontology#>
+prefix commerce:	<http://search.yahoo.com/searchmonkey/commerce/>
+prefix content:	<http://purl.org/rss/1.0/modules/content/>
+prefix admin:	<http://webns.net/mvcb/>
+prefix bibo:	<http://purl.org/ontology/bibo/>
+prefix doap:	<http://usefulinc.com/ns/doap#>
+prefix void:	<http://rdfs.org/ns/void#>
+prefix org:	<http://www.w3.org/ns/org#>
+prefix xhtml:	<http://www.w3.org/1999/xhtml#>
+prefix vcard:	<http://www.w3.org/2006/vcard/ns#>
+prefix dc11:	<http://purl.org/dc/elements/1.1/>
+prefix gen:	<http://www.w3.org/2006/gen/ont#>
+prefix aiiso:	<http://purl.org/vocab/aiiso/schema#>
+prefix bill:	<http://www.rdfabout.com/rdf/schema/usbill/>
+prefix qb:	<http://purl.org/linked-data/cube#>
+prefix wot:	<http://xmlns.com/wot/0.1/>
+prefix nie:	<http://www.semanticdesktop.org/ontologies/2007/01/19/nie#>
+prefix d2rq:	<http://www.wiwiss.fu-berlin.de/suhl/bizer/D2RQ/0.1#>
+prefix test2:	<http://this.invalid/test2#>
+prefix rel:	<http://purl.org/vocab/relationship/>
+prefix cc:	<http://creativecommons.org/ns#>
+prefix dcmit:	<http://purl.org/dc/dcmitype/>
+prefix http:	<http://www.w3.org/2006/http#>
+prefix og:	<http://opengraphprotocol.org/schema/>
+prefix factbook:	<http://www4.wiwiss.fu-berlin.de/factbook/ns#>
+prefix vann:	<http://purl.org/vocab/vann/>
+prefix ex:	<http://example.com/>
+prefix bio:	<http://purl.org/vocab/bio/0.1/>
+prefix mo:	<http://purl.org/ontology/mo/>
+prefix ad:	<http://schemas.talis.com/2005/address/schema#>
+prefix event:	<http://purl.org/NET/c4dm/event.owl#>
+prefix media:	<http://purl.org/microformat/hmedia/>
+prefix book:	<http://purl.org/NET/book/vocab#>
+prefix earl:	<http://www.w3.org/ns/earl#>
+prefix ical:	<http://www.w3.org/2002/12/cal/ical#>
+prefix cv:	<http://purl.org/captsolo/resume-rdf/0.2/cv#>
+prefix botany:	<http://purl.org/NET/biol/botany#>
+prefix tag:	<http://www.holygoat.co.uk/owl/redwood/0.1/tags/>
+prefix air:	<http://dig.csail.mit.edu/TAMI/2007/amord/air#>
+prefix dcq:	<http://purl.org/dc/terms/>
+prefix dv:	<http://rdf.data-vocabulary.org/#>
+prefix cld:	<http://purl.org/cld/terms/>
+prefix musim:	<http://purl.org/ontology/similarity/>
+prefix swc:	<http://data.semanticweb.org/ns/swc/ontology#>
+prefix biblio:	<http://purl.org/net/biblio#>
+prefix af:	<http://purl.org/ontology/af/>
+prefix ctag:	<http://commontag.org/ns#>
+prefix dir:	<http://schemas.talis.com/2005/dir/schema#>
+prefix reco:	<http://purl.org/reco#>
+prefix drugbank:	<http://www4.wiwiss.fu-berlin.de/drugbank/resource/drugbank/>
+prefix rev:	<http://purl.org/stuff/rev#>
+prefix days:	<http://ontologi.es/days#>
+prefix log:	<http://www.w3.org/2000/10/swap/log#>
+prefix sd:	<http://www.w3.org/ns/sparql-service-description#>
+prefix cs:	<http://purl.org/vocab/changeset/schema#>
+prefix osag:	<http://www.ordnancesurvey.co.uk/ontology/AdministrativeGeography/v2.0/AdministrativeGeography.rdf#>
+prefix daia:	<http://purl.org/ontology/daia/>
+prefix xhv:	<http://www.w3.org/1999/xhtml/vocab#>
+prefix co:	<http://purl.org/ontology/co/core#>
+prefix rdfg:	<http://www.w3.org/2004/03/trix/rdfg-1/>
+prefix ome:	<http://purl.org/ontomedia/core/expression#>
+prefix sism:	<http://purl.oclc.org/NET/sism/0.1/>
+prefix mu:	<http://www.kanzaki.com/ns/music#>
+prefix fn:	<http://www.w3.org/2005/xpath-functions#>
+prefix cmp:	<http://www.ontologydesignpatterns.org/cp/owl/componency.owl#>
+prefix cfp:	<http://sw.deri.org/2005/08/conf/cfp.owl#>
+prefix memo:	<http://ontologies.smile.deri.ie/2009/02/27/memo#>
+prefix owlim:	<http://www.ontotext.com/trree/owlim#>
+prefix cal:	<http://www.w3.org/2002/12/cal/ical#>
+prefix xfn:	<http://vocab.sindice.com/xfn#>
+prefix afn:	<http://jena.hpl.hp.com/ARQ/function#>
+prefix ok:	<http://okkam.org/terms#>
+prefix xs:	<http://www.w3.org/2001/XMLSchema#>
+prefix giving:	<http://ontologi.es/giving#>
+prefix ir:	<http://www.ontologydesignpatterns.org/cp/owl/informationrealization.owl#>
+prefix xf:	<http://www.w3.org/2002/xforms/>
+';
+}
+

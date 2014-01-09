@@ -1,0 +1,92 @@
+#! /usr/bin/env perl
+
+# Convert RDF literals to their default short-hand form, without
+# the ^^<datatype> tags.  Only xsd:string, xsd:integer, xsd:decimal,
+# xsd:double and xsd:boolean literals are affected.  This is useful 
+# in preparation for running rdfdiff.  For example, 
+# "foo"^^<http://www.w3.org/2001/XMLSchema#string>
+# will be converted to "foo".
+#
+# Input must be ntriples format; output is Turtle because ntriples
+# does not allow the short-hand form of literals.  
+# Reads stdin, writes stdout.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Regression test for this code is 0039_Test_default-rdf-literals .
+##################################################################
+
+use warnings;
+
+# Not using RedLand parser, and hopefully won't need to,
+# since the input is ntriples, which is easy to parse.
+# If the input is changed to be more general, then a proper RDF
+# parser will be needed.
+### use RDF::Redland;
+
+my $xsd = quotemeta("http://www.w3.org/2001/XMLSchema#");
+
+while (my $line = <>) {
+	my ($s, $p, $v) = &ParseTriple($line);
+	if (!defined($v)) {
+		# Empty line or comment line
+		print $line;
+		next;
+		}
+	if ($v =~ m/^(\"(.*)\")\^\^\<$xsd(integer|boolean)\>$/) {
+		# warn "FOUND integer or boolean: $&\n";
+		$v = $2;
+		}
+	# double and decimal need to be special cased because the xsd lexical
+	# representation is more lenient than in Turtle shorthand:
+	# http://www.w3.org/TR/turtle/#abbrev
+	# http://www.w3.org/TR/xmlschema-2/#double-lexical-representation
+	if ($v =~ m/^(\"(.*)\")\^\^\<$xsd(double)\>$/) {
+		# warn "FOUND double: $&\n";
+		$v = $2;
+		$v .= "E+0" if $v !~ m/[eE]/;	# Force exponent
+		}
+	# http://www.w3.org/TR/xmlschema-2/#decimal
+	if ($v =~ m/^(\"(.*)\")\^\^\<$xsd(decimal)\>$/) {
+		# warn "FOUND decimal: $&\n";
+		$v = $2;
+		$v .= "." if $v !~ m/\./;	# Force decimal point
+		$v .= "0" if $v =~ m/\.$/;	# at least one digit after "."
+		}
+	elsif ($v =~ m/^(\"(.*)\")\^\^\<$xsd(string)\>$/) {
+		# warn "FOUND xsd:string : $&\n";
+		$v = $1;
+		}
+	print "$s $p $v .\n";
+	}
+exit 0;
+
+########### ParseTriple ############
+sub ParseTriple
+{
+my $line = shift;
+return(undef, undef, undef) if !defined($line);
+$line = &Trim($line);
+$line =~ s/^\#.*//;
+return(undef, undef, undef) if $line eq "";
+if ($line !~ m/^(\S+)\s+(\S+)\s+(\S.*\S)\s*\.$/) {
+	die "$0: ERROR parsing ntriples at line $.: $line\n";
+	}
+my $s = $1;
+my $p = $2;
+my $v = $3;
+return($s, $p, $v);
+}
+
+########## Trim ############
+# Perl function to remove whitespace from beginning and end of a string.
+sub Trim
+{
+my $s = shift @_;
+$s =~ s/\A[\s\n\r]+//s;
+$s =~ s/[\s\n\r]+\Z//s;
+return $s;
+}
+

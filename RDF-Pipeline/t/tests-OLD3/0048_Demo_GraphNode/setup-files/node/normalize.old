@@ -1,0 +1,4 @@
+#! /bin/bash
+# Multiply glucose measurements by 10
+perl -p -e 's/glucose(\W+)([0-9]+)/"glucose$1".($2*10)/e'  $1
+

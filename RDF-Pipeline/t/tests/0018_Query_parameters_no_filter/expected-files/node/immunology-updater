@@ -1,0 +1,9 @@
+#! /bin/bash
+
+# QUERY_STRING "id=(002,003,004)" --> PATTERN "id=(002|003|004)"
+export PATTERN=`echo "$QUERY_STRING" | sed 's/,/|/g'`
+
+echo '# Immunology patient data'
+egrep "$PATTERN" $1
+exit 0
+

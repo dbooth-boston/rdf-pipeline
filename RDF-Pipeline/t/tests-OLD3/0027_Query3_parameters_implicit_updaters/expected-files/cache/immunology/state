@@ -1,0 +1,6 @@
+# Immunology patient data
+PROCESSED	Patient	id=003	name=Carol	dob=1944-06-12
+PROCESSED	Patient	id=004	name=Doug	dob=1949-08-27
+PROCESSED	Lab	id=004	glucose=720	date=2012-03-01
+PROCESSED	Lab	id=004	glucose=1040	date=2012-03-02
+PROCESSED	Lab	id=004	glucose=950	date=2012-03-03

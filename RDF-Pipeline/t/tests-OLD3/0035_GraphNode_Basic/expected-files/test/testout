@@ -1,0 +1,21 @@
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 277
+Content-Location: http://localhost/cache/willies/serState
+Content-Type: text/turtle
+
+@prefix : <http://example/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+:president25 foaf:givenName "Willy" ;
+	foaf:familyName "McKinley" .
+
+:president27 foaf:givenName "Willy" ;
+	foaf:familyName "Taft" .
+
+:president42 foaf:givenName "Willy" ;
+	foaf:familyName "Clinton" .
+----------------------------------------------------------------------

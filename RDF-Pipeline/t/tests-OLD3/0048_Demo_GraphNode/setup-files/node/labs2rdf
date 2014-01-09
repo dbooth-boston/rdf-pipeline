@@ -1,0 +1,10 @@
+#!/usr/bin/perl -w 
+# Read the given TSV file and writes to stdout as RDF Turtle.
+print "\@prefix customer: <http://example/customer#> . \n";
+print "\@prefix : <http://example/med#> . \n";
+while (<>) 
+  {
+  if (m/(lab)\t(customer)=(\d+)\t(\w+)=(\d+)\t(\w+)=(.*)/)
+    { print "customer:p$3 :lab [ :$4 $5 ; :$6 \"$7\" ] .\n"; }
+  }
+

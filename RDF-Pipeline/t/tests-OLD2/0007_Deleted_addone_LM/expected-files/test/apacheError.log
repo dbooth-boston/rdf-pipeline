@@ -1,0 +1,9 @@
+          UPDATED query parameters of http://localhost/node/addone
+          UPDATED depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              NO CHANGE to query parameters of http://localhost/node/odds
+                  NO CHANGE to query parameters of http://localhost/node/max
+              NO CHANGE to depUri http://localhost/node/max of http://localhost/node/odds
+              NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
+          UPDATED depUri http://localhost/node/odds of http://localhost/node/addone
+        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/addone/state
+----------------------------------------------------------------------

@@ -1,0 +1,20 @@
+#inputs( $in )
+#outputs( $out )
+
+PREFIX foaf:     <http://xmlns.com/foaf/0.1/>
+
+CLEAR SILENT GRAPH <$out> ;
+
+INSERT {
+  GRAPH <$out> {
+    ?president foaf:givenName "William" .
+    ?president foaf:familyName ?familyName .
+    }
+  }
+WHERE {
+  GRAPH <$in> {
+    ?president foaf:givenName "Bill" .
+    ?president foaf:familyName ?familyName .
+    }
+  }
+

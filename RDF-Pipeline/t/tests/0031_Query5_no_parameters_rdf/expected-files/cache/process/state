@@ -1,0 +1,19 @@
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p001 :lab [ :name "Alice" ; :dob "1979-01-23" ] .	# PROCESSED
+patient:p002 :lab [ :name "Bob" ; :dob "1950-12-21" ] .	# PROCESSED
+patient:p003 :lab [ :name "Carol" ; :dob "1944-06-12" ] .	# PROCESSED
+patient:p004 :lab [ :name "Doug" ; :dob "1949-08-27" ] .	# PROCESSED
+patient:p005 :lab [ :name "Ellen" ; :dob "1966-09-29" ] .	# PROCESSED
+patient:p006 :lab [ :name "Frank" ; :dob "1971-11-15" ] .	# PROCESSED
+@prefix patient: <http://example/patient#> . 	# PROCESSED
+@prefix : <http://example/med#> . 	# PROCESSED
+patient:p001 :lab [ :glucose 750 ; :date "2012-02-01" ] .	# PROCESSED
+patient:p002 :lab [ :glucose 850 ; :date "2012-02-02" ] .	# PROCESSED
+patient:p002 :lab [ :glucose 940 ; :date "2012-02-03" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 720 ; :date "2012-03-01" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 1040 ; :date "2012-03-02" ] .	# PROCESSED
+patient:p004 :lab [ :glucose 950 ; :date "2012-03-03" ] .	# PROCESSED
+patient:p005 :lab [ :glucose 980 ; :date "2012-02-02" ] .	# PROCESSED
+patient:p006 :lab [ :glucose 870 ; :date "2012-01-15" ] .	# PROCESSED
+patient:p006 :lab [ :glucose 910 ; :date "2012-01-16" ] .	# PROCESSED

@@ -1,0 +1,28 @@
+# RDF Pipeline definition.
+
+# The RDF Pipeline ontology:
+@prefix p: <http://purl.org/pipeline/ont#> .
+
+# Prefix for nodes in your pipeline:
+@prefix : <http://localhost/node/> .
+
+##### Pipeline definition starts here #####
+
+:max a p:FileNode . # No updater -- update manually.
+
+:odds a p:FileNode ;
+	p:inputs ( :max ) ;
+	p:updater "odds-updater" .
+
+:mult a p:FileNode ;
+	p:inputs ( :odds <http://localhost/node/multiplier.txt> ) ;
+	p:updater "mult-updater" .
+
+:addone a p:FileNode ;
+	p:inputs ( :mult ) ;
+	p:updater "addone-updater" .
+
+####### Test for FILE nodeType:
+
+p:FILE <http://www.w3.org/2000/01/rdf-schema#subClassOf> p:Node .
+

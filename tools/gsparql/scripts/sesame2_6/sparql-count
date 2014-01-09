@@ -1,0 +1,63 @@
+#!/usr/bin/env perl
+
+# Sesame 2.6.x SPARQL query to count the triples in a given
+# graph or the default graph.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+
+use warnings;
+use strict;
+
+############ Usage #############
+sub Usage
+{
+return "Usage: $0 [ -g graphURI ] 
+";
+}
+
+################### Main ####################
+my $graph = "";
+use Getopt::Long; # Perl
+GetOptions(
+                "graph|g=s" => \$graph,
+                ) or die &Usage();
+die &Usage() if @ARGV;
+
+my $stripped = 0;
+$stripped = 1 if $graph =~ s/^\<//;
+$stripped = 1 if $graph =~ s/\>$//;
+warn "$0: WARNING: Stripped angle brackets from graphURI: $graph\n" if $stripped;
+
+# The following was taken from rdf-pipeline/trunk/tools/baseuri:
+my $uriChar = '[a-zA-Z0-9\\~\\=\\_\\-\\,\\;\\:\\!\\?\\/\\.\\\'\\()\\[\\]\\@\\$\\*\\&\\#\\%\\+]';
+my $nonSchemeChar = '[\\~\\=\\_\\,\\;\\!\\?\\/\\\'\\()\\[\\]\\@\\$\\*\\&\\#\\%]';
+my $schemeChar = '[a-zA-Z0-9\\+\\-\\.]';
+# Real relative URI pattern is too complicated, so use this:
+my $relativePattern = "(($schemeChar)*($nonSchemeChar)($uriChar)*)|(($schemeChar)+)";
+# Real absolute URI pattern is too complicated, so use this:
+my $absolutePattern = "($schemeChar)+\\:($relativePattern)";
+
+die "$0: Bad graph URI: $graph\n" if $graph && $graph !~ m/^($absolutePattern)$/;
+
+my $query = "SELECT (COUNT(*) as ?count) { ?s ?p ?v . }";
+$query = "SELECT (COUNT(*) as ?count) { GRAPH <$graph> { ?s ?p ?v . } }"
+	if $graph;
+# die "query: $query\n";
+my $qQuery = quotemeta($query);
+my $result = `echo $qQuery | sparql-select | tail -n 1`;
+print $result;
+exit 0;
+
+############ WriteFile ##########
+# Perl function to write a string to a file.
+sub WriteFile
+{
+@_ == 2 || die;
+my ($f, $s) = @_;
+open(my $fh, ">$f") || die;
+print $fh $s;
+close($fh) || die;
+}
+

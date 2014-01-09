@@ -1,0 +1,39 @@
+# Query Parameter example
+@prefix p: <http://purl.org/pipeline/ont#> .
+@prefix : <http://localhost/node/> .
+
+:patients a p:FileNode ;
+  p:inputs ( "patients-data.txt" ) .
+
+:patients2rdf a p:FileNode ;
+  p:inputs ( :patients ) .
+
+:labs a p:FileNode ;
+  p:inputs ( "labs-data.txt" ) .
+
+:normalize a p:FileNode ;
+  p:inputs ( :labs ) .
+
+:labs2rdf a p:FileNode ;
+  p:inputs ( :normalize ) .
+
+:merge a p:GraphNode ;
+  p:parametersFilter "merge-parametersFilter" ;
+  p:inputs ( :patients2rdf :labs2rdf ) .
+
+:process a p:FileNode ;
+  p:inputs ( :merge ) .
+
+:cardiology a p:FileNode ;
+  p:inputs ( :process ) .
+
+:immunology a p:FileNode ;
+  p:inputs ( :process ) .
+
+##################################################################
+# Supply the SPARQL server connection details for nodes of type p:GraphNode
+# on pipeline host http://localhost :
+p:GraphNode p:hostRoot
+  ( "http://localhost" "http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test" ) .
+
+

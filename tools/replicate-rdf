@@ -1,0 +1,379 @@
+#! /usr/bin/env perl
+
+# Replicate some n-triples RDF data, replacing specified terms 
+# to make the replicated data different.  This program is used 
+# to generate a larger quantity of similar data from a given
+# sample of data.   Using the -n option you may specify
+# the number of replications that you want to generate.
+# When multiple replications are generated, lines that would
+# have been exact duplicates of previous lines are suppressed.
+#
+# Normally the terms that will be replaced during replication
+# will be URIs or blank nodes, but literals can also be replaced.
+# The list of terms to be replaced can be specified one at a
+# time using the -t option, or as a list in a file using the 
+# -f option.
+#
+# To use this program, you first need to decide which terms you
+# want replaced when the data is replicated.  One easy way to
+# do that is to run a SPARQL SELECT query on your data, to 
+# select the terms that should be replaced, get the results
+# as tab-separated-values (TSV), and save them to a file, such 
+# as results.tsv .  Then you can be specified that filename
+# as an argument to the -f option: '-f results.tsv' option.
+# (The column headers will not cause harm because they will
+# not match any legal n-triples terms.)
+# HOWEVER, this only works if the terms in the TSV results 
+# are exactly as they appear in the n-triples input.  For 
+# URIs and string literals they probably will be the same, 
+# but blank nodes are likely to be relabeled by SPARQL, and
+# numeric literals are likely to be in short form in the TSV
+# results, such as 1234 instead of
+# "1234"^^<http://www.w3.org/2001/XMLSchema#integer> .
+#
+# You can use the -l option to verify that your terms are
+# being replaced.  Assuming your input file is input.nt:
+#   replicate-rdf -l -f results.tsv input.nt | tail -n +3 | sort -u > /tmp/got
+#   tail -n +2 results.tsv | perl -n -e 'print join("\n", split(/\t/, $_));' | sort -u > /tmp/want
+#   diff /tmp/want /tmp/got
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Regression test for this code is 0046_Test-replicate-rdf .
+
+use strict;
+use warnings;
+
+# Mint new URIs under this base URI?  (Currently unused)
+my $baseUri = "http://example/rep/";
+
+# xsd datatypes understood:
+my @numberTypes = qw(float double integer long int);
+my %isNumber = map {($_,1)} @numberTypes;
+my @stringTypes = qw(string normalizedString anyURI QName);
+my %isString = map {($_,1)} @stringTypes;
+
+################# Usage ###################
+sub Usage
+{
+return "Usage: $0 [ options ] [ inputFile.nt ... ]
+Options:
+  -n, --n=nDuplicates
+	Generate nDuplicates total copies of the input data.
+	The default is 1, which effectively just replaces
+	the terms that were specified to be replaced,
+	and relabels blank nodes.
+
+  -t, --term=termToReplace
+	Replace termToReplace with a newly generated term
+	throughout.  The termToReplace must be written exactly 
+	as it would appear in n-triples form, since a
+	direct string comparison will be performed.  Usually 
+	termToReplace will be a URI (inside <angleBrackets>),
+	but it may also be a blank node or a literal, in which 
+	case a best-guess attempt will be made at generating 
+	an appropriate new term.   Literals of the following 
+	XML Schema data types (xsd:) are understood:
+	  @stringTypes
+	  @numberTypes
+	See example terms under the -f option.
+	This option may be repeated to replace multiple terms.  
+
+  -f, --file=termsFile
+	Read terms from termsFile.  Terms on the same line
+	must be tab separated.  #Comment lines are ignored.  
+	Examples:  " . '
+		_:b111
+		<http://example/foo>   
+		"hello"^^<http://www.w3.org/2001/XMLSchema#string> 
+		"-12.34E3"^^<http://www.w3.org/2001/XMLSchema#double>  ' . "
+
+  -l, --list
+        List the terms that would be replaced, and exit.
+
+  -h, --help
+        Show this usage message.\n";
+}
+
+my $potentialFutureOptions = "
+  -p, --pattern=termPattern  (NOT IMPLEMENTED)
+	Replace any term matching Perl pattern uriPattern.
+	Be sure to anchor your pattern if you want it to match 
+	the whole term, such as -p '^foo\$' .
+	This option may be repeated.
+
+  -s, --sub=substitutionExpression  (NOT IMPLEMENTED)
+	Use substitutionExpression to replace matching terms.
+	The substitutionExpression may reference \$n, which
+	will be incremented after each successful substition.
+	It is used to ensure that generated terms are unique.
+	The substitutionExpression should be something like
+	's/old/new/'.  Be sure to anchor your pattern if
+	you want it to match the whole term: 's/^old\$/new/'.
+	This option may be repeated.
+
+  -b, --base=baseUri (NOT IMPLEMENTED)
+        Use baseUri as the URI prefix when replacing URIs,
+	which should normally end with a slash ('/') or 
+	hash ('#').  This is not a true base URI as in RFC3986
+	because it does not follow the resolution rules of
+	RFC3986 section 5.2.  Instead, it is treated as a
+	URI prefix to which a suffix 'u\$n' will be appended, where
+	\$n is a unique sequential number.  Relative URIs can 
+	be generated by specifying an empty string: -b '' .  
+	Default: $baseUri
+";
+
+######################## Main #########################
+# This program is admittedly not very efficient, as it
+# unnecessarily reparses the input, but it is good enough
+# for many uses.
+#
+# Not using RedLand parser, and hopefully won't need to,
+# since the input is ntriples, which is easy to parse.
+# If the input is changed to be more general, then a proper RDF
+# parser will be needed.
+### use RDF::Redland;
+
+my $debug = 0;
+
+my $optN = 1;
+my @optTerms = ();
+my @optPatterns = ();
+my @optSubs = ();
+my $optFile = "";
+my $optBase = "";
+my $optList = 0;
+my $optHelp = 0;
+
+use Getopt::Long; # Perl
+if (!GetOptions(
+                "n|n=s" => \$optN,
+                "term|t=s" => \@optTerms,
+                "pattern|p=s" => \@optPatterns,
+                "sub|s=s" => \@optSubs,
+                "file|f=s" => \$optFile,
+                "base|b=s" => \$optBase,
+                "list|l" => \$optList,
+                "help|h" => \$optHelp,
+                "debug" => \$debug,
+                )) {
+        warn "$0: Error reading options.\n";
+        die &Usage();
+        }
+if ($optHelp) {
+        print &Usage();
+        exit 0;
+        }
+die "$0: ERROR: Unimplemented option: -p\n" if @optPatterns;
+die "$0: ERROR: Unimplemented option: -s\n" if @optSubs;
+die "$0: ERROR: Unimplemented option: -b\n" if $optBase;
+
+# Force one iteration if the -l option was specified, because we
+# won't actually output any input copies anyway:
+$optN = 1 if $optList;
+
+@ARGV <= 1 or die "$0: ERROR: Too many arguments.  Use -h option for help.\n";
+
+$baseUri = $optBase if $optBase;
+warn "$0: WARNING: Base URI ends in an alphanumeric: $baseUri\n"
+	if $baseUri && $baseUri =~ m/[a-zA-Z0-9]$/;
+
+# Get the list of terms to substitute:
+my @terms = ();
+if ($optFile) {
+	open(my $fh, "<", $optFile) || die "$0: ERROR: Could not open file: $optFile\n";
+	@terms = grep {m/\S/} 
+		map {&Trim($_)} 
+		map {split(/\t/, $_)} 
+		grep {s/^\s*\#.*//; m/\S/} <$fh>;
+	close($fh);
+	}
+push(@terms, @optTerms);
+my $termsPattern = join("|", map {quotemeta($_)} @terms);
+
+######## Globals:
+my $n = 1;		# Next available unique term number
+my $nextBnode = 1;	# For relabeling bnodes
+my %termsSeen = ();	# All terms, to detect collisions when gen new term
+my %replaced = ();	# Terms that were replaced.  Maps old-->new terms.
+
+# Snarf the input
+my @oldLines = <>;
+# Ensure that there is a newline at the end:
+$oldLines[@oldLines-1] .= "\n" if $oldLines[@oldLines-1] !~ m/\n\Z/;
+
+# First scan the input for all terms used, so that we can later
+# avoid collisions when generating new terms.
+for (my $j=0; $j<@oldLines; $j++) {
+	if ($oldLines[$j] =~ m/^\s*(\#.*)?$/) {
+		# Blank line or comment.  Skip it.
+		next;
+		}
+	my @triple = &ParseTriple("STDIN", $oldLines[$j]);
+	die if @triple != 3;
+	for (my $i=0; $i<@triple; $i++) {
+		defined($triple[$i]) || die;
+		# Skip literals
+		next if $triple[$i] !~ m/^(\<|_\:)/;
+		$termsSeen{$triple[$i]} = 1;
+		}
+	}
+
+# Duplicate the input $optN times.
+print "# Total replicas: $optN\n";
+my @changedLines = ();
+for (my $nDupes=1; $nDupes<=$optN; $nDupes++) {
+	my %seen = ();	# Maps old bnode label to new bnode label
+	my @lines = @oldLines;
+	my %termMap = ();	# Maps old term to new term
+	# Replacement terms:
+	for (my $j=0; $j<@lines; $j++) {
+		if ($lines[$j] =~ m/^\s*(\#.*)?$/) {
+			# Blank line or comment.  Leave as is.
+			next;
+			}
+		my @triple = &ParseTriple("STDIN", $lines[$j]);
+		die if @triple != 3;
+		my $tripleChanged = 0;
+		for (my $i=0; $i<@triple; $i++) {
+			defined($triple[$i]) || die;
+			# Replace this term?
+			if (@terms && $triple[$i] =~ m/^($termsPattern)$/) {
+				my $oldTerm = $1;
+				my $newTerm = &Replace(\%termMap, $oldTerm);
+				$triple[$i] = $newTerm;
+				$replaced{$oldTerm} = $newTerm;
+				$tripleChanged = 1;
+				warn "OLD: $oldTerm NEW: $newTerm\n" if $debug;
+				}
+			$termsSeen{$triple[$i]} = 1;
+			# Relabel all blank nodes:
+			if ($triple[$i] =~ m/^_\:/) {
+				$tripleChanged = 1;
+				my $bnode = $seen{$triple[$i]};
+				if (!defined($bnode)) {
+					$bnode = "_:b" . $nextBnode++;
+					$seen{$triple[$i]} = $bnode;
+					}
+				$triple[$i] = $bnode;
+				}
+			}
+		$lines[$j] = join(" ", @triple) . " .\n" if $tripleChanged;
+		push(@changedLines, $oldLines[$j]) if $tripleChanged && $nDupes == 1;
+		}
+	if ($optList) {
+		# List the terms replaced and exit.
+		print "Old term\tNew term\n";
+		print "========\t========\n";
+		foreach my $k (sort keys %replaced) {
+			print "$k\t$replaced{$k}\n";
+			}
+		exit 0;
+		}
+	# After the first iteration, only use the @changedLines,
+	# because others will be exact duplicates anyway.
+	if ($nDupes == 1) {
+		@oldLines = @changedLines;
+		@changedLines = ();
+		}
+	# Output:
+	my $newLines = scalar(@lines);
+	print "######### Replica $nDupes ($newLines lines) ###########\n";
+	print @lines;
+	print "\n";
+	}
+exit 0;
+
+############### Replace ################
+# Replace $oldTerm with an already-created $newTerm, or generate
+# a new $newTerm.  Already defined terms are in the $pTermMap hashref.
+# Globals %termsSeen and $n are also used.
+sub Replace
+{
+my $pTermMap = shift || die;
+my $oldTerm = shift || die;
+my $newTerm = $pTermMap->{$oldTerm};
+return($newTerm) if defined($newTerm);
+# Generate a new unique term.  What kind is needed?
+# Blank node?
+if ($oldTerm =~ m/^_\:/) {
+	# Loop to avoid blank node collision.  These bnodes will
+	# be relabeled anyway, so make up temporary labels.
+	do {
+		$newTerm = "_:t" . $n++;
+		} until !defined($termsSeen{$newTerm});
+	}
+# Literal?  N-triples requires double quotes
+#                       12      3        4
+elsif ($oldTerm =~ m/^\"(([^\"]|(\"))*)\"(.*)$/) {
+	# A literal collision doesn't matter.
+	my $value = $1;
+	my $typeOrLanguage = $4;
+	my $type = "";
+	$type = "string" if $typeOrLanguage =~ m/^\@/;
+	$type = "string" if $typeOrLanguage eq "";
+	my $xsd = quotemeta('http://www.w3.org/2001/XMLSchema#');
+	$type = $1 if $typeOrLanguage =~ m/^\^\^\<$xsd(.*)\>$/;
+	if ($isNumber{$type}) {
+		# Replace the first sequence of digits found:
+		$value =~ s/^(.*?)(\d+)/$1 . $n++/e;
+		$newTerm = "\"$value\"$typeOrLanguage";
+		}
+	elsif ($isString{$type}) {
+		# Append a sequence number to the end of the string:
+		$newTerm = "\"$value" . $n++ . "\"$typeOrLanguage";
+		}
+	else	{
+		$newTerm = "\"$value" . $n++ . "\"$typeOrLanguage";
+		warn "$0: WARNING: Replacing literal of unknown datatype: $oldTerm --> $newTerm\n";
+		}
+	}
+# URI?
+elsif ($oldTerm =~ m/^\<(.*)\>$/) {
+	my $uri = $1;
+	# Loop to avoid URI collision:
+	do {
+		$newTerm = "<$uri" . $n++ . ">";
+		} until !defined($termsSeen{$newTerm});
+	}
+# Unknown term
+else	{
+	die "$0: Unrecognized n-triples term: $oldTerm\n";
+	}
+$termsSeen{$newTerm} = 1;
+$pTermMap->{$oldTerm} = $newTerm;
+return($newTerm);
+}
+
+########### ParseTriple ############
+sub ParseTriple
+{
+my $f = shift;
+my $line = shift;
+return(undef, undef, undef) if !defined($line);
+$line = &Trim($line);
+$line =~ s/^\#.*//;
+return(undef, undef, undef) if $line eq "";
+if ($line !~ m/^(\S+)\s+(\S+)\s+(\S.*\S)\s*\.$/) {
+	die "$0: PARSE ERROR at file $f line $.: $line\n";
+	}
+my $s = $1;
+my $p = $2;
+my $v = $3;
+return($s, $p, $v);
+}
+
+########## Trim ############
+# Perl function to remove whitespace from beginning and end of a string,
+# including newlines.
+sub Trim
+{
+my $s = shift @_;
+$s =~ s/\A[\s\n\r]+//s;
+$s =~ s/[\s\n\r]+\Z//s;
+return $s;
+}
+

@@ -1,0 +1,20 @@
+
+# comment
+
+_:b111 <http://example/p> _:b222 .
+_:b111 <http://example/sym> _:b111 .
+_:t1 <http://example/sym> _:t2 .
+<http://example/foo> <http://example/bar> <http://example/baz> .
+<http://example/foo> <http://example/bar> <http://example/baz1> .
+<http://example/foo> <http://example/bar> <http://example/baz2> .
+<http://example/bar> <http://example/foo> "fellow"^^<http://example/baz> .
+<http://example/bar> <http://example/foo> "embedded\"quote" .
+<http://example/bar> <http://example/foo> "hi" .
+<http://example/bar> <http://example/foo> "bye bye"@en .
+<http://example/bar> <http://example/foo> "hello"^^<http://www.w3.org/2001/XMLSchema#string> .
+<http://example/bar> <http://example/foo> "1234"^^<http://www.w3.org/2001/XMLSchema#integer> .
+<http://example/bar> <http://example/foo> "12.34"^^<http://www.w3.org/2001/XMLSchema#float> .
+<http://example/bar> <http://example/foo> "-12.34E3"^^<http://www.w3.org/2001/XMLSchema#double> .
+<http://example/bar> <http://example/foo> "-12.34E3"^^<http://www.w3.org/2001/XMLSchema#double> .
+<http://example/un> <http://example/modified> <http://example/line> .
+

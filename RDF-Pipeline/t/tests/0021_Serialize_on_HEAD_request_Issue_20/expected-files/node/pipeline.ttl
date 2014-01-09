@@ -1,0 +1,18 @@
+# RDF Pipeline definition.
+
+# The RDF Pipeline ontology:
+@prefix p: <http://purl.org/pipeline/ont#> .
+
+# Prefix for nodes in your pipeline:
+@prefix : <http://localhost/node/> .
+
+##### Testing serialization/deserialization #####
+
+:ab a p:ExampleHtmlNode ;
+	p:inputs ( <http://localhost/node/a.html> <http://localhost/node/b.html> ) ;
+	p:updater "cat-updater" .
+
+:aba a p:ExampleHtmlNode ;
+	p:inputs ( :ab <http://localhost/node/a.html> ) ;
+	p:updater "cat-updater" .
+

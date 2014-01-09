@@ -1,0 +1,70 @@
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 106
+Content-Location: http://localhost/cache/cardiology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Cardiology patient data
+Patient	id=002	name=Bob	dob=1950-12-21
+Patient	id=005	name=Ellen	dob=1966-09-29
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 106
+Content-Location: http://localhost/cache/cardiology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Cardiology patient data
+Patient	id=002	name=Bob	dob=1950-12-21
+Patient	id=005	name=Ellen	dob=1966-09-29
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 107
+Content-Location: http://localhost/cache/immunology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Immunology patient data
+Patient	id=003	name=Carol	dob=1944-06-12
+Patient	id=004	name=Doug	dob=1949-08-27
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 107
+Content-Location: http://localhost/cache/immunology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Immunology patient data
+Patient	id=003	name=Carol	dob=1944-06-12
+Patient	id=004	name=Doug	dob=1949-08-27
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 106
+Content-Location: http://localhost/cache/cardiology/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+# Cardiology patient data
+Patient	id=002	name=Bob	dob=1950-12-21
+Patient	id=005	name=Ellen	dob=1966-09-29
+----------------------------------------------------------------------

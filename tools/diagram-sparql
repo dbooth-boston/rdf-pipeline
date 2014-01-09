@@ -1,0 +1,209 @@
+#! /usr/bin/env perl
+
+# This is a dirty hack for generating a diagram of a SPARQL query 
+# pattern, either from a WHERE clause or a CONSTRUCT clause.
+# graphical notation so that it can be rendered as a drawing.  
+# The parsing is very stupid and does not understand much about
+# the SPARQL grammar.  To use this program, copy and paste the 
+# desired query pattern into the input, as it does not know how to 
+# ignore a SELECT clause.  It only works for a very 
+# limited subset of SPARQL (e.g., no UNIONs, no BINDs, no FILTERs,
+# and property paths need to have no embedded spaces); and subtleties 
+# like nested queries are not distintinguished.  However, until
+# something better is available it may be better than drawing
+# the query manually.  Suggestion: use the "-f cmap" option to
+# generate a file that can be imported by CmapTools (via
+# "File->Import->Propositions as text") and then adjust the diagram
+# layout using CmapTools.
+#  
+# Reads stdin, writes stdout.
+#
+# Copyright 2013 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Regression test for this code is 0041_Test_tools_diagram-sparql .
+##################################################################
+
+use warnings;
+use strict;
+
+################# Usage ###################
+sub Usage
+{
+return "Usage: $0 [ options ] [ sparqlQuery.rq ... ]
+Options:
+  -f, --format=fmt
+	Specify output format as fmt.  Supported formats:
+	  cmap	-- (Default) CmapTools 'Propositions as text'
+		   format.  Import to cmaptools via
+	           'File->Import->Propositions as text'
+	  dot	-- Graphviz format.  Generate a PNG by piping
+		   the output through 'dot -Tpng'.
+		   
+
+  -h, --help
+	Show this usage message.
+
+To produce a .png, pipe the result through dot:
+  $0 sparqlQuery.rq | dot -Tpng > sparqlQuery.png\n";
+}
+
+################# MAIN ###################
+
+my $optHelp = 0;
+my $optFormat = "cmap";
+
+use Getopt::Long; # Perl
+if (!GetOptions(
+		"format|f=s" => \$optFormat,
+                "help|h" => \$optHelp,
+                )) {
+        warn "$0: Error reading options.\n";
+        die &Usage();
+        }
+if ($optHelp) {
+        print &Usage();
+        exit 0;
+        }
+
+my @all = <>;
+# TODO: This may fail if the comment symbol is in a string:
+# Strip comments from input:
+@all = map {s/(^|\s)\#.*//; $_} @all;
+# Strip prefix and base declarations from input:
+@all = map {s/^\s*(\@?)(prefix|base)\s.*//i; $_} @all;
+
+my $all = join("", @all);
+
+# If there's a WHERE clause, use it:
+if ($all =~ s/\A.*?\bwhere[\s\n\r]*\{/ /si) {
+	$all = $';
+	# Look for the end of the first WHERE:
+	$all = $& if $all =~ m/\A.*\}/s;
+	}
+
+# Easier pattern matching:
+$all .= " .\n";  
+
+# Collapse sub-queries:
+$all =~ s/\bselect\b.*?\{/ /sig;
+$all =~ s/\bwhere\s*\{/ /sig;
+
+# Collapse graphs:
+$all =~ s/\bgraph\b.*?\{/ /sig;
+
+# Add implied "." at the end of each query, if needed:
+$all =~ s/\}/ . \}/sg;
+
+# Ensure space around "," or ";" operators:
+$all =~ s/([\,\;])(\s)/ $1$2/sg;
+$all =~ s/(\s)([\,\;])/$1$2 /sg;
+
+# Strip curly braces:
+$all =~ s/[\{\}]/ /sg;
+
+# TODO: Handle property paths.  At present, they need to have no embedded
+# spaces to work.
+
+# Remove whitespace from property paths to make them look like a single term:
+# [89]  PathAlternative	  ::=  	PathSequence ( '|' PathSequence )*
+$all =~ s/(\|)\s+/$1/sg;
+$all =~ s/\s+(\|)/$1/sg;
+# [90]  PathSequence	  ::=  	PathEltOrInverse ( '/' PathEltOrInverse )*
+$all =~ s/(\/)\s+/$1/sg;
+$all =~ s/\s+(\/)/$1/sg;
+# [91]  PathElt	  ::=  	PathPrimary PathMod?
+# [92]  PathEltOrInverse	  ::=  	PathElt | '^' PathElt
+$all =~ s/(\^)\s+/$1/sg;
+# [93]  PathMod	  ::=  	'?' | '*' | '+'
+$all =~ s/\s+(\?)([^a-zA-Z_])/$1$2/sg;
+$all =~ s/\s+([\*])([^a-zA-Z_])/$1$2/sg;
+$all =~ s/\s+([\+])([^0-9\.])/$1$2/sg;
+
+# [94]  PathPrimary	  ::=  	iri | 'a' | '!' PathNegatedPropertySet | '(' Path ')'
+# [95]  PathNegatedPropertySet	  ::=  	PathOneInPropertySet | '(' ( PathOneInPropertySet ( '|' PathOneInPropertySet )* )? ')'
+$all =~ s/\s+([\)])/$1/sg;
+$all =~ s/([\(])\s+/$1/sg;
+# [96]  PathOneInPropertySet	  ::=  	iri | 'a' | '^' ( iri | 'a' ) 
+
+# Hopefully, at this point we have something that looks like Turtle format:
+# a b c ; 
+#   d e , f .
+
+my @triples = ();	# Collect the resulting triple
+while (1) {
+	# Strip leading whitespace and empty statements:
+	$all =~ s/\A\s*(\.\s*)*//sg;
+      last if !$all;
+	#               1       2       34        5  6      7               8
+	if ($all !~ s/\A(\S+)\s+(\S+)\s+(([^\s\"]|(\"([^\"]|(\\\"))*\"))+)\s+(\S+)//s) {
+		die "$0: ERROR: Parse failed:\n[[\n$all]]\n";
+		}
+	my $s = $1;
+	my $p = $2;
+	my $v = $3;
+	my $terminator = $8;
+	# print "s:{$1} p:{$p} v:{$v} terminator:{$terminator}\n";
+	if ($v =~ m/\.\Z/s && $v !~ m/^[\+\-]?[0-9]+\.\Z/) {
+		# Damned statement terminator without a precedeing space:
+		#   p:foo p:p p:bar.  instead of   p:foo p:p p:bar .
+		# Add a space and try again.
+		$v =~ s/\.\Z/ ./s;
+		$all = "$s $p $v $terminator $all";
+		# print "============================================\n";
+		# print $all;
+		# print $all; exit 0;
+		next;
+		}
+	if ($terminator eq ".") {
+		die "$0: ERROR: Parse got multi-line value: \n[[\n$v\n]]\n"
+			if $v =~ m/\n/s;
+		# Turn whitespace into underscore:
+		$v =~ s/\s/_/g;
+		push(@triples, [$s, $p, $v]);
+		}
+	# Expand ";" and "," operators to full triples:
+	elsif ($terminator eq ";") {
+		# Push the expanded statement back on the front to be reparsed:
+		$all = "$s $p $v .\n$s $all";
+		next;
+		}
+	elsif ($terminator eq ",") {
+		# Push the expanded statement back on the front to be reparsed:
+		$all = "$s $p $v .\n$s $p $all";
+		next;
+		}
+	else { die; }
+	}
+
+# TODO: Change this to be extensible, so that new formats can be added easily.
+
+# Output the triples in the desired format.
+if ($optFormat eq "dot") {
+	print "digraph query {\n";
+	foreach my $triple (@triples) {
+		my ($s, $p, $v) = @{$triple};
+		defined($v) || die;
+		# Escape quotes around quoted string:
+		#   "foo"  or  "foo"@en  or "foo"^^<datatype>
+		$v =~ s/\A\"(.*)\"([^\"]*)\Z/\\\"$1\\\"$2/;
+		print "  \"$s\" -> \"$v\" [ label = \"$p\" ];\n";
+		}
+	print "}\n";
+	}
+elsif ($optFormat eq "cmap") {
+	# Could not find any way to put a comment in the file:
+	# print "# CmapTools file.  Import via File->Import->Propositions as text\n";
+	foreach my $triple (@triples) {
+		my ($s, $p, $v) = @{$triple};
+		defined($v) || die;
+		print "$s\t$p\t$v\n";
+		}
+	}
+else {
+	warn "$0: ERROR: Unknown output format: $optFormat\n";
+	die &Usage();
+	}
+
+exit 0;

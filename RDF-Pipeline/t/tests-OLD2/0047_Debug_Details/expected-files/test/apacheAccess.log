@@ -1,0 +1,6 @@
+"GET /node/bill-presidents.ttl HTTP/1.1" 304
+"GET /node/UPPERWILLIES?debug=$DEBUG_DETAILS HTTP/1.1" 200
+----------------------------------------------------------------------
+"GET /node/bill-presidents.ttl HTTP/1.1" 304
+"GET /node/UPPERWILLIES?debug=$DEBUG_CHANGES HTTP/1.1" 200
+----------------------------------------------------------------------

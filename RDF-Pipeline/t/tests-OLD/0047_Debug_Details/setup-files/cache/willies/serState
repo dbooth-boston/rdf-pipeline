@@ -1,0 +1,12 @@
+@prefix : <http://example/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix customer: <http://example/customer#> .
+
+:president25 foaf:givenName "Willy" ;
+	foaf:familyName "McKinley" .
+
+:president27 foaf:givenName "Willy" ;
+	foaf:familyName "Taft" .
+
+:president42 foaf:givenName "Willy" ;
+	foaf:familyName "Clinton" .

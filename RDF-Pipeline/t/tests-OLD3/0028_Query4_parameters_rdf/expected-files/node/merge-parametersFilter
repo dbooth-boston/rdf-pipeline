@@ -1,0 +1,15 @@
+#! /usr/bin/perl -w
+
+# Concatenate uniq IDs requested by all outputs into a comma-separated list:
+my $qss = $ENV{QUERY_STRINGS} || "";
+map {m/id=\(?([0-9,]+)/ ? split(/,/, $_) : ()} split(/ /, $qss);
+my %ids = map {($_,1)} map {m/[0-9]+/g} ($qss =~ m/id=\(?([0-9,]+)/g);
+my $ids = join(",", sort keys %ids);
+
+# Command line arguments are the URIs of this node's inputs:
+my ($patientsUri, $labsUri) = @ARGV;
+
+# Write one input URI (with query string) per line to stdout:
+print "$patientsUri?id=($ids)\n";
+print "$labsUri?customer=($ids)\n";
+

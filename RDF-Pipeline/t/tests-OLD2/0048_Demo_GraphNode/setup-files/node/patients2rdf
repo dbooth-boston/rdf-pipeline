@@ -1,0 +1,10 @@
+#!/usr/bin/perl -w 
+# Read TSV patients from command line file and write to stdout as RDF Turtle
+print "\@prefix patient: <http://example/patient#> . \n";
+print "\@prefix : <http://example/med#> . \n";
+while (<>) 
+  {
+  if (m/(patient)\t(id)=(\d+)\t(\w+)=(\w+)\t(\w+)=(.*)/)
+    { print "patient:p$3 :lab [ :$4 \"$5\" ; :$6 \"$7\" ] .\n"; }
+  }
+

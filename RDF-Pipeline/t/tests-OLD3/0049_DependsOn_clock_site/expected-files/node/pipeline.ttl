@@ -1,0 +1,9 @@
+# Cause the updater to be fired on every request, because
+# the node dependsOn a clock page.
+
+@prefix p: <http://purl.org/pipeline/ont#> .
+@prefix : <http://localhost/node/> .
+
+:hello a p:FileNode ;
+  p:dependsOn <http://www.time.gov/timezone.cgi?Eastern/d/-5> .
+

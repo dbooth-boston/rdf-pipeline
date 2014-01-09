@@ -1,0 +1,14 @@
+
+# comment
+
+_:b1 <http://example/p> _:b2 .
+_:b1 <http://example/sym> _:b1 .
+<http://example/foo> <http://example/bar> <http://example/baz> .
+
+
+# comment
+
+_:b3 <http://example/p> _:b4 .
+_:b3 <http://example/sym> _:b3 .
+<http://example/foo> <http://example/bar> <http://example/baz> .
+

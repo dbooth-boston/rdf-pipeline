@@ -1,0 +1,23 @@
+# RDF Pipeline definition.
+# Testing GraphNode serialization/deserialization #####
+
+# The RDF Pipeline ontology:
+@prefix p: <http://purl.org/pipeline/ont#> .
+
+# Prefix for nodes in your pipeline:
+@prefix : <http://localhost/node/> .
+
+######################## Pipeline ###############################
+
+:williams a p:GraphNode ;
+	p:inputs ( "bill-presidents.ttl" ) .
+
+:willies a p:GraphNode ;
+	p:inputs ( :williams ) .
+
+##################################################################
+# Supply the SPARQL server connection details for nodes of type p:GraphNode
+# on pipeline host http://localhost :
+p:GraphNode p:hostRoot 
+  ( "http://localhost" "http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test" ) .
+
