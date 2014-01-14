@@ -23,7 +23,7 @@ $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;
 
 # This test verifies that serState is not refreshed on a HEAD request.
 my $serState = "$wwwDir/cache/aba/serState";
-my $serStateLM = "$wwwDir/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2Ftrunk%2FPrivate%2Fwww%2Fcache%2Faba%2FserState";
+my $serStateLM = "$wwwDir/lm/FILE/%2Fhome%2Fdbooth%2Frdf-pipeline%2FPrivate%2Fwww%2Fcache%2Faba%2FserState";
 # warn "serState: $serState\n";
 # warn "serStateLM: $serStateLM\n";
 

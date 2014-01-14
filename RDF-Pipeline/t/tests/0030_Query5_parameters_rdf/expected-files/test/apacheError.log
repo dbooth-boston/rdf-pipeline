@@ -3,22 +3,22 @@
                   UPDATED query parameters of http://localhost/node/merge
                       UPDATED query parameters of http://localhost/node/normalize
                           UPDATED query parameters of http://localhost/node/labs
-                            UPDATING http://localhost/node/labs-data.txt inSerCache: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/labs-data.txt/serCache of http://localhost/node/labs
+                            UPDATING http://localhost/node/labs-data.txt inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/labs-data.txt/serCache of http://localhost/node/labs
                           UPDATED depUri http://localhost/node/labs-data.txt of http://localhost/node/labs
-                        UPDATING http://localhost/node/labs {/home/dbooth/rdf-pipeline/trunk/Private/www/node/labs} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/labs/state
+                        UPDATING http://localhost/node/labs {/home/dbooth/rdf-pipeline/Private/www/node/labs} state: /home/dbooth/rdf-pipeline/Private/www/cache/labs/state
                       UPDATED depUri http://localhost/node/labs of http://localhost/node/normalize
-                    UPDATING http://localhost/node/normalize {/home/dbooth/rdf-pipeline/trunk/Private/www/node/normalize} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/normalize/state
+                    UPDATING http://localhost/node/normalize {/home/dbooth/rdf-pipeline/Private/www/node/normalize} state: /home/dbooth/rdf-pipeline/Private/www/cache/normalize/state
                   UPDATED depUri http://localhost/node/normalize of http://localhost/node/merge
                       UPDATED query parameters of http://localhost/node/patients
-                        UPDATING http://localhost/node/patients-data.txt inSerCache: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/patients-data.txt/serCache of http://localhost/node/patients
+                        UPDATING http://localhost/node/patients-data.txt inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/patients-data.txt/serCache of http://localhost/node/patients
                       UPDATED depUri http://localhost/node/patients-data.txt of http://localhost/node/patients
-                    UPDATING http://localhost/node/patients {/home/dbooth/rdf-pipeline/trunk/Private/www/node/patients} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/patients/state
+                    UPDATING http://localhost/node/patients {/home/dbooth/rdf-pipeline/Private/www/node/patients} state: /home/dbooth/rdf-pipeline/Private/www/cache/patients/state
                   UPDATED depUri http://localhost/node/patients of http://localhost/node/merge
-                UPDATING http://localhost/node/merge {/home/dbooth/rdf-pipeline/trunk/Private/www/node/merge} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/merge/state
+                UPDATING http://localhost/node/merge {/home/dbooth/rdf-pipeline/Private/www/node/merge} state: /home/dbooth/rdf-pipeline/Private/www/cache/merge/state
               UPDATED depUri http://localhost/node/merge of http://localhost/node/process
-            UPDATING http://localhost/node/process {/home/dbooth/rdf-pipeline/trunk/Private/www/node/process} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/process/state
+            UPDATING http://localhost/node/process {/home/dbooth/rdf-pipeline/Private/www/node/process} state: /home/dbooth/rdf-pipeline/Private/www/cache/process/state
           UPDATED depUri http://localhost/node/process of http://localhost/node/cardiology
-        UPDATING http://localhost/node/cardiology {/home/dbooth/rdf-pipeline/trunk/Private/www/node/cardiology} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/cardiology/state
+        UPDATING http://localhost/node/cardiology {/home/dbooth/rdf-pipeline/Private/www/node/cardiology} state: /home/dbooth/rdf-pipeline/Private/www/cache/cardiology/state
 ----------------------------------------------------------------------
           NO CHANGE to query parameters of http://localhost/node/cardiology
               NO CHANGE to query parameters of http://localhost/node/process
@@ -40,19 +40,19 @@
                       UPDATED query parameters of http://localhost/node/normalize
                           UPDATED query parameters of http://localhost/node/labs
                           NO CHANGE to depUri http://localhost/node/labs-data.txt of http://localhost/node/labs
-                        UPDATING http://localhost/node/labs {/home/dbooth/rdf-pipeline/trunk/Private/www/node/labs} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/labs/state
+                        UPDATING http://localhost/node/labs {/home/dbooth/rdf-pipeline/Private/www/node/labs} state: /home/dbooth/rdf-pipeline/Private/www/cache/labs/state
                       UPDATED depUri http://localhost/node/labs of http://localhost/node/normalize
-                    UPDATING http://localhost/node/normalize {/home/dbooth/rdf-pipeline/trunk/Private/www/node/normalize} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/normalize/state
+                    UPDATING http://localhost/node/normalize {/home/dbooth/rdf-pipeline/Private/www/node/normalize} state: /home/dbooth/rdf-pipeline/Private/www/cache/normalize/state
                   UPDATED depUri http://localhost/node/normalize of http://localhost/node/merge
                       UPDATED query parameters of http://localhost/node/patients
                       NO CHANGE to depUri http://localhost/node/patients-data.txt of http://localhost/node/patients
-                    UPDATING http://localhost/node/patients {/home/dbooth/rdf-pipeline/trunk/Private/www/node/patients} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/patients/state
+                    UPDATING http://localhost/node/patients {/home/dbooth/rdf-pipeline/Private/www/node/patients} state: /home/dbooth/rdf-pipeline/Private/www/cache/patients/state
                   UPDATED depUri http://localhost/node/patients of http://localhost/node/merge
-                UPDATING http://localhost/node/merge {/home/dbooth/rdf-pipeline/trunk/Private/www/node/merge} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/merge/state
+                UPDATING http://localhost/node/merge {/home/dbooth/rdf-pipeline/Private/www/node/merge} state: /home/dbooth/rdf-pipeline/Private/www/cache/merge/state
               UPDATED depUri http://localhost/node/merge of http://localhost/node/process
-            UPDATING http://localhost/node/process {/home/dbooth/rdf-pipeline/trunk/Private/www/node/process} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/process/state
+            UPDATING http://localhost/node/process {/home/dbooth/rdf-pipeline/Private/www/node/process} state: /home/dbooth/rdf-pipeline/Private/www/cache/process/state
           UPDATED depUri http://localhost/node/process of http://localhost/node/immunology
-        UPDATING http://localhost/node/immunology {/home/dbooth/rdf-pipeline/trunk/Private/www/node/immunology} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/immunology/state
+        UPDATING http://localhost/node/immunology {/home/dbooth/rdf-pipeline/Private/www/node/immunology} state: /home/dbooth/rdf-pipeline/Private/www/cache/immunology/state
 ----------------------------------------------------------------------
           NO CHANGE to query parameters of http://localhost/node/immunology
               NO CHANGE to query parameters of http://localhost/node/process
@@ -74,17 +74,17 @@
                       UPDATED query parameters of http://localhost/node/normalize
                           UPDATED query parameters of http://localhost/node/labs
                           NO CHANGE to depUri http://localhost/node/labs-data.txt of http://localhost/node/labs
-                        UPDATING http://localhost/node/labs {/home/dbooth/rdf-pipeline/trunk/Private/www/node/labs} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/labs/state
+                        UPDATING http://localhost/node/labs {/home/dbooth/rdf-pipeline/Private/www/node/labs} state: /home/dbooth/rdf-pipeline/Private/www/cache/labs/state
                       UPDATED depUri http://localhost/node/labs of http://localhost/node/normalize
-                    UPDATING http://localhost/node/normalize {/home/dbooth/rdf-pipeline/trunk/Private/www/node/normalize} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/normalize/state
+                    UPDATING http://localhost/node/normalize {/home/dbooth/rdf-pipeline/Private/www/node/normalize} state: /home/dbooth/rdf-pipeline/Private/www/cache/normalize/state
                   UPDATED depUri http://localhost/node/normalize of http://localhost/node/merge
                       UPDATED query parameters of http://localhost/node/patients
                       NO CHANGE to depUri http://localhost/node/patients-data.txt of http://localhost/node/patients
-                    UPDATING http://localhost/node/patients {/home/dbooth/rdf-pipeline/trunk/Private/www/node/patients} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/patients/state
+                    UPDATING http://localhost/node/patients {/home/dbooth/rdf-pipeline/Private/www/node/patients} state: /home/dbooth/rdf-pipeline/Private/www/cache/patients/state
                   UPDATED depUri http://localhost/node/patients of http://localhost/node/merge
-                UPDATING http://localhost/node/merge {/home/dbooth/rdf-pipeline/trunk/Private/www/node/merge} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/merge/state
+                UPDATING http://localhost/node/merge {/home/dbooth/rdf-pipeline/Private/www/node/merge} state: /home/dbooth/rdf-pipeline/Private/www/cache/merge/state
               UPDATED depUri http://localhost/node/merge of http://localhost/node/process
-            UPDATING http://localhost/node/process {/home/dbooth/rdf-pipeline/trunk/Private/www/node/process} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/process/state
+            UPDATING http://localhost/node/process {/home/dbooth/rdf-pipeline/Private/www/node/process} state: /home/dbooth/rdf-pipeline/Private/www/cache/process/state
           UPDATED depUri http://localhost/node/process of http://localhost/node/cardiology
-        UPDATING http://localhost/node/cardiology {/home/dbooth/rdf-pipeline/trunk/Private/www/node/cardiology} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/cardiology/state
+        UPDATING http://localhost/node/cardiology {/home/dbooth/rdf-pipeline/Private/www/node/cardiology} state: /home/dbooth/rdf-pipeline/Private/www/cache/cardiology/state
 ----------------------------------------------------------------------

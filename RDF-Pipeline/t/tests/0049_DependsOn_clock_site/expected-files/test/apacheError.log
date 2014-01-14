@@ -1,8 +1,8 @@
           UPDATED query parameters of http://localhost/node/hello
           UPDATED depUri http://www.time.gov/timezone.cgi?Eastern/d/-5 of http://localhost/node/hello
-        UPDATING http://localhost/node/hello {/home/dbooth/rdf-pipeline/trunk/Private/www/node/hello} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/hello/state
+        UPDATING http://localhost/node/hello {/home/dbooth/rdf-pipeline/Private/www/node/hello} state: /home/dbooth/rdf-pipeline/Private/www/cache/hello/state
 ----------------------------------------------------------------------
           NO CHANGE to query parameters of http://localhost/node/hello
           UPDATED depUri http://www.time.gov/timezone.cgi?Eastern/d/-5 of http://localhost/node/hello
-        UPDATING http://localhost/node/hello {/home/dbooth/rdf-pipeline/trunk/Private/www/node/hello} state: /home/dbooth/rdf-pipeline/trunk/Private/www/cache/hello/state
+        UPDATING http://localhost/node/hello {/home/dbooth/rdf-pipeline/Private/www/node/hello} state: /home/dbooth/rdf-pipeline/Private/www/cache/hello/state
 ----------------------------------------------------------------------

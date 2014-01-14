@@ -1,6 +1,6 @@
-curl file:///home/dbooth/rdf-pipeline/trunk/Private/www/node/patients-data.txt
+curl file:///home/dbooth/rdf-pipeline/Private/www/node/patients-data.txt
 curl http://localhost/node/patients
-curl file:///home/dbooth/rdf-pipeline/trunk/Private/www/node/labs-data.txt
+curl file:///home/dbooth/rdf-pipeline/Private/www/node/labs-data.txt
 curl http://localhost/node/labs
 curl http://localhost/node/normalize
 curl http://localhost/node/merge
