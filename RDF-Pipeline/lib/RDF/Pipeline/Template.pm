@@ -145,19 +145,28 @@ my $keyword = shift or confess "$0: ScanForList called with no keyword\n";
 my $template = shift;
 defined($template) or confess "$0: ScanForList called with undefined template\n";
 my @inVars = ();
-# Given keyword "inputs", the pattern matches the first line like:
-#	#inputs( $foo ${fum} )
-if ($template =~ s/^\#$keyword\(\s*([^\(\)]+?)\s*\)(.*)(\n|$)//m) {
-	my $inList = $1;
-	my $extra = $2;
-	my $line = $&;
-	# warn "FOUND inList: ($inList) extra: ($extra) line: ($line)\n";
-	$extra =~ s/\A\s*//;
-	### Do not allow trailing comment:
-	### $extra =~ s/\A\#.*//;
-	die "$0: ERROR: Extra text after \#$keyword(...): $extra\n" if $extra;
-	push(@inVars, split(/\s+/, $inList));
+# Process one line at a time, to preserve ordering.
+my @lines = split(/\n/, $template, -1);
+my @newLines = ();
+foreach my $template (@lines) {
+	# Given keyword "inputs", the pattern matches a line like:
+	#	#inputs( $foo ${fum} )
+	if ($template =~ s/^\#$keyword\(\s*([^\(\)]+?)\s*\)(.*)(\n|$)//m) {
+		my $inList = $1;
+		my $extra = $2;
+		my $line = $&;
+		# warn "FOUND inList: ($inList) extra: ($extra) line: ($line)\n";
+		$extra =~ s/\A\s*//;
+		### Do not allow trailing comment:
+		### $extra =~ s/\A\#.*//;
+		die "$0: ERROR: Extra text after \#$keyword(...): $extra\n" if $extra;
+		push(@inVars, split(/\s+/, $inList));
+		}
+	else {
+		push(@newLines, $template);
+		}
 	}
+$template = join("\n", @newLines);
 return ($template, \@inVars);
 }
 
@@ -347,16 +356,16 @@ die "Usage: $0 [template] [ -i iVal1 ...] [ -o oVal1 ...] [ -p pVar1=pVal1 ...]
 Options:
   -i iVal1 ...		
 	Values to be substituted into variables specified
-	by "#inputs( $iVar1 ... )" line in template.
+	by "#inputs( $iVar1 ... )" lines in template.
 
   -o oVal1 ...		
 	Values to be substituted into variables specified
-	by "#outputs( $oVar1 ... )" line in template.
+	by "#outputs( $oVar1 ... )" lines in template.
 
   -p pVar1=pVal1 ...	
 	URI encoded variable/value pairs to be substituted
 	into variables specified by "#parameters( $pVar1 ... )"
-	line in template.  Both variables and
+	lines in template.  Both variables and
 	values will be uri_unescaped before use.  Multiple
 	variable/value pairs may be specified together using
 	"&" as separator: foo=bar&fum=bah&foe=bif .  If -p
@@ -386,7 +395,7 @@ From the command line:
 
   ste.perl [options...] [template] 
 
-with typical options (explained more fully below):
+with typical options (repeatable and explained more fully below):
  -i iVal1 	Provide #inputs value iVal1
  -o oVal1 	Provide #outputs value oVal1
  -p pVar1=pVal1 Set QUERY_STRING to pVar1=pVal1
@@ -429,14 +438,28 @@ Template variables are declared within a template using lines like this:
 This declares variables iVar1 ... iVarN, oVar1 ... oVarN and pVar1 ... pVarN
 for use within the template.  Values may be provided when the template is
 processed, as explained later.
-Each of these
-lines is optional and is removed when the template is processed.
+
+Variable declaration lines are optional and may be repeated to
+list as declare as many variables as desired.  They are removed when
+the template is processed.  Declarations of the same
+type are processed in order, so
+
+  #inputs( $v1 $v2 )
+  #inputs( $v3 $v4 $v5 )
+
+is equivalent to:
+
+  #inputs( $v1 $v2 $v3 $v4 $v5 )
+
+Otherwise variable declaration lines of different types (#inputs, #outputs 
+or #parameters) may appear in any order.
 
 The hash (#) MUST be the first character of the line, and there must
 be no space between #inputs, #outputs or #parameters and the open
-parenthesis .  Whitespace is
+parenthesis.  Whitespace is
 required between variable names, and is 
-optional between the parentheses and the variables.
+optional between the parentheses and the variables (though suggested
+for readability).
 Variable names specified in #inputs or #outputs can use any syntax 
 except whitespace or parentheses, i.e., they must
 match the following Perl regular expression
@@ -448,7 +471,9 @@ However, common variable syntax conventions like $foo , ${foo} or %foo% are a
 good idea for both safety and readability.   On the other hand, you could use a
 string like http://example/var# as a variable name, which would
 give you the effect of replacing that string throughout your template
-when the template is processed.
+when the template is processed.   This can be useful
+for testing your template with a fixed value prior to enabling
+template expansion.
 
 The #inputs and #outputs directives have exactly the same function unless
 you are using the RDF Pipeline Framework, in which case #inputs is
@@ -511,8 +536,8 @@ http://perldoc.perl.org/perlre.html#Assertions )
 prepended or appended (or both) to
 the substitution pattern, thus forcing the match to
 only occur on a word boundary.
-Template processing can, however, cause words to be joined together.
-For example, if template variable ${eff} has the value PH , 
+Template processing can, however, cause words to be joined together
+on output.  For example, if template variable ${eff} has the value PH , 
 then a template string "ELE${eff}ANT" will become "ELEPHANT".
 
 =head2 Supplying Values for Template Variables
@@ -711,7 +736,7 @@ David Booth <david@dbooth.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2011 & 2012 David Booth <david@dbooth.org>
+Copyright 2011 - 2014 David Booth <david@dbooth.org>
 See license information at http://code.google.com/p/rdf-pipeline/ 
 
 =cut
