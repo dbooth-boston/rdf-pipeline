@@ -8,10 +8,11 @@
 p:Node		a rdfs:Class .
 p:FileNode	rdfs:subClassOf p:Node ;
   p:defaultContentType "text/plain" .
-p:HtmlFileNode	rdfs:subClassOf p:Node ;
+p:ExampleHtmlNode	rdfs:subClassOf p:Node ;
   p:defaultContentType "text/html" .
-p:JenaNode      rdfs:subClassOf p:Node .
-p:SesameNode    rdfs:subClassOf p:Node .
+p:GraphNode     rdfs:subClassOf p:Node .
+p:JenaNode      rdfs:subClassOf p:GraphNode .
+p:SesameNode    rdfs:subClassOf p:GraphNode .
 p:PerlNode      rdfs:subClassOf p:Node .
 p:MysqlNode	rdfs:subClassOf p:Node .
 p:OracleNode	rdfs:subClassOf p:Node .
