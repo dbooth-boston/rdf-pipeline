@@ -184,7 +184,7 @@ our $test;
 
 ##################  Constants for this server  ##################
 our $pipelinePrefix = "http://purl.org/pipeline/ont#";	# Pipeline ont prefix
-$ENV{DOCUMENT_ROOT} ||= "/home/dbooth/rdf-pipeline/trunk/Private/www";	# Set if not set
+$ENV{DOCUMENT_ROOT} ||= "/home/dbooth/rdf-pipeline/Private/www";	# Set if not set
 ### TODO: Set $baseUri properly.  Needs port?
 $ENV{SERVER_NAME} ||= "localhost";
 # $baseUri is the URI prefix that corresponds directly to DOCUMENT_ROOT.
@@ -384,7 +384,7 @@ if ($configLastModified != $cmtime
 	$configLastInode = $cinode;
 	$ontLastInode = $oinode;
 	$internalsLastInode = $iinode;
-	if (1) {
+	if (0) {
 		%config = &CheatLoadN3($ontFile, $configFile);
 		%configValues = map { 
 			my $hr; 
@@ -1458,7 +1458,7 @@ foreach my $t (@triples) {
 	$t = join(" ", map { s/\A$rdfsPrefix([a-zA-Z])/rdfs:$1/;	$_ }
 		split(/\s+/, $t));
 	my ($s, $p, $o) = split(/\s+/, $t, 3);
-	next if !$o;
+	next if !defined($o) || $0 eq "";
 	# $o may actually be a space-separate list of URIs
 	# &PrintLog("  s: $s p: $p o: $o\n") if $debug;
 	# Append additional values for the same property:
@@ -1484,7 +1484,7 @@ my $ff = (($f =~ m/\A\>/) ? $f : ">$f");    # Default to ">$f"
 my $nameOnly = $ff;
 $nameOnly =~ s/\A\>(\>?)//;
 &MakeParentDirs($nameOnly);
-open(my $fh, $ff) || die;
+open(my $fh, $ff) || confess "WriteFile: open failed of $ff : $!";
 print $fh $all;
 close($fh) || die;
 }
@@ -1826,7 +1826,7 @@ my $MAGIC = "# Hi-Res Last Modified (LM) Counter\n";
 # http://www.stonehenge.com/merlyn/UnixReview/col23.html
 # open(my $fh, "+<$lmCounterFile") or croak "Cannot open $lmCounterFile: $!";
 sysopen(my $fh, $lmCounterFile, O_RDWR|O_CREAT) 
-	or croak "Cannot open $lmCounterFile: $!";
+	or confess "Cannot open $lmCounterFile: $!";
 flock $fh, 2;
 my ($oldTime, $counter) = ($newTime, 0);
 my $magic = <$fh>;
@@ -1894,7 +1894,7 @@ sub NodeAbsUri
 {
 my $uri = shift;
 ##### TODO: Should this pattern be more general than just http:?
-if ($uri !~ m/\Ahttp(s?)\:/) {
+if ($uri !~ m/\Ahttp(s?)\:/ && $uri !~ m/\Afile\:/) {
 	# Relative URI
 	$uri =~ s|\A\/||;	# Chop leading / if any
 	$uri = "$nodeBaseUri/$uri";
@@ -2084,7 +2084,7 @@ my ($time) = @_;
 return "" if !$time || $time == 0;
 # Enough digits to work through year 2286:
 my $lm = sprintf("%010.6f", $time);
-length($lm) == 10+1+6 or croak "Too many digits in time!";
+length($lm) == 10+1+6 or confess "Too many digits in time!";
 return $lm;
 }
 
@@ -2100,7 +2100,7 @@ my ($counter) = @_;
 $counter = 0 if !$counter;
 my $counterWidth = 6;
 my $sCounter = sprintf("%0$counterWidth" . "d", $counter);
-croak "Need more than $counterWidth digits in counter!"
+confess "Need more than $counterWidth digits in counter!"
 	if length($sCounter) > $counterWidth;
 return $sCounter;
 }
