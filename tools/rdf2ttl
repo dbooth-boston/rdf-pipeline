@@ -1,0 +1,70 @@
+#! /usr/bin/env perl
+
+# Generate Turtle versions of RDF files, using
+# Dave Beckett's rapper.
+#
+# Copyright 2014 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Regression tests for this code:
+#	@@@@
+##################################################################
+
+use warnings;
+use strict;
+
+################# Usage ###################
+sub Usage
+{
+return "Usage: $0 rdfFile1 ... 
+For each file given on the command line,
+a corresponding .ttl file is generated.
+The input file format is guessed.
+";
+}
+
+################# MAIN ###################
+
+my $optHelp = 0;
+
+use Getopt::Long; # Perl
+if (!GetOptions(
+                # "from-format|f=s" => \$optFrom,
+                # "to-format|t=s" => \$optTo,
+                # "base-uri|u=s" => \$optBase,
+                "help|h" => \$optHelp,
+                )) {
+        warn "$0: Error reading options.\n";
+        die &Usage();
+        }
+if ($optHelp) {
+        print &Usage();
+        exit 0;
+        }
+
+foreach my $fRdf (@ARGV) {
+	my $fTtl = $fRdf;
+	if (-d $fRdf) {
+		warn "$0: [WARNING] Skipping directory: $fRdf\n";
+		next;
+		}
+	if (!-f $fRdf) {
+		warn "$0: [WARNING] Skipping non-plain-file: $fRdf\n";
+		next;
+		}
+	$fTtl .= ".ttl" if $fTtl !~ s/\.[^\.\/\\]*$/.ttl/;
+	if ($fRdf eq $fTtl) {
+		warn "$0: [WARNING] Skipping turtle input file: $fRdf\n";
+		next;
+		}
+	# warn "RDF: $fRdf TTL: $fTtl\n";
+	my $qfRdf = quotemeta($fRdf);
+	my $qfTtl = quotemeta($fTtl);
+	my $cmd = "rapper --quiet --guess -o turtle $qfRdf > $qfTtl";
+	# warn "  cmd: $cmd\n";
+	!system($cmd) or die "$0: [ERROR] Command failed: $cmd\n";
+	print "$fTtl\n";
+	}
+exit 0;
+

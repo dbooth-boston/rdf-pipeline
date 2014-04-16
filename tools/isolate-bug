@@ -1,0 +1,139 @@
+#!/usr/bin/env perl
+
+# isolate-bug.perl
+#
+# Given a testProgram and an originalFile containing lines of data,
+# that trigger a bug in testProgram, isolate the lines of data that 
+# trigger the bug, by reducing the lines of test data to the minimum
+# set that still triggers the bug.
+#
+# USAGE: isolate-bug.perl testProgram < originalFile  > reducedFile
+#
+# testProgram will be run as:
+#	testProgram tmpFile
+# where tmpFile contains a reduced set of lines that are to be tested
+# to see if they still trigger the bug.  testProgram must exit with 
+# 0 status (pass) if the bug is not triggered; non-zero status (fail) 
+# if the bug is triggered.
+# The testProgram should initially trigger the bug on the originalFile.
+#
+# ENVIRONMENT VARIABLES:
+#  $TMPDIR	Temp directory to use.  Defaults to /tmp
+#
+# ALGORITHM: Data is reduced using a binary-search-like approach in which 
+# chunks of exponentially decreasing size are removed until the chunk size
+# is 1 and no more lines can be removed while still triggering the
+# bug.  The algorithm is naively monotonic: if the bug is still
+# triggered after removing some lines, those lines will never be
+# put back, even if a smaller final set of lines could have been
+# obtained by removing a different set of lines.
+#
+# TODO: Generalize the concept of lines, to allow this to work
+# on other record-oriented input, such as by allowing a parser
+# to be supplied as an additional input argument, which would
+# break the input into chunks.
+#
+# TODO: Improve the algorithm to allow testProgram to return three
+# possible values: 0 (bug not triggerd), 1 (bug triggered) or
+# 2 (error).  The error case would mean that the testProgram
+# could not be run on that input set.
+#
+# Copyright 2013-2014 by David Booth
+# License: Apache 2.0
+
+use warnings;
+
+@ARGV == 1 or die "Usage: $0 testProgram < originalFile  > reducedFile\n";
+my $testProgram = shift @ARGV;
+
+my $tmpDir = $ENV{TMPDIR} || "/tmp";
+my $debug = 0;
+my @lines = <>;		
+my $nLines = scalar(@lines);
+my $originalNLines = $nLines;
+my $chunkSize = int($nLines / 2);
+$chunkSize = 1 if !$chunkSize;
+
+# The $testProgram should fail on the original input.
+if (!&BugIsTriggered($testProgram, @lines)) {
+	die "$0: [ERROR] Bug not triggered on original input\n";
+	}
+
+# $iChunk is the index of the next chunk to try removing.  It is global, 
+# and not reset on each iteration, to
+# avoid always starting with the first chunk (though I don't know
+# if this actually helps).
+my $iChunk = 0;		
+my $nChunks = 1;
+while ($nLines) {
+	$nChunks *= 2;
+	my $chunkSize = int($nLines / $nChunks);
+	$chunkSize++ if $chunkSize*$nChunks < $nLines;
+	warn "nLines: $nLines chunkSize: $chunkSize nChunks: $nChunks\n" if $debug;
+	if ($debug) {
+		warn "Lines ($nLines):\n";
+		my $lines = join("    ", @lines);
+		warn "    $lines" if @lines;
+		}
+	for (my $i=0; $i<$nChunks; $i++) {
+		$iChunk %= $nChunks;
+		# In hindsight, I should have used "splice" for this:
+		my $j = ($iChunk*$chunkSize-1);
+		my @left = ();
+		@left = @lines[0 .. $j] if $j >= 0;
+		my $k = (($iChunk+1)*$chunkSize);
+		my @right = ();
+		@right = @lines[$k .. ($nLines-1)] if $k <= $nLines-1;
+		my @newLines = (@left, @right);
+		my $nNewLines = scalar(@newLines);
+		if ($debug) {
+			warn "  iChunk: $iChunk newLines ($nNewLines):\n";
+			my $lines = join("    ", @newLines);
+			warn "    $lines" if @newLines;
+			}
+		if (&BugIsTriggered($testProgram, @newLines)) {
+			warn "  Bug still triggered with $nNewLines lines, chunk $iChunk/$nChunks size $chunkSize\n" if $debug;
+			@lines = @newLines;
+			$nLines = $nNewLines;
+			$nChunks--;
+			$nChunks or die;
+			last;
+			}
+		warn "  Bug NOT triggered with $nNewLines lines, chunk $iChunk/$nChunks size $chunkSize\n" if $debug;
+		$iChunk++;
+		}
+	last if ($chunkSize <= 1);
+	$iChunk *= 2;
+	}
+
+my $nLinesRemoved = $originalNLines - $nLines;
+warn "Removed $nLinesRemoved / $originalNLines = $nLines remaining\n";
+print @lines;
+exit 0;
+
+############ BugIsTriggered ###########
+sub BugIsTriggered
+{
+@_ >= 1 or die;
+my ($testProgram, @lines) = @_;
+my $tmp = "$tmpDir/reduce-$$.nt";
+&WriteFile($tmp, @lines);
+-e $testProgram or die "0: [ERROR] No such file: $testProgram\n";
+-x $testProgram or die "0: [ERROR] Cannot execute $testProgram\n";
+my $bugTriggered = system("$testProgram $tmp") >> 8;
+unlink($tmp);
+return $bugTriggered;
+}
+
+############ WriteFile ##########
+# Perl function to write a string to a file.
+sub WriteFile
+{
+@_ >= 1 || die;
+my ($f, @s) = @_;
+open(my $fh, ">$f") || die;
+print $fh @s;
+close($fh) || die;
+}
+
+
