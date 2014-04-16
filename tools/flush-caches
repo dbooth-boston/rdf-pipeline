@@ -1,12 +1,12 @@
 #! /usr/bin/perl -w
 
-# Flush the caches and LMs.
+# Flush the pipeline caches on the current machine.
 
 my $wwwDir = $ENV{'RDF_PIPELINE_WWW_DIR'} or &EnvNotSet('RDF_PIPELINE_WWW_DIR');
 
 my $qwww = quotemeta($wwwDir);
 my $cmd = "rm -r $qwww/lm $qwww/cache ; mkdir $qwww/lm $qwww/cache ";
-warn "$cmd\n";
+# warn "$cmd\n";
 `$cmd`;
 
 
