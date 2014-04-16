@@ -69,6 +69,8 @@ my ($nm, $thisUri, $updater, $state, $thisInputs, $thisParameters,
 &RDF::Pipeline::Warn("GraphNodeRunUpdater(nm, $thisUri, $updater, $state, ...) called.\n", $RDF::Pipeline::DEBUG_DETAILS);
 # warn "GraphNodeRunUpdater(nm, $thisUri, $updater, $state, ...) called.\n";
 $updater = &RDF::Pipeline::NodeAbsPath($updater) if $updater;
+#### TODO: Is this next line correct? MTime returns a file mod time,
+#### but $state isn't a file if $thisUri is a GraphNode.
 return &TimeToLM(&MTime($state)) if !$updater;
 # TODO: Move this warning to when the metadata is loaded?
 if (!-e $updater) {
