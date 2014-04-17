@@ -152,7 +152,6 @@ use URI::Escape;
 use Time::HiRes ();
 use File::Path qw(make_path remove_tree);
 use WWW::Mechanize;
-use File::Temp qw/ tempfile tempdir /;
 
 ################## Node Types ###################
 # use lib qw( /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib );
