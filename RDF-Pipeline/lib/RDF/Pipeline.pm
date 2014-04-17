@@ -152,6 +152,7 @@ use URI::Escape;
 use Time::HiRes ();
 use File::Path qw(make_path remove_tree);
 use WWW::Mechanize;
+use File::Temp qw/ tempfile tempdir /;
 
 ################## Node Types ###################
 # use lib qw( /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib );
@@ -197,6 +198,7 @@ our $nodeBaseUriPattern = quotemeta($nodeBaseUri);
 our $nodeBasePath = "$basePath/node";
 our $nodeBasePathPattern = quotemeta($nodeBasePath);
 our $lmCounterFile = "$basePath/lm/lmCounter.txt";
+our $cacheCounterFile = "$basePath/cache/cacheCounter.txt";
 our $rdfsPrefix = "http://www.w3.org/2000/01/rdf-schema#";
 # our $subClassOf = $rdfsPrefix . "subClassOf";
 our $subClassOf = "rdfs:subClassOf";
@@ -204,6 +206,7 @@ our $subClassOf = "rdfs:subClassOf";
 our $configFile = "$nodeBasePath/pipeline.ttl";
 our $ontFile = "$basePath/ont/ont.n3";
 our $internalsFile = "$basePath/ont/internals.n3";
+our $tmpDir = "$basePath/tmp";
 
 #### $nameType constants used by SaveLMs/LookupLMs:
 #### TODO: Change to "use Const".
@@ -1655,7 +1658,7 @@ my $qLatestQuery = quotemeta($latestQuery);
 my $exportqs = "export QUERY_STRING=$qLatestQuery";
 my $qss = quotemeta(join(" ", @{$pOutputQueries}));
 my $exportqss = "export QUERY_STRINGS=$qss";
-my $tmp = "/tmp/parametersFilterOut" . &GenerateNewLM() . ".txt";
+my $tmp = "$tmpDir/parametersFilterOut" . &GenerateNewLM() . ".txt";
 my $stderr = $nm->{value}->{$thisUri}->{stderr};
 # Make sure parent dirs exist for $stderr and $tmp:
 &MakeParentDirs($stderr, $tmp);
@@ -1849,7 +1852,7 @@ print $fh $MAGIC;
 print $fh "$newTime\n";
 print $fh "$counter\n";
 close $fh;	# Release flock
-&Warn("WARNING: $warning") if $warning;
+&Warn("[WARNING] $warning") if $warning;
 return &TimeToLM($newTime, $counter);
 }
 
