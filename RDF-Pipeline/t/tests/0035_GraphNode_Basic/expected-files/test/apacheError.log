@@ -1,10 +1,10 @@
           UPDATED query parameters of http://localhost/node/willies
               UPDATED query parameters of http://localhost/node/williams
-                UPDATING http://localhost/node/bill-presidents.ttl inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/bill-presidents.ttl/serCache of http://localhost/node/williams
+                UPDATING http://localhost/node/bill-presidents.ttl inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/URI/bill-presidents.ttl/serCache of http://localhost/node/williams
                 UPDATING http://localhost/node/bill-presidents.ttl local cache: http://localhost/cache/GraphNode/bill-presidents.ttl/cache of http://localhost/node/williams
               UPDATED depUri http://localhost/node/bill-presidents.ttl of http://localhost/node/williams
-            UPDATING http://localhost/node/williams {/home/dbooth/rdf-pipeline/Private/www/node/williams} state: http://localhost/cache/williams/state
+            UPDATING http://localhost/node/williams {/home/dbooth/rdf-pipeline/Private/www/node/williams} state: http://localhost/cache/URI/williams/state
           UPDATED depUri http://localhost/node/williams of http://localhost/node/willies
-        UPDATING http://localhost/node/willies {/home/dbooth/rdf-pipeline/Private/www/node/willies} state: http://localhost/cache/willies/state
-      UPDATING http://localhost/node/willies serState: /home/dbooth/rdf-pipeline/Private/www/cache/willies/serState
+        UPDATING http://localhost/node/willies {/home/dbooth/rdf-pipeline/Private/www/node/willies} state: http://localhost/cache/URI/willies/state
+      UPDATING http://localhost/node/willies serState: /home/dbooth/rdf-pipeline/Private/www/cache/URI/willies/serState
 ----------------------------------------------------------------------
