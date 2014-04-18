@@ -67,6 +67,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 	MTime
 	QuickName
 	HashName
+	HashTemplateName
 	NodeAbsUri
 	AbsUri
 	UriToPath
@@ -1120,6 +1121,7 @@ foreach my $thisUri (@allNodes)
   $thisVHash->{updater} or &Warn("WARNING: $thisUri has no updater!\n");
   $thisVHash->{state} ||= 
     $thisVHash->{updater} ? $defaultState : $thisName;
+  my $hash = &HashName($URI, $thisUri);
   $thisVHash->{serState} ||= 
     $nmv->{$thisType}->{fSerializer} ?
       "$basePath/cache/" . &QuickName($thisUri) . "/serState"
@@ -1128,7 +1130,8 @@ foreach my $thisUri (@allNodes)
   $nmv->{$thisUri}->{parametersFile} ||= 
 	  "$basePath/cache/" . &QuickName($thisUri) . "/parametersFile";
   $nmv->{$thisUri}->{parametersFileUri} ||= 
-	  "file://$basePath/cache/" . &QuickName($thisUri) . "/parametersFile";
+	  # "file://$basePath/cache/" . &QuickName($thisUri) . "/parametersFile";
+	  "file://" . $nmv->{$thisUri}->{parametersFile};
   ####
   # For capturing stderr:
   $nmv->{$thisUri}->{stderr} ||= 
@@ -1198,8 +1201,6 @@ foreach my $thisUri (@allNodes)
     $nml->{$depUri} ||= {};
     $nmh->{$depUri} ||= {};
     $nmm->{$depUri} ||= {};
-    # my $depUriEncoded = uri_escape($depUri);
-    # my $depUriEncoded = &QuickName($depUri);
     # $depType will be false if $depUri is not a node:
     my $depType = $nmv->{$depUri}->{nodeType} || "";
     # First set dependsOnSerCache.
@@ -1508,23 +1509,47 @@ return $all;
 
 ################ SafeBase64Hash ################
 # Hash a given string, returning the hash as a base64-encoded string,
-# after changing characters that would not be save in a filename
+# after changing characters that would not be safe in a filename
 # or URI into filename- and URI-safe characters.
+# Also prepend "h" to the resulting hash ensure that it never starts with "-",
+# which might otherwise be mistaken for a command option in linux.
 sub SafeBase64Hash
 {
 my $n = shift || die;
-my $hash = md4_base64($n);
+my $hash = "h" . md4_base64($n);
 # Ensure that it is filename- and URI-friendly:
 $hash =~ tr|+/=|\-_|d;
 return $hash;
 }
 
 ############### HashName ###############
-# Called as: my $hash = &HashName($template, $name);
+# $nameType must match m/\A[a-zA-Z_]\w*\Z/
+sub HashName
+{
+@_ == 2 || die;
+my ($nameType, $name) = @_;
+our %templates;
+my $template = $templates{$nameType};
+if (!$template) {
+	our $hashMapTemplate ||= "$basePath/cache/NAMETYPE/{}/hashMapFile.txt";
+	$template = $hashMapTemplate;
+	confess "Bad basePath: $basePath" if $basePath =~ m/NAMETYPE/;
+	confess "Bad nameType: $nameType" if $nameType !~ m/\A[a-zA-Z_]\w*\Z/;
+	$template =~ s/NAMETYPE/$nameType/;
+	$templates{$nameType} = $template;
+	}
+return &HashTemplateName($template, $name);
+}
+
+############### HashTemplateName ###############
+# Called as: my $hash = &HashTemplateName($template, $name);
 #
 # Create a unique, filename- and URI-friendly hash of the given $name,
-# (which must not be the empty string) using $template as a filename 
+# (which must not: be the empty string, contain newline, or
+# have leading or trailing whitespace) using $template as a filename 
 # template for persisting the $hash-to-$name association.
+# Actually the hash is only guaranteed to be unique within a template:
+# the same hash may be used for different templates.
 # The $template must contain {}, which will be replaced with
 # the generated hash, which is guaranteed filename and URI friendly
 # by &SafeBase64Hash.  Each $name-to-$hash association is stored
@@ -1547,30 +1572,35 @@ return $hash;
 # matching hashMapFile (found); or collision. However, the cases are 
 # complicated by the fact that we cache the hashMapFile contents
 # for fast lookup.
-sub HashName
+sub HashTemplateName
 {
-my $template = shift || confess "[INTERNAL ERROR] Missing template argument\n";
+my $template = shift || confess "[INTERNAL ERROR] Missing template argument";
 my $name = shift;
-confess "[INTERNAL ERROR] Missing name argument\n" if !defined($name);
-confess "[INTERNAL ERROR] Empty name argument\n" if $name eq "";
+confess "[INTERNAL ERROR] Missing name argument" if !defined($name);
+confess "[INTERNAL ERROR] Empty name argument" if $name eq "";
 # $name must not contain newline char:
-confess "[ERROR] Attempt to HashName a name containing a newline: $name\n" 
+confess "[ERROR] Attempt to HashTemplateName a name containing a newline: {$name}" 
 	if $name =~ m/\n/s;
+confess "[ERROR] Attempt to HashTemplateName a name with leading or trailing whitespace: {$name}" 
+	if $name =~ m/\A\s/ || $name =~ m/\s\Z/;
 my $originalName = $name;
 # Repeatedly try until we've found (or looked up) the unique hash for $name.
 my $maxCollisions = 20;
 my $nCollisions = 0;
+&Warn("HashTemplateName($template, $name) called\n");
 while (1) {
 	if ($nCollisions >= $maxCollisions) {
-		confess "[ERROR] Too many hash collisions ($nCollisions) when hashing $originalName\n";
+		confess "[ERROR] Too many hash collisions ($nCollisions) when hashing $originalName";
 		}
 	$nCollisions++;
+	&Warn("HashTemplateName iteration $nCollisions\n");
 	# Use cache if available.
-	my $oldHash = $RDF::Pipeline::HashName::nameToHashCache{$name} || "";
+	my $oldHash = $RDF::Pipeline::HashTemplateName::nameToHashCache{$template}->{$name} || "";
 	#
 	# On the first iteration, the mere existence of $oldHash means
 	# that we found it and can return it immediately.
 	return $oldHash if $oldHash && 1 == $nCollisions;
+	&Warn("HashTemplateName passed first check\n");
 	#
 	# Either this is not the first iteration (so $name ne $originalName)
 	# or we didn't find $name in the cache.  If $name was found
@@ -1582,6 +1612,7 @@ while (1) {
 	# hash of foo), and coicidentally foo44 already had a hash ($oldHash)
 	# registered in the cache, so we cannot use $oldHash for $originalName.
 	if ($oldHash) {
+		&Warn("HashTemplateName collision1 detected in cache\n");
 		# Collision.  Append the hash and try again.
 		$name .= $oldHash;
 		next;
@@ -1590,27 +1621,32 @@ while (1) {
 	# Didn't find it in the cache.  Compute the hash.
 	my $hash = &SafeBase64Hash($name);
 	# Again, if it is in the cache then it must be a collision.
-	my $oldName = $RDF::Pipeline::HashName::hashToNameCache{$hash} || "";
+	my $oldName = $RDF::Pipeline::HashTemplateName::hashToNameCache{$template}->{$hash} || "";
 	if ($oldName) {
+		&Warn("HashTemplateName collision2 detected in cache\n");
 		# Collision.  Append the hash and try again.
 		$name .= $hash;
 		next;
 		}
 	# Sanity check -- this should never happen, otherwise
 	# we would have found it in the cache when we first checked:
-	confess "[INTERNAL ERROR] Algorithm error! Found name in memory hash cache: $name\n"
+	confess "[INTERNAL ERROR] Algorithm error! Found name in memory hash cache: $name"
 		if $oldName eq $originalName;
 	# Need to check $hashMapFile.  There are three possible outcomes:
 	# 1. Empty file ($hash is unique) 2. Found. 3. Collision.
 	my $hashMapFile = $template;
-	($hashMapFile =~ s/\{\}/$hash/g) or confess "[INTERNAL ERROR] hashMapFile template lacks {}: $template\n";
+	($hashMapFile =~ s/\{\}/$hash/g) or confess "[INTERNAL ERROR] hashMapFile template lacks {}: $template";
 	&MakeParentDirs($hashMapFile);
 	# Got this flock code pattern from
 	# http://www.stonehenge.com/merlyn/UnixReview/col23.html
 	# See also http://docstore.mik.ua/orelly/perl/cookbook/ch07_12.htm
+	&Warn("HashTemplateName locking $hashMapFile\n");
 	sysopen(my $fh, $hashMapFile, O_RDWR|O_CREAT) 
 		or confess "[ERROR] Cannot open $hashMapFile: $!";
+	&Warn("Locking...\n");
 	flock $fh, 2;			# LOCK_EX -- exclusive lock
+	&Warn("Got lock!!!!!!\n");
+	sleep 5;
 	# I could not figure out from the documentation whether
 	# there is read-ahead buffering done when the file is opened
 	# using sysopen.   So AFAIK this code could be unsafe.  See:
@@ -1620,10 +1656,11 @@ while (1) {
 	chomp $line;
 	$line =~ s/^\s+//;	# Strip leading spaces
 	if (!$line) {
+		&Warn("HashTemplateName hash is new: $hash\n");
 		# $hashMapFile was empty: $hash is unique (no collision).
 		# Cache it:
-		$RDF::Pipeline::HashName::nameToHashCache{$originalName} = $hash;
-		$RDF::Pipeline::HashName::hashToNameCache{$hash} = $originalName;
+		$RDF::Pipeline::HashTemplateName::nameToHashCache{$template}->{$originalName} = $hash;
+		$RDF::Pipeline::HashTemplateName::hashToNameCache{$template}->{$hash} = $originalName;
 		# Write it, release the lock and be done.
 		seek $fh, 0, 0;
 		truncate $fh, 0;
@@ -1636,27 +1673,34 @@ while (1) {
 	# $hashMapFile contains something.  See if it matches.
 	# Hash must not contain spaces, but $oldName could:
 	($oldHash, $oldName) = split(/ /, $line, 2);
-	if (!$oldHash || !defined($oldName) || $oldHash ne $hash) {
+	$oldName = "" if !defined($oldName);
+	# Strip leading/trailing whitespace:
+	$oldName =~ s/\A\s+//;
+	$oldName =~ s/\s+\Z//;
+	if (!$oldHash || $oldName eq "" || $oldHash ne $hash) {
 		close $fh;	# Release lock before dying
-		confess "[INTERNAL ERROR] Corrupt hashMapFile: $hashMapFile!  Contents: $originalLine\n";
+		confess "[INTERNAL ERROR] Corrupt hashMapFile: $hashMapFile!  Contents: $originalLine";
 		}
 	# Cache what we found, whether it matches or not:
-	$RDF::Pipeline::HashName::nameToHashCache{$oldName} = $hash;
-	$RDF::Pipeline::HashName::hashToNameCache{$hash} = $oldName;
+	$RDF::Pipeline::HashTemplateName::nameToHashCache{$template}->{$oldName} = $hash;
+	$RDF::Pipeline::HashTemplateName::hashToNameCache{$template}->{$hash} = $oldName;
 	close $fh or die;	# Releases lock
+	&Warn("HashTemplateName Lock released\n");
 	return $hash if ($oldName eq $originalName);
+	&Warn("HashTemplateName collision3\n");
 	#
 	# Collision.  Try again.
 	$name .= $hash;
 	}
-confess "[INTERNAL ERROR] Should never get here!\n";
+confess "[INTERNAL ERROR] Should never get here!";
 return "";
 }
 
 ############# NameToLmFile #############
 # Convert $nameType + $name to a LM file path.
 # The combination must be unique -- a composite key.
-# $nameType will normally be either $URI or $FILE.
+# $nameType will be either $URI, $FILE or a nodeType (which can
+# never be either $URI or $FILE).
 sub NameToLmFile
 {
 my $nameType = shift || confess;
@@ -2032,7 +2076,7 @@ return (&MTimeAndInode(@_))[0];
 }
 
 ############## QuickName ##############
-# Generate a relative filename based on the given URI.
+# Generate a relative path or filename based on the given URI.
 sub QuickName
 {
 my $t = shift;
