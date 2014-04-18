@@ -1104,7 +1104,8 @@ foreach my $thisUri (@allNodes)
   # Set state and serState if not set.  
   # state is a native name; serState is a file path.
   my $fUriToNativeName = $nmv->{$thisType}->{fUriToNativeName} || "";
-  my $defaultStateUri = "$baseUri/cache/" . &QuickName($thisUri) . "/state";
+  # my $defaultStateUri = "$baseUri/cache/" . &HashName($URI, $thisUri) . "/state";
+  my $defaultStateUri = "$baseUri/cache/$URI/" . &QuickName($thisUri) . "/state";
   my $thisHostRoot = $nmh->{$thisType}->{hostRoot}->{$baseUri} || $basePath;
   my $defaultState = $defaultStateUri;
   $defaultState = &{$fUriToNativeName}($defaultState, $baseUri, $thisHostRoot) 
@@ -1126,18 +1127,18 @@ foreach my $thisUri (@allNodes)
   # my $hash = &HashName($URI, $thisUri);
   $thisVHash->{serState} ||= 
     $nmv->{$thisType}->{fSerializer} ?
-      "$basePath/cache/" . &QuickName($thisUri) . "/serState"
+      "$basePath/cache/$URI/" . &QuickName($thisUri) . "/serState"
       : $thisVHash->{state};
   #### TODO QUERY: Add parametersFile as an implicit input:
   $nmv->{$thisUri}->{parametersFile} ||= 
-	  "$basePath/cache/" . &QuickName($thisUri) . "/parametersFile";
+	  "$basePath/cache/$URI/" . &QuickName($thisUri) . "/parametersFile";
   $nmv->{$thisUri}->{parametersFileUri} ||= 
-	  # "file://$basePath/cache/" . &QuickName($thisUri) . "/parametersFile";
+	  # "file://$basePath/cache/$URI/" . &QuickName($thisUri) . "/parametersFile";
 	  "file://" . $nmv->{$thisUri}->{parametersFile};
   ####
   # For capturing stderr:
   $nmv->{$thisUri}->{stderr} ||= 
-	  "$basePath/cache/" . &QuickName($thisUri) . "/stderr";
+	  "$basePath/cache/$URI/" . &QuickName($thisUri) . "/stderr";
   $thisVHash->{fUpdatePolicy} ||= \&LazyUpdatePolicy;
   #### TODO: If we change to use the node name as the updater name, then
   #### MakeValuesAbsoluteUris will no longer be needed.
@@ -1214,7 +1215,7 @@ foreach my $thisUri (@allNodes)
       # Different servers, so make up a new file path.
       # dependsOnSerCache file path does not need to contain $thisType, because 
       # different node types on the same server can share the same serCaches.
-      my $depSerCache = "$basePath/cache/" . &QuickName($depUri) . "/serCache";
+      my $depSerCache = "$basePath/cache/$URI/" . &QuickName($depUri) . "/serCache";
       $thisHHash->{dependsOnSerCache}->{$depUri} = $depSerCache;
       }
     # Now set dependsOnCache.
@@ -2094,8 +2095,9 @@ return $uri;
 sub AbsUri
 {
 my $uri = shift;
-##### TODO: Should this pattern be more general than just http:?
-if ($uri !~ m/\Ahttp(s?)\:/) {
+# From RFC 3986:
+#    scheme  = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+if ($uri !~ m/\A[a-zA-Z][a-zA-Z0-9\+\-\.]*\:/) {
 	# Relative URI
 	$uri =~ s|\A\/||;	# Chop leading / if any
 	$uri = "$baseUri/$uri";
