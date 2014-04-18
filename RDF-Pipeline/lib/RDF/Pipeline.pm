@@ -66,6 +66,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 	MTimeAndInode
 	MTime
 	QuickName
+	HashName
 	NodeAbsUri
 	AbsUri
 	UriToPath
@@ -152,6 +153,7 @@ use URI::Escape;
 use Time::HiRes ();
 use File::Path qw(make_path remove_tree);
 use WWW::Mechanize;
+use Digest::MD4 qw(md4_base64);
 
 ################## Node Types ###################
 # use lib qw( /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib );
@@ -197,7 +199,6 @@ our $nodeBaseUriPattern = quotemeta($nodeBaseUri);
 our $nodeBasePath = "$basePath/node";
 our $nodeBasePathPattern = quotemeta($nodeBasePath);
 our $lmCounterFile = "$basePath/lm/lmCounter.txt";
-our $cacheCounterFile = "$basePath/cache/cacheCounter.txt";
 our $rdfsPrefix = "http://www.w3.org/2000/01/rdf-schema#";
 # our $subClassOf = $rdfsPrefix . "subClassOf";
 our $subClassOf = "rdfs:subClassOf";
@@ -1198,7 +1199,7 @@ foreach my $thisUri (@allNodes)
     $nmh->{$depUri} ||= {};
     $nmm->{$depUri} ||= {};
     # my $depUriEncoded = uri_escape($depUri);
-    my $depUriEncoded = &QuickName($depUri);
+    # my $depUriEncoded = &QuickName($depUri);
     # $depType will be false if $depUri is not a node:
     my $depType = $nmv->{$depUri}->{nodeType} || "";
     # First set dependsOnSerCache.
@@ -1210,7 +1211,7 @@ foreach my $thisUri (@allNodes)
       # Different servers, so make up a new file path.
       # dependsOnSerCache file path does not need to contain $thisType, because 
       # different node types on the same server can share the same serCaches.
-      my $depSerCache = "$basePath/cache/$depUriEncoded/serCache";
+      my $depSerCache = "$basePath/cache/" . &QuickName($depUri) . "/serCache";
       $thisHHash->{dependsOnSerCache}->{$depUri} = $depSerCache;
       }
     # Now set dependsOnCache.
@@ -1228,7 +1229,7 @@ foreach my $thisUri (@allNodes)
       my $fUriToNativeName = $nmv->{$thisType}->{fUriToNativeName};
       my $thisHostRoot = $nmh->{$thisType}->{hostRoot}->{$baseUri} || $basePath;
       # Default to a URI if there is no fUriToNativeName:
-      my $cache = "$baseUri/cache/$thisType/$depUriEncoded/cache";
+      my $cache = "$baseUri/cache/$thisType/" . &QuickName($depUri) . "/cache";
       $cache = &{$fUriToNativeName}($cache, $baseUri, $thisHostRoot) 
 		if $fUriToNativeName;
       $thisHHash->{dependsOnCache}->{$depUri} = $cache;
@@ -1505,8 +1506,157 @@ close($fh) || die;
 return $all;
 }
 
+################ SafeBase64Hash ################
+# Hash a given string, returning the hash as a base64-encoded string,
+# after changing characters that would not be save in a filename
+# or URI into filename- and URI-safe characters.
+sub SafeBase64Hash
+{
+my $n = shift || die;
+my $hash = md4_base64($n);
+# Ensure that it is filename- and URI-friendly:
+$hash =~ tr|+/=|\-_|d;
+return $hash;
+}
+
+############### HashName ###############
+# Called as: my $hash = &HashName($template, $name);
+#
+# Create a unique, filename- and URI-friendly hash of the given $name,
+# (which must not be the empty string) using $template as a filename 
+# template for persisting the $hash-to-$name association.
+# The $template must contain {}, which will be replaced with
+# the generated hash, which is guaranteed filename and URI friendly
+# by &SafeBase64Hash.  Each $name-to-$hash association is stored
+# in a separate file whose name is determined by the $template.
+# However, the associations are also cached in memory in
+# %nameToHashCache and %hashToNameCache to avoid file access
+# when possible.
+#
+# The algorithm computes a hash, and if there is a collision,
+# then the hash is appended to the current $name and we try again
+# until we find a hash that is unique.  For example, if foo hashes to
+# 44, but the slot for 44 is already taken (collision), then we
+# try hashing foo44.  If that hashes to xx, and that slot is also
+# taken (collision), then we try hashing foo44xx, etc.  Once we
+# find an unused slot (hash), we store the hash and original name
+# in the $hashMapFile for that hash.  
+#
+# When checking for collisions, there
+# are basically three cases to handle: empty hashMapFile (unique hash);
+# matching hashMapFile (found); or collision. However, the cases are 
+# complicated by the fact that we cache the hashMapFile contents
+# for fast lookup.
+sub HashName
+{
+my $template = shift || confess "[INTERNAL ERROR] Missing template argument\n";
+my $name = shift;
+confess "[INTERNAL ERROR] Missing name argument\n" if !defined($name);
+confess "[INTERNAL ERROR] Empty name argument\n" if $name eq "";
+# $name must not contain newline char:
+confess "[ERROR] Attempt to HashName a name containing a newline: $name\n" 
+	if $name =~ m/\n/s;
+my $originalName = $name;
+# Repeatedly try until we've found (or looked up) the unique hash for $name.
+my $maxCollisions = 20;
+my $nCollisions = 0;
+while (1) {
+	if ($nCollisions >= $maxCollisions) {
+		confess "[ERROR] Too many hash collisions ($nCollisions) when hashing $originalName\n";
+		}
+	$nCollisions++;
+	# Use cache if available.
+	my $oldHash = $RDF::Pipeline::HashName::nameToHashCache{$name} || "";
+	#
+	# On the first iteration, the mere existence of $oldHash means
+	# that we found it and can return it immediately.
+	return $oldHash if $oldHash && 1 == $nCollisions;
+	#
+	# Either this is not the first iteration (so $name ne $originalName)
+	# or we didn't find $name in the cache.  If $name was found
+	# in the cache *after* the first iteration, then it indicates
+	# another collision, because $name is not the same as $originalName
+	# and its hash ($oldHash) is already in the cache, so its slot 
+	# is already taken (for $name).  For example, $originalName
+	# might be foo, and $name might be foo44 (if 44 had been the
+	# hash of foo), and coicidentally foo44 already had a hash ($oldHash)
+	# registered in the cache, so we cannot use $oldHash for $originalName.
+	if ($oldHash) {
+		# Collision.  Append the hash and try again.
+		$name .= $oldHash;
+		next;
+		}
+	#
+	# Didn't find it in the cache.  Compute the hash.
+	my $hash = &SafeBase64Hash($name);
+	# Again, if it is in the cache then it must be a collision.
+	my $oldName = $RDF::Pipeline::HashName::hashToNameCache{$hash} || "";
+	if ($oldName) {
+		# Collision.  Append the hash and try again.
+		$name .= $hash;
+		next;
+		}
+	# Sanity check -- this should never happen, otherwise
+	# we would have found it in the cache when we first checked:
+	confess "[INTERNAL ERROR] Algorithm error! Found name in memory hash cache: $name\n"
+		if $oldName eq $originalName;
+	# Need to check $hashMapFile.  There are three possible outcomes:
+	# 1. Empty file ($hash is unique) 2. Found. 3. Collision.
+	my $hashMapFile = $template;
+	($hashMapFile =~ s/\{\}/$hash/g) or confess "[INTERNAL ERROR] hashMapFile template lacks {}: $template\n";
+	&MakeParentDirs($hashMapFile);
+	# Got this flock code pattern from
+	# http://www.stonehenge.com/merlyn/UnixReview/col23.html
+	# See also http://docstore.mik.ua/orelly/perl/cookbook/ch07_12.htm
+	sysopen(my $fh, $hashMapFile, O_RDWR|O_CREAT) 
+		or confess "[ERROR] Cannot open $hashMapFile: $!";
+	flock $fh, 2;			# LOCK_EX -- exclusive lock
+	# I could not figure out from the documentation whether
+	# there is read-ahead buffering done when the file is opened
+	# using sysopen.   So AFAIK this code could be unsafe.  See:
+	# http://www.perlmonks.org/?node_id=1082675
+	my $line = <$fh> || "";
+	my $originalLine = $line;
+	chomp $line;
+	$line =~ s/^\s+//;	# Strip leading spaces
+	if (!$line) {
+		# $hashMapFile was empty: $hash is unique (no collision).
+		# Cache it:
+		$RDF::Pipeline::HashName::nameToHashCache{$originalName} = $hash;
+		$RDF::Pipeline::HashName::hashToNameCache{$hash} = $originalName;
+		# Write it, release the lock and be done.
+		seek $fh, 0, 0;
+		truncate $fh, 0;
+		print $fh "$hash $originalName\n";
+		close $fh or die;	# Releases lock
+		my $nc = $nCollisions - 1;
+		&Warn("[WARNING] Hash collision $nc for $originalName\n") if $nc;
+		return $hash;
+		}
+	# $hashMapFile contains something.  See if it matches.
+	# Hash must not contain spaces, but $oldName could:
+	($oldHash, $oldName) = split(/ /, $line, 2);
+	if (!$oldHash || !defined($oldName) || $oldHash ne $hash) {
+		close $fh;	# Release lock before dying
+		confess "[INTERNAL ERROR] Corrupt hashMapFile: $hashMapFile!  Contents: $originalLine\n";
+		}
+	# Cache what we found, whether it matches or not:
+	$RDF::Pipeline::HashName::nameToHashCache{$oldName} = $hash;
+	$RDF::Pipeline::HashName::hashToNameCache{$hash} = $oldName;
+	close $fh or die;	# Releases lock
+	return $hash if ($oldName eq $originalName);
+	#
+	# Collision.  Try again.
+	$name .= $hash;
+	}
+confess "[INTERNAL ERROR] Should never get here!\n";
+return "";
+}
+
 ############# NameToLmFile #############
-# Convert $name to a LM file path.
+# Convert $nameType + $name to a LM file path.
+# The combination must be unique -- a composite key.
+# $nameType will normally be either $URI or $FILE.
 sub NameToLmFile
 {
 my $nameType = shift || confess;
@@ -1826,6 +1976,7 @@ my $MAGIC = "# Hi-Res Last Modified (LM) Counter\n";
 &MakeParentDirs($lmCounterFile);
 # Got this flock code pattern from
 # http://www.stonehenge.com/merlyn/UnixReview/col23.html
+# See also http://docstore.mik.ua/orelly/perl/cookbook/ch07_12.htm
 # open(my $fh, "+<$lmCounterFile") or croak "Cannot open $lmCounterFile: $!";
 sysopen(my $fh, $lmCounterFile, O_RDWR|O_CREAT) 
 	or confess "Cannot open $lmCounterFile: $!";
