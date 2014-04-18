@@ -8,6 +8,7 @@ my $qwww = quotemeta($wwwDir);
 my $cmd = "rm -r $qwww/lm $qwww/cache ; mkdir $qwww/lm $qwww/cache ";
 # warn "$cmd\n";
 `$cmd`;
+exit 0;
 
 
 ########## EnvNotSet #########
