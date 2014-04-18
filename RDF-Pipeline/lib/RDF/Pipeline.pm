@@ -13,6 +13,8 @@ package RDF::Pipeline;
 #
 # To restart apache (under root):
 #  apache2ctl stop ; sleep 5 ; truncate -s 0 /var/log/apache2/error.log ; apache2ctl start
+# To also restart sesame:
+#  apache2ctl stop ; service tomcat6 restart ; sleep 3 ; truncate -s 0 /var/log/apache2/error.log ; apache2ctl start
 
 use 5.10.1; 	# It has not been tested on other versions.
 use strict;
@@ -1121,7 +1123,7 @@ foreach my $thisUri (@allNodes)
   $thisVHash->{updater} or &Warn("WARNING: $thisUri has no updater!\n");
   $thisVHash->{state} ||= 
     $thisVHash->{updater} ? $defaultState : $thisName;
-  my $hash = &HashName($URI, $thisUri);
+  # my $hash = &HashName($URI, $thisUri);
   $thisVHash->{serState} ||= 
     $nmv->{$thisType}->{fSerializer} ?
       "$basePath/cache/" . &QuickName($thisUri) . "/serState"
@@ -1587,20 +1589,17 @@ my $originalName = $name;
 # Repeatedly try until we've found (or looked up) the unique hash for $name.
 my $maxCollisions = 20;
 my $nCollisions = 0;
-&Warn("HashTemplateName($template, $name) called\n");
 while (1) {
 	if ($nCollisions >= $maxCollisions) {
 		confess "[ERROR] Too many hash collisions ($nCollisions) when hashing $originalName";
 		}
 	$nCollisions++;
-	&Warn("HashTemplateName iteration $nCollisions\n");
 	# Use cache if available.
 	my $oldHash = $RDF::Pipeline::HashTemplateName::nameToHashCache{$template}->{$name} || "";
 	#
 	# On the first iteration, the mere existence of $oldHash means
 	# that we found it and can return it immediately.
 	return $oldHash if $oldHash && 1 == $nCollisions;
-	&Warn("HashTemplateName passed first check\n");
 	#
 	# Either this is not the first iteration (so $name ne $originalName)
 	# or we didn't find $name in the cache.  If $name was found
@@ -1612,7 +1611,6 @@ while (1) {
 	# hash of foo), and coicidentally foo44 already had a hash ($oldHash)
 	# registered in the cache, so we cannot use $oldHash for $originalName.
 	if ($oldHash) {
-		&Warn("HashTemplateName collision1 detected in cache\n");
 		# Collision.  Append the hash and try again.
 		$name .= $oldHash;
 		next;
@@ -1623,7 +1621,6 @@ while (1) {
 	# Again, if it is in the cache then it must be a collision.
 	my $oldName = $RDF::Pipeline::HashTemplateName::hashToNameCache{$template}->{$hash} || "";
 	if ($oldName) {
-		&Warn("HashTemplateName collision2 detected in cache\n");
 		# Collision.  Append the hash and try again.
 		$name .= $hash;
 		next;
@@ -1640,13 +1637,9 @@ while (1) {
 	# Got this flock code pattern from
 	# http://www.stonehenge.com/merlyn/UnixReview/col23.html
 	# See also http://docstore.mik.ua/orelly/perl/cookbook/ch07_12.htm
-	&Warn("HashTemplateName locking $hashMapFile\n");
 	sysopen(my $fh, $hashMapFile, O_RDWR|O_CREAT) 
 		or confess "[ERROR] Cannot open $hashMapFile: $!";
-	&Warn("Locking...\n");
 	flock $fh, 2;			# LOCK_EX -- exclusive lock
-	&Warn("Got lock!!!!!!\n");
-	sleep 5;
 	# I could not figure out from the documentation whether
 	# there is read-ahead buffering done when the file is opened
 	# using sysopen.   So AFAIK this code could be unsafe.  See:
@@ -1656,7 +1649,6 @@ while (1) {
 	chomp $line;
 	$line =~ s/^\s+//;	# Strip leading spaces
 	if (!$line) {
-		&Warn("HashTemplateName hash is new: $hash\n");
 		# $hashMapFile was empty: $hash is unique (no collision).
 		# Cache it:
 		$RDF::Pipeline::HashTemplateName::nameToHashCache{$template}->{$originalName} = $hash;
@@ -1685,9 +1677,7 @@ while (1) {
 	$RDF::Pipeline::HashTemplateName::nameToHashCache{$template}->{$oldName} = $hash;
 	$RDF::Pipeline::HashTemplateName::hashToNameCache{$template}->{$hash} = $oldName;
 	close $fh or die;	# Releases lock
-	&Warn("HashTemplateName Lock released\n");
 	return $hash if ($oldName eq $originalName);
-	&Warn("HashTemplateName collision3\n");
 	#
 	# Collision.  Try again.
 	$name .= $hash;
