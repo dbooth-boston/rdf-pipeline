@@ -1,0 +1,5 @@
+#! /bin/bash
+
+# Make lower case
+tr A-Z a-z < $1
+

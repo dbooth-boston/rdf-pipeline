@@ -1,0 +1,24 @@
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 17
+Content-Location: http://localhost/cache/URI/SHORT_short_HASHh572OMJsOGNjq90hh-jX-4w/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+hello from short
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 16
+Content-Location: http://localhost/cache/URI/SHORT_long_HASHhXKYgDxutIFg6_ojt6QIUPg/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+hello from long
+----------------------------------------------------------------------

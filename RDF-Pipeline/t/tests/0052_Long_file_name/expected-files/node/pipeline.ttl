@@ -1,0 +1,19 @@
+# RDF Pipeline definition.
+# Testing GraphNode serialization/deserialization #####
+
+# The RDF Pipeline ontology:
+@prefix p: <http://purl.org/pipeline/ont#> .
+
+# Prefix for nodes in your pipeline:
+@prefix : <http://localhost/node/> .
+
+######################## Pipeline ###############################
+
+# The file must be created by testscript before this is run.
+:long a p:FileNode ;
+	p:inputs ( <file:///tmp/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/junk.txt> ) .
+
+# Try with short a short filename, just to be sure that we can access /tmp:
+:short a p:FileNode ;
+	p:inputs ( <file:///tmp/junk_0052_pipeline_test.txt> ) .
+
