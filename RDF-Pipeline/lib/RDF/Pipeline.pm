@@ -1700,8 +1700,13 @@ my $name = shift || die;
 my $lmFile = $RDF::Pipeline::NameToLmFile::lmFile{$nameType}->{$name} || "";
 if (!$lmFile) {
 	my $t = uri_escape($nameType);
-	my $f = uri_escape($name);
+	my $n = $name;
+	$n =~ s|\A$basePathPattern\/|| if $nameType eq $FILE;
+	$n =~ s|\A$nodeBaseUriPattern\/|| if $nameType eq $URI;
+	my $f = uri_escape($n);
+	# my $f = &QuickName($n);
 	$lmFile = "$basePath/lm/$t/$f";
+	# $lmFile = "$basePath/cache/$t/$f/lm.txt";
 	$RDF::Pipeline::NameToLmFile::lmFile{$nameType}->{$name} = $lmFile;
 	}
 return $lmFile;
@@ -2071,6 +2076,7 @@ return (&MTimeAndInode(@_))[0];
 sub QuickName
 {
 my $t = shift;
+# my $nameType = shift || "";
 $t =~ s|$nodeBaseUriPattern\/||;	# Simplify if it's local
 $t = uri_escape($t);
 return $t;
