@@ -295,6 +295,11 @@ if ($test)
 	my $t = &OldQuickName($name);
 	print "$name -->\n$s old: $t\n\n";
 	print "=================================\n";
+	$name = "node/bill-presidents.txt";
+	$s = &ShortName($name);
+	$t = &OldQuickName($name);
+	print "$name -->\n$s old: $t\n\n";
+	print "=================================\n";
 	
 	die "COMMAND-LINE TESTING IS NO LONGER IMPLEMENTED!\n";
 	die "HELLO!  Hello!  hello!  Bye.\n";
@@ -1597,8 +1602,9 @@ my @components = split(/[^a-zA-Z0-9_\-\.]+/, $name);
 # Ensure that we have at least two components:
 unshift(@components, "x") if @components < 2;
 unshift(@components, "x") if @components < 2;
-my $components = join("|", @components);
-my $maxLength = 16;
+# my $components = join("|", @components);
+# print "originalName: $originalName components: $components\n";
+my $maxLength = 20;
 my $last       = substr($components[-1], 0, $maxLength);
 my $nextToLast = substr($components[-2], 0, $maxLength);
 my $sanitized = $last;
