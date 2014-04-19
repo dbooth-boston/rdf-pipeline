@@ -20,8 +20,10 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
 ############ CUSTOMIZE HERE ################
+!system("flush-caches") or die;
+!system("cd ../0001_Update_chain_addone/ ; ./test-script '$wwwDir'") or die;
 # Get rid of caches, both here and $wwwDir:
-!system("../../helpers/copy-dir.perl -s /dev/null setup-files/cache") or die;
+!system("../../helpers/copy-dir.perl -s /dev/null setup-files/cache") or die if -e "setup-files/cache";
 !system("../../helpers/copy-dir.perl -s /dev/null '$wwwDir/cache'") or die;
 
 # Invoke the URL, concatenating its output to $wwwDir/test/testout :
