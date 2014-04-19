@@ -20,6 +20,7 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
 ############ CUSTOMIZE HERE ################
+!system("flush-caches") or die;
 # Invoke the URL, concatenating its output to $wwwDir/test/testout :
 my $testUrl = 'http://localhost/node/cardiology?id=(002,005)';
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
