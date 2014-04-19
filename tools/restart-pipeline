@@ -1,0 +1,34 @@
+#!/usr/bin/env perl
+
+# Restart apache and sesame whenever Pipeline.pm is modified.
+# MUST BE RUN AS ROOT!
+# This is used during development.
+
+my $restartCmd = "apache2ctl stop ; service tomcat6 restart ; sleep 3 ; truncate -s 0 /var/log/apache2/error.log ; apache2ctl start";
+my $file = "/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm";
+
+my $oldmtime = 0;
+while (1) {
+	if ($oldmtime) {
+		# Not the first time through.
+		# Wait until we're done running tests before restarting.
+		my $notified = 0;
+		while (1) {
+			my @running = `ps aux |grep run-test |grep -v grep`;
+			last if !@running;
+			print "Waiting for run-test to finish ...\n" if !$notified;
+			sleep 1;
+			}
+		}
+	my $mtime;
+	while (1) {
+		$mtime = (stat $file)[9];
+		last if $mtime != $oldmtime;
+		sleep 1;
+		}
+	$oldmtime = $mtime;
+	print "$restartCmd\n";
+	!system($restartCmd) || die "Restart command failed: $restartCmd\n";
+	print "========================================\n";
+	}
+
