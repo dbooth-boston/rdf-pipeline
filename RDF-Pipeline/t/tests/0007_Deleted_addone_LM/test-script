@@ -24,7 +24,10 @@ $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;
 !system("cd ../0003_No_changes_should_304 ; ./test-script '$wwwDir'") or die;
 # Delete addone LM:
 # my $addoneLM = "$wwwDir/lm/URI/http%3A%2F%2Flocalhost%2Fnode%2Faddone";
-my $addoneLM = "$wwwDir/lm/URI/addone";
+# my $addoneLM = "$wwwDir/lm/URI/addone";
+my @matches = glob "$wwwDir/lm/URI/addone_HASH*";
+die if @matches != 1;
+my $addoneLM = $matches[0];
 -e $addoneLM || die "addoneLM not found: $addoneLM\n";
 unlink("$addoneLM") || die;
 

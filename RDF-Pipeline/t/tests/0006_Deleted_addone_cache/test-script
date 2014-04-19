@@ -23,7 +23,10 @@ $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;
 !system("flush-caches") or die;
 !system("cd ../0003_No_changes_should_304 ; ./test-script '$wwwDir'") or die;
 # Delete addone cache:
-my $addoneCache = "$wwwDir/cache/URI/addone/state";
+# my $addoneCache = "$wwwDir/cache/URI/addone/state";
+my @matches = glob "$wwwDir/cache/URI/SHORT_addone_HASH*/state";
+die if @matches != 1;
+my $addoneCache = $matches[0];
 -e $addoneCache || die "addoneCache not found: $addoneCache\n";
 unlink("$addoneCache") || die;
 
