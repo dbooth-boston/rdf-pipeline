@@ -1,0 +1,44 @@
+1a2,19
+> 
+> # ----------------------------------
+> # Per guidance in http://perl.apache.org/docs/2.0/user/intro/start_fast.html
+> # added by dbooth 2/12/11:
+> PerlRequire /home/dbooth/rdf-pipeline/trunk/startup.pl
+> # 1/3/12: If the above fails, then try "a2enmod perl" as suggested at:
+> # http://list.georgialibraries.org/pipermail/open-ils-general/2009-May/001581.html
+> # ----------------------------------
+> 
+> # ----------------------------------
+> #### dbooth added 3/11/13:
+> <Location /node/>
+>       SetHandler perl-script
+>       PerlSetEnv RDF_PIPELINE_DEBUG $DEBUG_CHANGES
+>       PerlResponseHandler  RDF::Pipeline
+> </Location>
+> # ----------------------------------
+> 
+4c22,29
+< 	DocumentRoot /var/www
+---
+>         # 12/16/13: DBooth changed DocumentRoot and Directory
+>         # to be under trunk/Private, which is a symlink to an
+>         # encrypted dir, so that confidential pipelines can
+>         # be tested.
+>         # 2/10/11: DBooth changed DocumentRoot and Directory.
+>         # Previous value was: /var/www
+>         DocumentRoot /home/dbooth/rdf-pipeline/Private/www
+> 
+9c34,36
+< 	<Directory /var/www/>
+---
+>         # 2/10/11: DBooth changed /var/www 
+>         # Previous value was: /var/www
+>         <Directory "/home/dbooth/rdf-pipeline/Private/www">
+13a41,47
+>                 # 1/31/12: dbooth: Enable CGI:
+>                 Options +ExecCGI
+>                 AddHandler cgi-script .cgi .pl
+>                 # 1/31/12: dbooth: Prevent ETags from including inode info, 
+>                 # as explained in issue #13: 
+>                 # http://code.google.com/p/rdf-pipeline/issues/detail?id=13
+>                 FileETag MTime Size

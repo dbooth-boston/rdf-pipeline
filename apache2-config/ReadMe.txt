@@ -18,13 +18,52 @@ To change ownership of /var/lock/apache2:
 			linked from /etc/apache2/sites-enabled .
 
 	envvars		-- Sets user and group for RDF Pipeline framework.
-			Lives in /etc/apache2/sites-available .
+			This must be set in /etc/apache2/envvars --
+			NOT in /etc/apache2/sites-available/envvars ,
+			even though there is an envvars file in both places.
+			If you get this error:
+			[[
+/var/lock/apache2 already exists but is not a directory owned by www-data.
+Please fix manually. Aborting.
+			]]
+			then it wasn't set right.
 
 	ports.conf	-- Sets listening port for apache2.
 			Important to set to limit access to localhost.
 			Lives in /etc/apache2/sites-available .
 
 See the associated examples of these files in this directory.
+Here are the commands that I did (as root):
+
+  498  chown dbooth:dbooth /var/lock/apache2
+  500  cd /etc/apache2/sites-available/
+  505  cp default default.OLD
+  509  cp  ~dbooth/rdf-pipeline/trunk/apache2-config/000-default default
+  511  cp ~dbooth/rdf-pipeline/trunk/apache2-config/envvars-ubuntu-12.04 envvars
+  512  cp ~dbooth/rdf-pipeline/trunk/apache2-config/ports.conf-ubuntu-12.04 ports.conf
+
+
+ERRORS:
+[[
+apache2: Could not reliably determine the server's fully qualified domain name, using 127.0.1.1 for ServerName
+]]
+As suggested at
+http://askubuntu.com/questions/256013/could-not-reliably-determine-the-servers-fully-qualified-domain-name
+I fixed this error by doing (as root):
+
+  #  echo "ServerName localhost" | sudo tee /etc/apache2/conf.d/servername.conf
+
+However, that askubuntu answer also says that as of Apache 2.4,
+it needs to be in the /etc/apache2/conf-available directory instead.
+
+
+3. Install and configure Oracle Java6, via Software Center.
+
+4. Install and configure Sesame.
+
+5. Run a test
+
+-----------------------------------------
 
 More notes:
 

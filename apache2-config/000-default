@@ -25,7 +25,7 @@ PerlRequire /home/dbooth/rdf-pipeline/trunk/startup.pl
         # be tested.
         # 2/10/11: DBooth changed DocumentRoot and Directory.
         # Previous value was: /var/www
-        DocumentRoot /home/dbooth/rdf-pipeline/trunk/Private/www
+        DocumentRoot /home/dbooth/rdf-pipeline/Private/www
 
 	<Directory />
 		Options FollowSymLinks
@@ -33,7 +33,7 @@ PerlRequire /home/dbooth/rdf-pipeline/trunk/startup.pl
 	</Directory>
         # 2/10/11: DBooth changed /var/www 
         # Previous value was: /var/www
-        <Directory "/home/dbooth/rdf-pipeline/trunk/Private/www">
+        <Directory "/home/dbooth/rdf-pipeline/Private/www">
 		Options Indexes FollowSymLinks MultiViews
 		AllowOverride None
 		Order allow,deny
