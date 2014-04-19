@@ -20,9 +20,12 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
 ############ CUSTOMIZE HERE ################
+!system("flush-caches") or die;
+!system("cd ../0003_No_changes_should_304 ; ./test-script '$wwwDir'") or die;
 # Delete addone LM:
-my $addoneLM = "$wwwDir/lm/URI/http%3A%2F%2Flocalhost%2Fnode%2Faddone";
--e $addoneLM || die;
+# my $addoneLM = "$wwwDir/lm/URI/http%3A%2F%2Flocalhost%2Fnode%2Faddone";
+my $addoneLM = "$wwwDir/lm/URI/addone";
+-e $addoneLM || die "addoneLM not found: $addoneLM\n";
 unlink("$addoneLM") || die;
 
 # Invoke the URL, concatenating its output to $wwwDir/test/testout :
