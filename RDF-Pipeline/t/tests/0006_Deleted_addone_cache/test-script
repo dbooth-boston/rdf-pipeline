@@ -20,9 +20,11 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
 ############ CUSTOMIZE HERE ################
+!system("flush-caches") or die;
+!system("cd ../0003_No_changes_should_304 ; ./test-script '$wwwDir'") or die;
 # Delete addone cache:
-my $addoneCache = "$wwwDir/cache/addone/state";
--e $addoneCache || die;
+my $addoneCache = "$wwwDir/cache/URI/addone/state";
+-e $addoneCache || die "addoneCache not found: $addoneCache\n";
 unlink("$addoneCache") || die;
 
 # Invoke the URL, concatenating its output to $wwwDir/test/testout :
