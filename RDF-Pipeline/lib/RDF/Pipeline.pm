@@ -274,7 +274,25 @@ if ($testUri =~ m/\A([^\?]*)\?/) {
 	}
 if ($test)
 	{
+	my $name = "/home/dbooth/rdf-pipeline/Private/www/cache/URI/file%3A%2F%2F%2Ftmp%2Ffile-uri-test/serCache";
+	my $s = &ShortName($name);
+	print "$name -->\n$s\n\n";
+	print "=================================\n";
+	$name = "/home/dbooth/rdf-pipeline/Private/www/cache/URI/file%3A%2F%2F%2Ftmp%2Ffile-uri-test";
+	$s = &ShortName($name);
+	print "$name -->\n$s\n\n";
+	print "=================================\n";
+	$name = "/home/dbooth/rdf-pipeline/Private/www/cache/URI/file%3A%2F%2F%2Ftmp%2Ffile-uri-test/";
+	$s = &ShortName($name);
+	print "$name -->\n$s\n\n";
+	print "=================================\n";
+	$name = "test/";
+	$s = &ShortName($name);
+	print "$name -->\n$s\n\n";
+	print "=================================\n";
+	
 	die "COMMAND-LINE TESTING IS NO LONGER IMPLEMENTED!\n";
+	die "HELLO!  Hello!  hello!  Bye.\n";
 	# Invoked from the command line, instead of through Apache.
 	# Fake a RequestReq object:
 	my $r = &MakeFakeRequestReq();
@@ -1527,6 +1545,65 @@ die if $hash !~ m/\A[a-zA-Z0-9_\-]+\Z/;
 return $hash;
 }
 
+############### OldShortName ###############
+# Return a short portion of the given name,
+# including only letters or digits.
+sub OldShortName
+{
+my $name = shift;
+# Un-percent encode ":"
+$name =~ s|\%3A|\/|;
+# Un-percent encode "/"
+$name =~ s|\%2F|\/|;
+# Split into components -- continuous letters/digits:
+my @components = split(/[^a-zA-Z0-9]+/, $name);
+# Ensure that we have at least two components:
+push(@components, "x") if @components < 2;
+push(@components, "x") if @components < 2;
+@components = @components[-2, -1];
+my $maxPerComponent = 8;
+my $sanitized = join("_", map {substr($_, 0, $maxPerComponent)} @components);
+return $sanitized;
+}
+
+############### ShortName ###############
+# ShortName is sort of like OldQuickName, but it returns
+# limited length names, and they are prefixed with "SHORT_",
+# so that then can be identified more easily in regression test
+# filter scripts.
+# It is used while in transition to hashed names.
+sub ShortName
+{
+my $name = shift;
+my $originalName = $name;
+# Remove any hash codes:
+$name =~ s/_HASH[a-zA-Z0-9_\-]+//g;
+# Un-percent encode "/"
+$name =~ s|\%2F|\/|g;
+$name =~ s|\%3A|\:|g;
+$name = &OldQuickName($name);
+$name =~ s/_HASH[a-zA-Z0-9_\-]+//g;
+# Un-percent encode ":"
+$name =~ s|\%3A|\:|g;
+# Un-percent encode "/"
+$name =~ s|\%2F|\/|g;
+# Split into components -- contiguous letters/digits/hyphens:
+my @components = split(/[^a-zA-Z0-9_\-]+/, $name);
+# Ensure that we have at least two components:
+unshift(@components, "x") if @components < 2;
+unshift(@components, "x") if @components < 2;
+my $components = join("|", @components);
+my $maxLength = 16;
+my $last       = substr($components[-1], 0, $maxLength);
+my $nextToLast = substr($components[-2], 0, $maxLength);
+my $sanitized = $last;
+my %known = map {($_,$_)} qw(cache serCache state serState parametersFile);
+$sanitized = $nextToLast . "_$last" if $known{$last};
+my $final = "SHORT_$sanitized";
+# `echo $name $final >> /tmp/names`;
+return $final;
+}
+
 ############### HashName ###############
 # $nameType must match m/\A[a-zA-Z_]\w*\Z/
 sub HashName
@@ -1706,8 +1783,10 @@ if (!$lmFile) {
 	$n =~ s|\A$basePathPattern\/|| if $nameType eq $FILE;
 	$n =~ s|\A$nodeBaseUriPattern\/|| if $nameType eq $URI;
 	my $f = uri_escape($n);
+	# my $f = &ShortName($n);
 	# my $f = &QuickName($n);
 	my $hash = &HashName($nameType, $name);
+	# $lmFile = "$basePath/lm/$t/$f";
 	$lmFile = "$basePath/lm/$t/$f" . "_HASH$hash";
 	# $lmFile = "$basePath/cache/$t/$f/lm.txt";
 	$RDF::Pipeline::NameToLmFile::lmFile{$nameType}->{$name} = $lmFile;
@@ -2074,14 +2153,28 @@ sub MTime
 return (&MTimeAndInode(@_))[0];
 }
 
+############## OldQuickName ##############
+# Generate a relative path or filename based on the given URI.
+sub OldQuickName
+{
+my $uri = shift;
+my $t = $uri;
+$t =~ s|$nodeBaseUriPattern\/||;	# Simplify if it's local
+$t = uri_escape($t);
+return $t;
+}
+
 ############## QuickName ##############
 # Generate a relative path or filename based on the given URI.
 sub QuickName
 {
-my $t = shift;
-# my $nameType = shift || "";
+my $uri = shift;
+my $t = $uri;
 $t =~ s|$nodeBaseUriPattern\/||;	# Simplify if it's local
-$t = uri_escape($t);
+# $t = uri_escape($t);
+$t = &ShortName($t);
+my $hash = &HashName($URI, $uri);
+$t .= "_HASH$hash";
 return $t;
 }
 
