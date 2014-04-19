@@ -20,6 +20,12 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
 ############ CUSTOMIZE HERE ################
+# NOTE: If you are testing manually using "curl http://localhost/node/short"
+# and you get "Error GETing file:///tmp/junk_0052_pipeline_test.txt",
+# it is probably because these tmp files are deleted at the end
+# of this script.  So you cannot test this with curl unless you
+# comment out their deletion.
+#
 # First make a file with a long path name.
 # This one was too long, for example:
 # /home/dbooth/rdf-pipeline/Private/www/cache/http%3A%2F%2F192.168.1.125%3A8080%2Fopenrdf-sesame%2Frepositories%2Fchcs%2Frdf-graphs%2Fservice%3Fgraph%3Dfile%253A%252F%252FC%253A%252Ffakepath%252Fclone10051chcsPatientGraph922419.owl
@@ -28,13 +34,21 @@ my $dir = "/tmp/$long/$long/$long/$long/$long";
 !system("mkdir -p $dir") || die;
 my $f = "$dir/junk.txt";
 open(my $fh, ">$f") || die;
-print $fh "HELLO\n";
-close($fh);
+print $fh "HELLO FROM LONG\n";
+close($fh) || die;
+my $short = "/tmp/junk_0052_pipeline_test.txt";
+!system("echo HELLO FROM SHORT > $short") || die;
 # Invoke the URL, concatenating its output to $wwwDir/test/testout :
-my $testUrl = 'http://localhost/node/lower';
+my $testUrl = 'http://localhost/node/short';
+!system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
+$testUrl = 'http://localhost/node/long';
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
 # Clean up:
-!system("rm -r /tmp/$long") || die;
+my $cleanup = 0;
+if ($cleanup) {
+	!system("rm -r /tmp/$long") || die;
+	unlink $short || die;
+	}
 ############################################
 
 exit 0;
