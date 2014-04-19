@@ -3,11 +3,16 @@
 # Flush the pipeline caches on the current machine.
 
 my $wwwDir = $ENV{'RDF_PIPELINE_WWW_DIR'} or &EnvNotSet('RDF_PIPELINE_WWW_DIR');
-
 my $qwww = quotemeta($wwwDir);
-my $cmd = "rm -r $qwww/lm $qwww/cache ; mkdir $qwww/lm $qwww/cache ";
-# warn "$cmd\n";
-`$cmd`;
+
+foreach my $subdir (qw(cache lm)) {
+	my $f = "$qwww/$subdir";
+	my $cmd = "rm -r $f";
+	# warn "$cmd\n";
+	`$cmd` if -e "$f";
+	die "$0: Failed to delete $f\n" if -e $f;
+	mkdir $f || die "$0: [ERROR] Failed to re-create empty $f\n";
+	}
 exit 0;
 
 
