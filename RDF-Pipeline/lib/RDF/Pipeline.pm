@@ -923,7 +923,7 @@ $oldParametersLM ||= "";
 $pChanged = 1 if ($parametersLM ne $oldParametersLM);
 $thisIsStale = 1 if $pChanged;
 if ($pChanged) {
-  &Warn("UPDATED query parameters of $thisUri\n", $DEBUG_PARAM_UPDATES);
+  &Warn("UPDATED      query parameters of $thisUri\n", $DEBUG_PARAM_UPDATES);
 } else {
   &Warn("NO CHANGE to query parameters of $thisUri\n", $DEBUG_CHANGES);
   }
@@ -1005,9 +1005,8 @@ foreach my $depUri (sort keys %{$thisMHashDependsOn}) {
   my $depChanged = !$oldDepLM || ($newDepLM && $newDepLM ne $oldDepLM);
   $thisIsStale = 1 if $depChanged;
   $newDepLMs->{$depUri} = $newDepLM;
-  my $status = $depChanged ? "UPDATED" : "NO CHANGE to";
   if ($depChanged) {
-    &Warn("UPDATED depUri $depUri of $thisUri\n", $DEBUG_CHANGES);
+    &Warn("UPDATED      depUri $depUri of $thisUri\n", $DEBUG_CHANGES);
     } else {
     &Warn("NO CHANGE to depUri $depUri of $thisUri\n", $DEBUG_CHANGES);
     }
@@ -1520,8 +1519,11 @@ sub SafeBase64Hash
 {
 my $n = shift || die;
 my $hash = "h" . md4_base64($n);
-# Ensure that it is filename- and URI-friendly:
+# Ensure that it is filename- and URI-friendly, i.e.,
+# it contains only [a-zA-Z0-9_\-]+:
 $hash =~ tr|+/=|\-_|d;
+# Sanity check:
+die if $hash !~ m/\A[a-zA-Z0-9_\-]+\Z/;
 return $hash;
 }
 
@@ -1534,7 +1536,7 @@ my ($nameType, $name) = @_;
 our %templates;
 my $template = $templates{$nameType};
 if (!$template) {
-	our $hashMapTemplate ||= "$basePath/cache/NAMETYPE/{}/hashMapFile.txt";
+	our $hashMapTemplate ||= "$basePath/cache/NAMETYPE/{}/hashMap.txt";
 	$template = $hashMapTemplate;
 	confess "Bad basePath: $basePath" if $basePath =~ m/NAMETYPE/;
 	confess "Bad nameType: $nameType" if $nameType !~ m/\A[a-zA-Z_]\w*\Z/;
@@ -1705,7 +1707,8 @@ if (!$lmFile) {
 	$n =~ s|\A$nodeBaseUriPattern\/|| if $nameType eq $URI;
 	my $f = uri_escape($n);
 	# my $f = &QuickName($n);
-	$lmFile = "$basePath/lm/$t/$f";
+	my $hash = &HashName($nameType, $name);
+	$lmFile = "$basePath/lm/$t/$f" . "_HASH$hash";
 	# $lmFile = "$basePath/cache/$t/$f/lm.txt";
 	$RDF::Pipeline::NameToLmFile::lmFile{$nameType}->{$name} = $lmFile;
 	}
