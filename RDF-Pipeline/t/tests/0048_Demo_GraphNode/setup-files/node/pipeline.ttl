@@ -17,7 +17,7 @@
 :labs2rdf a p:FileNode ;
   p:inputs ( :normalize ) .
 
-:merge a p:GraphNode ;
+:merge a p:FileNode ;
   p:parametersFilter "merge-parametersFilter" ;
   p:inputs ( :patients2rdf :labs2rdf ) .
 
