@@ -23,7 +23,9 @@ $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;
 !system("flush-caches") or die;
 !system("cd ../0003_No_changes_should_304 ; ./test-script '$wwwDir'") or die;
 # Delete odds cache:
-my $oddsCache = "$wwwDir/cache/URI/odds/state";
+my @matches = glob "$wwwDir/cache/URI/SHORT_odds_HASH*/state";
+die if @matches != 1;
+my $oddsCache = $matches[0];
 -e $oddsCache || die "oddsCache not found: $oddsCache\n";
 unlink("$oddsCache") || die;
 
