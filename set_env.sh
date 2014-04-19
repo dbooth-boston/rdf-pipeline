@@ -4,7 +4,7 @@
 # These should be customized for your installation.
 
 # Apache DOCUMENT_ROOT for RDF-Pipeline:
-export RDF_PIPELINE_WWW_DIR=/home/dbooth/rdf-pipeline/trunk/Private/www
+export RDF_PIPELINE_WWW_DIR=/home/dbooth/rdf-pipeline/Private/www
 
 # Top development directory for the RDF::Pipeline project, which must
 # contain the module directory "RDF-Pipeline", and the module

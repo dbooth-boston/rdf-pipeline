@@ -33,7 +33,7 @@ my ($dir) = @ARGV;
 !system("$moduleDir/t/helpers/copy-dir.perl '/dev/null' '$wwwDir'") or die;
 (mkdir("$wwwDir") || die) if !-d "$wwwDir";
 !system("$moduleDir/t/helpers/copy-dir.perl '$devDir/www-template' '$wwwDir'") or die;
-!system("$moduleDir/t/helpers/copy-dir.perl '$dir' '$wwwDir/node'") or die;
+!system("cp -rp '$dir' '$wwwDir/node'") or die;
 
 exit 0;
 

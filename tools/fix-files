@@ -7,15 +7,20 @@
 # one filename per line.
 #
 # Remember to BACKUP the files before running this, in case
-# it doesn't as planned.
+# it doesn't work as planned.  :)
 #
 # Usage:
 #	fix-files filesToBeModified...
+# Or:
+#	fix-files < filename
+# Where filename contains a list of files, one per line, to be fixed.
 #
 # Copyright 2013 by David Booth
 # See license information at http://code.google.com/p/rdf-pipeline/
 
 use strict;
+
+my $noop = 0;
 
 if (!@ARGV) {
 	my @files = grep {m/\S/} map {chomp; &Trim($_)} <>;
@@ -26,7 +31,9 @@ my $tmp = "/tmp/fix-files-$$";
 my $nDirs = 0;
 my $nMod = 0;
 my $n = 0;
+# warn "Files: @ARGV\n";
 foreach my $f (@ARGV) {
+	# warn "File: $f ...\n";
 	if (-d $f) {
 		$nDirs++;
 		next;
@@ -41,8 +48,8 @@ foreach my $f (@ARGV) {
 	########################################
 	########### Customize here #############
 	# $all =~ s/88/44/g;
-	$all =~ s/trunk\/www/trunk\/Private\/www/g;
-	$all =~ s/trunk\%2Fwww/trunk\%2FPrivate\%2Fwww/g;
+	$all =~ s|trunk\/Private\/www|Private\/www|g;
+	$all =~ s|trunk\%2FPrivate\%2Fwww|Private\%2Fwww|g;
 	########################################
 	########################################
 
@@ -54,9 +61,9 @@ foreach my $f (@ARGV) {
 		# Writing to tmp and then renaming reduces the chance
 		# of getting corrupted by interruption.
 		&WriteFile($tmp, $all);
-		rename($tmp, $f) || die "$0: ERROR: Failed to rename $tmp to $f\n";
+		$noop || rename($tmp, $f) || die "$0: ERROR: Failed to rename $tmp to $f\n";
 		}
-	unlink $tmp;
+	$noop || unlink $tmp;
 	}
 warn "Skipped $nDirs directories\n" if $nDirs;
 warn "Modified $nMod / $n plain files\n";
