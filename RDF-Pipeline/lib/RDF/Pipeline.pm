@@ -290,6 +290,11 @@ if ($test)
 	$s = &ShortName($name);
 	print "$name -->\n$s\n\n";
 	print "=================================\n";
+	$name = "multiplier.txt";
+	$s = &ShortName($name);
+	my $t = &OldQuickName($name);
+	print "$name -->\n$s old: $t\n\n";
+	print "=================================\n";
 	
 	die "COMMAND-LINE TESTING IS NO LONGER IMPLEMENTED!\n";
 	die "HELLO!  Hello!  hello!  Bye.\n";
@@ -1506,7 +1511,7 @@ sub WriteFile
 my ($f, $all) = @_;
 my $ff = (($f =~ m/\A\>/) ? $f : ">$f");    # Default to ">$f"
 my $nameOnly = $ff;
-$nameOnly =~ s/\A\>(\>?)//;
+$nameOnly =~ s/\A\>(\>?)\s*//;
 &MakeParentDirs($nameOnly);
 open(my $fh, $ff) || confess "WriteFile: open failed of $ff : $!";
 print $fh $all;
@@ -1547,7 +1552,7 @@ return $hash;
 
 ############### OldShortName ###############
 # Return a short portion of the given name,
-# including only letters or digits.
+# including only letters, digits.
 sub OldShortName
 {
 my $name = shift;
@@ -1587,8 +1592,8 @@ $name =~ s/_HASH[a-zA-Z0-9_\-]+//g;
 $name =~ s|\%3A|\:|g;
 # Un-percent encode "/"
 $name =~ s|\%2F|\/|g;
-# Split into components -- contiguous letters/digits/hyphens:
-my @components = split(/[^a-zA-Z0-9_\-]+/, $name);
+# Split into components -- contiguous letters/digits/hyphens/periods:
+my @components = split(/[^a-zA-Z0-9_\-\.]+/, $name);
 # Ensure that we have at least two components:
 unshift(@components, "x") if @components < 2;
 unshift(@components, "x") if @components < 2;
@@ -1597,7 +1602,7 @@ my $maxLength = 16;
 my $last       = substr($components[-1], 0, $maxLength);
 my $nextToLast = substr($components[-2], 0, $maxLength);
 my $sanitized = $last;
-my %known = map {($_,$_)} qw(cache serCache state serState parametersFile);
+my %known = map {($_,$_)} qw(cache serCache state serState parametersFile stderr);
 $sanitized = $nextToLast . "_$last" if $known{$last};
 my $final = "SHORT_$sanitized";
 # `echo $name $final >> /tmp/names`;
