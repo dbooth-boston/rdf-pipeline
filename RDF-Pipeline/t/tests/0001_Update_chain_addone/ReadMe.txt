@@ -1,3 +1,3 @@
-Basic test of a 3-node pipeline.  Caches are cleared before running
-the pipeline.
+This shows that a change to a file (max.txt) that is an input of
+node :max will cause the change the ripple through the pipeline.
 

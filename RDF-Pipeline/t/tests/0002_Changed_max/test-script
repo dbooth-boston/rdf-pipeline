@@ -19,53 +19,29 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 # Ensure this env var is set, so that pipeline-request.perl can find it:
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
-############ REPEAT OF 0001 ################
-my $testUrl;
-# This section just repeats what was done in set 0001, to
-# set up the state properly.
-if (1) {
-
+############ CUSTOMIZE HERE ################
+my $testUrl = 'http://localhost/node/addone';
 # Get rid of lm and cache directories, both here and $wwwDir:
+!system("flush-caches") or die;
 !system("../../helpers/copy-dir.perl -s /dev/null setup-files/lm") or die;
 !system("../../helpers/copy-dir.perl -s /dev/null setup-files/cache") or die;
-!system("../../helpers/copy-dir.perl -s /dev/null '$wwwDir/lm'") or die;
-!system("../../helpers/copy-dir.perl -s /dev/null '$wwwDir/cache'") or die;
-
 # Init max to 13:
-!system("cp 'setup-files/node/max13' '$wwwDir/node/max'") or die;
-
-# Invoke the URL, concatenating its output to $wwwDir/test/testout :
-$testUrl = 'http://localhost/node/addone';
+!system("echo 13 > '$wwwDir/node/max.txt'") or die;
+# Wait 1 second to ensure that a strong ETag is issued and any
+# change will be detectable:
+sleep 1;
+# Run the pipeline, which should update every node:
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
-}
-############################################
-
-############ 0002 BEGINS HERE ################
-############ CUSTOMIZE HERE ################
-
-# Wait at least 1 second to ensure that Apache will issue a strong ETag
-# instead of a weak ETag, as described at:
-# https://issues.apache.org/bugzilla/show_bug.cgi?id=42987
-sleep(1);
-
+# Run again, which should produce the same output without
+# updating any nodes:
+!system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
 # Change max to 9:
-!system("cp 'setup-files/node/max9' '$wwwDir/node/max'") or die;
-
-# Invoke the URL, concatenating its output to $wwwDir/test/testout :
-$testUrl = 'http://localhost/node/addone';
+!system("echo 9 > '$wwwDir/node/max.txt'") or die;
+# Run again, and the result should not change:
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
-
-############ Force test to fail ################
-# Force test to fail, because it's wrong, but produce the right state
-# needed for test 0003.  See issue 64:
-# http://code.google.com/p/rdf-pipeline/issues/detail?id=64
-# Get rid of lm and cache directories:
-!system("../../helpers/copy-dir.perl -s /dev/null '$wwwDir/lm'") or die;
-!system("../../helpers/copy-dir.perl -s /dev/null '$wwwDir/cache'") or die;
-# Invoke the URL, concatenating its output to $wwwDir/test/testout :
-$testUrl = 'http://localhost/node/addone';
+# Flush the cache, and the change should not be visible:
+!system("flush-caches") or die;
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
-exit 1;
 ############################################
 
 exit 0;

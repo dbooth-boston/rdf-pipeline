@@ -1,3 +1,3 @@
-This follows test 0001 to test that a change to the max node
-causes the downstread nodes to be updated.
+This shows that :max's updater is not run after the first time, 
+because it has no inputs/dependsOn.
 

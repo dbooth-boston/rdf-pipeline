@@ -20,14 +20,26 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
 ############ CUSTOMIZE HERE ################
+my $testUrl = 'http://localhost/node/addone';
 # Get rid of lm and cache directories, both here and $wwwDir:
+!system("flush-caches") or die;
 !system("../../helpers/copy-dir.perl -s /dev/null setup-files/lm") or die;
 !system("../../helpers/copy-dir.perl -s /dev/null setup-files/cache") or die;
-!system("../../helpers/copy-dir.perl -s /dev/null '$wwwDir/lm'") or die;
-!system("../../helpers/copy-dir.perl -s /dev/null '$wwwDir/cache'") or die;
-
-# Invoke the URL, concatenating its output to $wwwDir/test/testout :
-my $testUrl = 'http://localhost/node/addone';
+# Init max to 13:
+!system("echo 13 > '$wwwDir/node/max.txt'") or die;
+# Wait 1 second to ensure that a strong ETag is issued, so that
+# the change later will be detectable:
+sleep 1;
+# Run the pipeline, which should update every node:
+!system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
+# Run again, which should produce the same output without
+# updating any nodes:
+!system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
+# Change max to 9:
+!system("echo 9 > '$wwwDir/node/max.txt'") or die;
+# Run again, and the result should change, because :max has max.txt as input:
+!system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
+# Run again, and there should be no change:
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
 ############################################
 

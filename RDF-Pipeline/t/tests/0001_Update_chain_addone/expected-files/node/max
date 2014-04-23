@@ -1,2 +1,3 @@
 #!/bin/sh
-echo 13
+cat max.txt
+

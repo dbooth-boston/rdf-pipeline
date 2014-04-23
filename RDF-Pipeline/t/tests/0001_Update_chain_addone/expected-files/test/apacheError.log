@@ -1,11 +1,44 @@
-          UPDATED query parameters of http://localhost/node/addone
-          UPDATED depUri http://localhost/node/addone-updater of http://localhost/node/addone
-              UPDATED query parameters of http://localhost/node/odds
-                  UPDATED query parameters of http://localhost/node/max
-                UPDATING http://localhost/node/max {/home/dbooth/rdf-pipeline/Private/www/node/max} state: /home/dbooth/rdf-pipeline/Private/www/cache/max/state
-              UPDATED depUri http://localhost/node/max of http://localhost/node/odds
-              UPDATED depUri http://localhost/node/odds-updater of http://localhost/node/odds
-            UPDATING http://localhost/node/odds {odds-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/odds/state
-          UPDATED depUri http://localhost/node/odds of http://localhost/node/addone
-        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/addone/state
+          UPDATED      query parameters of http://localhost/node/addone
+          UPDATED      depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              UPDATED      query parameters of http://localhost/node/odds
+                  UPDATED      query parameters of http://localhost/node/max
+                    UPDATING file:///home/dbooth/rdf-pipeline/Private/www/node/max.txt inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_max.txt_HASHh_aG9ExE1RauI5XT2rdDrkw/serCache of http://localhost/node/max
+                  UPDATED      depUri file:///home/dbooth/rdf-pipeline/Private/www/node/max.txt of http://localhost/node/max
+                UPDATING http://localhost/node/max {/home/dbooth/rdf-pipeline/Private/www/node/max} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_max_HASHhqGe3F178J8lfxP_1dJCmDA/state
+              UPDATED      depUri http://localhost/node/max of http://localhost/node/odds
+              UPDATED      depUri http://localhost/node/odds-updater of http://localhost/node/odds
+            UPDATING http://localhost/node/odds {odds-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_odds_HASHhD6HCI1OMEiNa3DqHERr7qA/state
+          UPDATED      depUri http://localhost/node/odds of http://localhost/node/addone
+        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/addone
+          NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              NO CHANGE to query parameters of http://localhost/node/odds
+                  NO CHANGE to query parameters of http://localhost/node/max
+                  NO CHANGE to depUri file:///home/dbooth/rdf-pipeline/Private/www/node/max.txt of http://localhost/node/max
+              NO CHANGE to depUri http://localhost/node/max of http://localhost/node/odds
+              NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
+          NO CHANGE to depUri http://localhost/node/odds of http://localhost/node/addone
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/addone
+          NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              NO CHANGE to query parameters of http://localhost/node/odds
+                  NO CHANGE to query parameters of http://localhost/node/max
+                    UPDATING file:///home/dbooth/rdf-pipeline/Private/www/node/max.txt inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_max.txt_HASHh_aG9ExE1RauI5XT2rdDrkw/serCache of http://localhost/node/max
+                  UPDATED      depUri file:///home/dbooth/rdf-pipeline/Private/www/node/max.txt of http://localhost/node/max
+                UPDATING http://localhost/node/max {/home/dbooth/rdf-pipeline/Private/www/node/max} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_max_HASHhqGe3F178J8lfxP_1dJCmDA/state
+              UPDATED      depUri http://localhost/node/max of http://localhost/node/odds
+              NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
+            UPDATING http://localhost/node/odds {odds-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_odds_HASHhD6HCI1OMEiNa3DqHERr7qA/state
+          UPDATED      depUri http://localhost/node/odds of http://localhost/node/addone
+        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/addone
+          NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              NO CHANGE to query parameters of http://localhost/node/odds
+                  NO CHANGE to query parameters of http://localhost/node/max
+                  NO CHANGE to depUri file:///home/dbooth/rdf-pipeline/Private/www/node/max.txt of http://localhost/node/max
+              NO CHANGE to depUri http://localhost/node/max of http://localhost/node/odds
+              NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
+          NO CHANGE to depUri http://localhost/node/odds of http://localhost/node/addone
 ----------------------------------------------------------------------

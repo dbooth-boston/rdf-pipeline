@@ -8,7 +8,12 @@
 
 ##### Pipeline definition starts here #####
 
-:max a p:FileNode . # No updater -- update manually.
+# :max has updater.  Therefore it should run once after the caches are flushed,
+# and after that it should not be run again even though its internal
+# file (max.txt) changes, because all (zero) of its dependsOn are
+# up to date.
+
+:max a p:FileNode . 
 
 :odds a p:FileNode ;
   p:inputs ( :max ) ;
