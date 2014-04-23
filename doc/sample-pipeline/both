@@ -1,0 +1,7 @@
+#! /bin/sh
+
+# Inputs are passed positionally as filenames
+
+# Concatenate the content of the two input files:
+cat $1 $2
+

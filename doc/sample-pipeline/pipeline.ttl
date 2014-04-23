@@ -1,0 +1,22 @@
+# RDF Pipeline definition.
+
+# The RDF Pipeline ontology:
+@prefix p: <http://purl.org/pipeline/ont#> .
+
+# Prefix for nodes in your pipeline:
+@prefix : <http://localhost/node/> .
+
+############### Pipeline definition starts here ##################
+
+# Updater is implicitly "hello" (same as node name):
+:hello a p:FileNode ;
+  p:inputs ( <hello.txt> ) . 
+
+# No inputs.  Specify updater explicitly with different name:
+:goodbye a p:FileNode ;
+  p:updater "goodbye-updater" .
+
+:both a p:FileNode ;
+  p:inputs ( :hello :goodbye ) .
+
+
