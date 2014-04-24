@@ -20,8 +20,8 @@ export RDF_PIPELINE_DEV_DIR=/home/dbooth/rdf-pipeline/trunk
 # in the default Apache2 config file for the DocumentRoot definition.
 if [ ! "$DOCUMENT_ROOT" ]
 then
-	APACHECONFIG="/etc/apache2/sites-available/default"
-	DOCROOT=`grep '^[ \t]*DocumentRoot[ \t]' "$APACHECONFIG" | sed 's/^[ \t]*DocumentRoot[ \t]*//'`
+	APACHECONFIG="/etc/apache2/sites-enabled/000-default"
+	DOCROOT=`expand "$APACHECONFIG" | grep '^ *DocumentRoot ' | sed 's/^ *DocumentRoot *//'`
 	WORDCOUNT=`echo "$DOCROOT" | wc -w`
 	if [ $WORDCOUNT = 1 ]
 	then
