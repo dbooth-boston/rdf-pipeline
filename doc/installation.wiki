@@ -1,0 +1,224 @@
+#summary Installation of the RDF Pipeline Framework
+
+= Introduction =
+
+Add your content here.
+
+
+= Prerequisites =
+
+  * *Linux*  Versions known to work:
+    * Ubuntu 10.04 - This worked in the past, but has not been tested recently.
+    * Ubuntu 12.04
+  * *Apache* Versions known to work:
+    * 2.2.22
+  * *Perl*  Versions known to work:
+    * 5.10.1
+  * *mod_perl2* Versions known to work:
+    * 2.000005
+  * *Several perl modules*  Discussed below.
+  * *cwm* 
+
+If using GraphNode with Sesame:
+  * *Tomcat* Versions known to work:
+    * tomcat6 @@ TODO: Get more detail @@
+    * tomcat7 @@ TODO: Get more detail @@
+  * *Sesame* Versions known to work:
+    * 	2.7.11 (tested on tomcat7)
+
+Determine linux version:
+{{{
+uname -a
+}}}
+
+= Installing Prerequisites =
+
+== Apache ==
+Install apache2:
+{{{
+sudo apt-get install apache2
+sudo apt-get install libapache2-mod-perl2
+}}}
+
+== Perl and mod_perl2 ==
+See if perl is installed already, and check version:
+{{{
+perl --version
+}}}
+
+Install perl and mod_perl2:
+{{{
+sudo apt-get install perl
+# Check version:
+perl --version
+# Install mod_perl2:
+sudo apt-get install libapache2-mod-perl2
+# Check version (fails but indicates the current version):
+perl -Mmod_perl2\ 999
+}}}
+
+== Perl modules ==
+{{{
+cd /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF
+# See what modules are needed:
+cat Pipeline.pm Pipeline/* |grep -P '^(use|require) ' | perl -p -e 's/^.*? //; s/[ ;].*$//; s/^[0-9].*//; s/^(strict|warnings)$//; s/^RDF::Pipeline.*//' | sort -u
+# Download them:
+cpan `cat Pipeline.pm Pipeline/* |grep -P '^(use|require) ' | perl -p -e 's/^.*? //; s/[ ;].*$//; s/^[0-9].*//; s/^(strict|warnings)$//; s/^RDF::Pipeline.*//' | sort -u`
+}}}
+
+== cwm ==
+Installation instructions: http://www.w3.org/2000/10/swap/doc/CwmInstall
+
+As root:
+{{
+mkdir /opt/cwm
+cd /opt/cwm
+wget http://www.w3.org/2000/10/swap/cwm.tar.gz
+tar xvzf cwm.tar.gz
+cd cwm-1.2.1
+python setup.py install
+}}
+
+Verify the installation and check the version:
+{{
+cwm < /dev/null
+#Processed by Id: cwm.py,v 1.197 2007/12/13 15:38:39 syosi Exp 
+        #    using base file:///home/dbooth/rdf-pipeline/trunk/doc/
+        
+#  Notation3 generation by
+#       notation3.py,v 1.200 2007/12/11 21:18:08 syosi Exp
+
+#   Base was: file:///home/dbooth/rdf-pipeline/trunk/doc/
+    
+#ENDS
+}}
+
+== Sesame ==
+Sesame will use two components: the sesame server, when is a SPARQL RDF store
+used as the backend; and the openrdf-workbench, which is a 
+browser-based frontend that provides a GUI for managing the sesame server
+and issuing interactive queries, etct.
+
+After installation of both sesame and openrdf-workbench,
+open a browser and tell the workbench where the sesame server is.
+Assuming they are both installed on localhost:8080, browse to
+http://localhost:8080/openrdf-workbench/repositories/NONE/server
+and change the server to http://localhost:8080/openrdf-sesame .
+
+To test, you will also need to create a repository, as described
+below in the section on testing.
+
+= Download the RDF Pipeline Framework =
+
+Download the latest version of the RDF Pipeline Framework from github: https://github.com/dbooth-boston/rdf-pipeline/ .
+
+and cd into the top directory of the project.
+
+= Test your installation =
+
+== sample-pipeline-FileNode ==
+
+@@ TODO @@
+
+== sample-pipeline-GraphNode ==
+Assuming you have installed sesame and the openrdf-workbench at
+localhost:8080, browse to
+http://localhost:8080/openrdf-workbench/repositories/NONE/repositories
+to see your current repositories.  Create one called "rdf-pipeline-test":
+http://localhost:8080/openrdf-workbench/repositories/NONE/create
+Specify:
+  * Type: In Memory Store
+  * ID: rdf-pipeline-test
+  * Title: Test of RDF Pipeline Framework
+Click Next, then specify:
+  * Persist: No
+  * Sync delay: 0
+Click Create.
+
+
+= Troubleshooting =
+
+1. Check the apache2 log for errors:
+
+  tail -n 20 /var/log/apache2/error.log
+
+
+2. If an updater is output verbatim instead of being run, then the hostname
+in the URL may be wrong.  For example 127.0.0.1 is not recognized as
+a pipeline host, but localhost is:
+{{{
+$ curl http://127.0.0.1/node/both
+#! /bin/sh
+
+# Inputs are passed positionally as filenames
+
+# Concatenate the content of the two input files:
+cat $1 $2
+
+dbooth@dbooth-w530:~/rdf-pipeline/trunk/doc/sample-pipeline/www/node$ ls -a
+.  ..  both  goodbye-updater  hello  hello.txt  pipeline.ttl  ReadMe.txt
+dbooth@dbooth-w530:~/rdf-pipeline/trunk/doc/sample-pipeline/www/node$ curl http://localhost/node/both
+HELLO WORLD!
+
+Goodbye
+}}}
+
+3. If you see this in the apache2 error log /var/log/apache2/error.log it
+means that you did not download the required perl modules or perl for some
+reason cannot find them:
+{{{
+[client 127.0.0.1] failed to resolve handler `RDF::Pipeline': Can't locate WWW/Mechanize.pm in @INC (@INC contains: /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib /etc/perl /usr/local/lib/perl/5.14.2 /usr/local/share/perl/5.14.2 /usr/lib/perl5 /usr/share/perl5 /usr/lib/perl/5.14 /usr/share/perl/5.14 /usr/local/lib/site_perl . /etc/apache2) at /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm line 158.\nBEGIN failed--compilation aborted at /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm line 158.\nCompilation failed in require at (eval 3) line 2.\n
+}}}
+
+4.  Symptom: HTTP 500 Iternal Server Error occurred while testing:
+{{{
+curl http://localhost/node/both
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>500 Internal Server Error</title>
+. . . 
+}}}
+
+and this error was in the apache2 error log /var/log/apache2/error.log :
+{{{
+[client 127.0.0.1] failed to resolve handler `RDF::Pipeline': Can't locate Digest/MD4.pm in @INC (@INC contains: /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib /etc/perl /usr/local/lib/perl/5.14.2 /usr/local/share/perl/5.14.2 /usr/lib/perl5 /usr/share/perl5 /usr/lib/perl/5.14 /usr/share/perl/5.14 /usr/local/lib/site_perl . /etc/apache2) at /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm line 159.\nBEGIN failed--compilation aborted at /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm line 159.\nCompilation failed in require at (eval 3) line 2.\n
+}}}
+
+This was caused because the installation of perl module Digest::MD4 failed
+due to the lack of a C compiler:
+{{{
+# cpan Digest::MD4
+Going to read '/root/.cpan/Metadata'
+  Database was generated on Thu, 24 Apr 2014 14:17:02 GMT
+Running install for module 'Digest::MD4'
+Running make for M/MI/MIKEM/DigestMD4/Digest-MD4-1.9.tar.gz
+Checksum for /root/.cpan/sources/authors/id/M/MI/MIKEM/DigestMD4/Digest-MD4-1.9.tar.gz ok
+
+  CPAN.pm: Going to build M/MI/MIKEM/DigestMD4/Digest-MD4-1.9.tar.gz
+
+Checking if your kit is complete...
+Looks good
+Writing Makefile for Digest::MD4
+Writing MYMETA.yml
+cp MD4.pm blib/lib/Digest/MD4.pm
+/usr/bin/perl /usr/share/perl/5.14/ExtUtils/xsubpp  -typemap /usr/share/perl/5.14/ExtUtils/typemap -typemap typemap  MD4.xs > MD4.xsc && mv MD4.xsc MD4.c
+cc -c   -D_REENTRANT -D_GNU_SOURCE -DDEBIAN -fstack-protector -fno-strict-aliasing -pipe -I/usr/local/include -D_LARGEFILE_SOURCE -D_FILE_OFFSET_BITS=64 -O2 -g   -DVERSION=\"1.9\" -DXS_VERSION=\"1.9\" -fPIC "-I/usr/lib/perl/5.14/CORE"   MD4.c
+/bin/sh: 1: cc: not found
+make: *** [MD4.o] Error 127
+  MIKEM/DigestMD4/Digest-MD4-1.9.tar.gz
+  /usr/bin/make -- NOT OK
+'YAML' not installed, will not store persistent state
+Running make test
+  Can't test without successful make
+Running make install
+  Make had returned bad status, install seems impossible
+}}}
+
+Solution: Install build-essential (which includes various things needed
+for compilation), then try again to install Digest::MD4 :
+{{{
+apt-get install build-essential
+cpan Digest::MD4
+}}}
+
+
