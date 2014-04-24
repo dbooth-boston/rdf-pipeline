@@ -1,6 +1,42 @@
-Sample pipeline using the RDF Pipeline Framework.
+Sample pipeline using the RDF Pipeline Framework
+================================================
 
-This "node" directory contains updaters and other files needed
-by nodes in an RDF Pipeline.  It must also contain the pipeline 
-definition, "pipeline.ttl".
+To run this pipeline after installing the RDF Pipeline Framework:
+
+0. These commands must be run as root, so start a root shell:
+
+  sudo bash
+
+1.  Copy the content of the www subdirectory into apache2's
+$DOCUMENT_ROOT directory, which may be /var/www:
+
+  cd sample-pipeline
+  cp -rp www/* /var/www
+
+2. Change ownership to the apache2 user (often www-data):
+
+  . /etc/apache2/envvars
+  chown -R "$APACHE_RUN_USER":"$APACHE_RUN_GROUP" /var/www
+  
+3. Restart apache2: 
+
+  sudo service 
+
+4. Exit the root shell:
+
+  exit
+
+5. Test the pipeline:
+
+  curl http://localhost/node/both
+
+It should return output like this:
+
+  HELLO WORLD!
+  Goodbye
+
+6. Check the apache2 log for errors:
+
+  tail -n 20 /var/log/apache2/error.log
+
 
