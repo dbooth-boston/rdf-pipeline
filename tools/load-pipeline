@@ -22,12 +22,16 @@ my $libDir = "$moduleDir/lib";
 $ENV{PERL5LIB} ||= "";
 $ENV{PERL5LIB} = "$libDir:$ENV{PERL5LIB}";
 # warn "PERL5LIB: $ENV{PERL5LIB}\n";
-# chdir($testsDir) or die "ERROR: Could not chdir('$testsDir')\n";
+# chdir($testsDir) or die "[ERROR] Could not chdir('$testsDir')\n";
 
-@ARGV == 1 || die "Usage: $0 pipelineDir\n";
+@ARGV = ( "." ) if !@ARGV;		# Default
+@ARGV == 1 || die "Usage: $0 [ pipelineDir ]\n";
 my ($dir) = @ARGV;
+$dir =~ s|\/$|| if $dir ne "/";		# Remove any trailing slash
 
--d $wwwDir || die "$0: ERROR: \$RDF_PIPELINE_WWW_DIR directory not found: $ENV{RDF_PIPELINE_WWW_DIR}\n";
+-d $dir || die "$0: [ERROR] Directory not found: $dir\n";
+-e "$dir/pipeline.ttl" || die "$0: [ERROR] Directory does not contain pipeline.ttl: $dir\n";
+-d $wwwDir || die "$0: [ERROR] \$RDF_PIPELINE_WWW_DIR directory not found: $ENV{RDF_PIPELINE_WWW_DIR}\n";
 
 # Clear out old $wwwDir files, then copy the given dir:
 !system("$moduleDir/t/helpers/copy-dir.perl '/dev/null' '$wwwDir'") or die;
@@ -42,7 +46,7 @@ sub EnvNotSet
 {
 @_ == 1 or die;
 my ($var) = @_;
-die "ERROR: Environment variable '$var' not set!  Please set it
+die "$0: [ERROR] Environment variable '$var' not set!  Please set it
 by editing set_env.sh and then (in bourne shell) issuing the
 command '. set_env.sh'\n";
 }
