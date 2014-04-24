@@ -29,10 +29,8 @@ then
 	elif [ $WORDCOUNT = 0 ]
 	then
 		echo '[ERROR] DocumentRoot not found in' "$APACHECONFIG" 1>&2
-		exit 1
 	else
 		echo '[ERROR] Multiple DocumentRoot definitions found in' "$APACHECONFIG": "$DOCROOT" 1>&2
-		exit 1
 	fi
 fi
 export RDF_PIPELINE_WWW_DIR="$DOCUMENT_ROOT"
