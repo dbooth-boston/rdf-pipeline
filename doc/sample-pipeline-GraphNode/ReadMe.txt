@@ -20,7 +20,7 @@ $DOCUMENT_ROOT directory, which may be /var/www:
   
 3. Restart apache2: 
 
-  sudo service 
+  service apache2 restart
 
 4. Exit the root shell:
 
@@ -28,12 +28,11 @@ $DOCUMENT_ROOT directory, which may be /var/www:
 
 5. Test the pipeline:
 
-  curl http://localhost/node/both
+  curl http://localhost/node/willies
 
 It should return output like this:
 
-  HELLO WORLD!
-  Goodbye
+@@ TODO @@
 
 6. Check the apache2 log for errors:
 
