@@ -216,6 +216,24 @@ our $tmpDir = "$basePath/tmp";
 our $URI = 'URI';
 our $FILE = 'FILE';
 
+# Set $RDF_PIPELINE_DEV_DIR and $PATH so that updaters will inherit them:
+if (!$ENV{RDF_PIPELINE_DEV_DIR}) {
+	my $p = $0;
+	# /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm
+	#   -->
+	# /home/dbooth/rdf-pipeline/trunk
+	$p =~ s|(\/[^\/]+){4}$|| or die "Failed to parse \$0: $0 ";
+	# Maybe let set_env.sh set this instead:
+	# $ENV{RDF_PIPELINE_DEV_DIR} = $p;
+	my $both = `. $p/set_env.sh ; echo $PATH ; echo $RDF_PIPELINE_DEV_DIR`;
+	chomp $both;
+	my ($path, $dev, $extra) = split(/ /, $both);
+	die "Failed to parse PATH and RDF_PIPELINE_DEV_DIR from $both "
+		if !$path || !$dev || $extra;
+	$ENV{PATH} = $path;
+	$ENV{RDF_PIPELINE_DEV_DIR} = $dev;
+	}
+
 our @systemArgs = qw(debug debugStackDepth callerUri callerLM method);
 
 ################### Runtime data ####################
