@@ -2,7 +2,9 @@
 
 # This is a dirty hack for generating a diagram of a SPARQL query 
 # pattern, either from a WHERE clause or a CONSTRUCT clause.
-# graphical notation so that it can be rendered as a drawing.  
+# It should also work for generating a diagram from turtle,
+# though there are much better tools available for that.
+#
 # The parsing is very stupid and does not understand much about
 # the SPARQL grammar.  To use this program, copy and paste the 
 # desired query pattern into the input, as it does not know how to 
@@ -82,6 +84,8 @@ if ($all =~ s/\A.*?\bwhere[\s\n\r]*\{/ /si) {
 	# Look for the end of the first WHERE:
 	$all = $& if $all =~ m/\A.*\}/s;
 	}
+
+# TODO: Strip LIMIT clause
 
 # Easier pattern matching:
 $all .= " .\n";  
