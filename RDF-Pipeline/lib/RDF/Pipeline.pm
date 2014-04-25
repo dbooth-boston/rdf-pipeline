@@ -218,11 +218,12 @@ our $FILE = 'FILE';
 
 # Set $RDF_PIPELINE_DEV_DIR and $PATH so that updaters will inherit them:
 if (!$ENV{RDF_PIPELINE_DEV_DIR}) {
-	my $p = $0;
+	#### TODO: Avoid hard-coding this:
+	my $p = "/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm";
 	# /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm
 	#   -->
 	# /home/dbooth/rdf-pipeline/trunk
-	$p =~ s|(\/[^\/]+){4}$|| or die "Failed to parse \$0: $0 ";
+	$p =~ s|(\/[^\/]+){4}$|| or die "Failed to parse Pipeline.pm file path: $p ";
 	# Maybe let set_env.sh set this instead:
 	# $ENV{RDF_PIPELINE_DEV_DIR} = $p;
 	my $both = `. $p/set_env.sh ; echo \$PATH ; echo \$RDF_PIPELINE_DEV_DIR`;
