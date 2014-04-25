@@ -1969,7 +1969,7 @@ my $qTmp = quotemeta($tmp);
 my $qUpdater = quotemeta($parametersFilter);
 my $qStderr = quotemeta($stderr);
 my $useStdout = 1;
-my $qPath = quotemeta($ENV{PATH});
+my $qPath = quotemeta($ENV{PATH}) || die;
 #### TODO QUERY:
 my $cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $exportqs ; $exportqss ; $qUpdater $qInputUris > $qTmp 2> $qStderr )";
 ####
@@ -2078,12 +2078,13 @@ my $useStdout = 0;
 my $stateOriginal = $nm->{value}->{$thisUri}->{stateOriginal} || "";
 &Warn("stateOriginal: $stateOriginal\n", $DEBUG_DETAILS);
 $useStdout = 1 if $updater && !$stateOriginal;
-my $cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; $qUpdater $qState $ipFiles > $qStderr 2>&1 )";
-$cmd =    "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; $qUpdater         $ipFiles > $qState 2> $qStderr )"
+my $qPath = quotemeta($ENV{PATH}) || die;
+my $cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $qUpdater $qState $ipFiles > $qStderr 2>&1 )";
+$cmd =    "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $qUpdater         $ipFiles > $qState 2> $qStderr )"
 	if $useStdout;
 #### TODO QUERY:
-$cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; $exportqs ; $exportqss ; $qUpdater $qState $ipFiles > $qStderr 2>&1 )";
-$cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; $exportqs ; $exportqss ; $qUpdater         $ipFiles > $qState 2> $qStderr )"
+$cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $exportqs ; $exportqss ; $qUpdater $qState $ipFiles > $qStderr 2>&1 )";
+$cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $exportqs ; $exportqss ; $qUpdater         $ipFiles > $qState 2> $qStderr )"
 	if $useStdout;
 ####
 &Warn("cmd: $cmd\n", $DEBUG_DETAILS);
