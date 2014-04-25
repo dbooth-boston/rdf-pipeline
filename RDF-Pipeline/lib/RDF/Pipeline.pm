@@ -1969,8 +1969,9 @@ my $qTmp = quotemeta($tmp);
 my $qUpdater = quotemeta($parametersFilter);
 my $qStderr = quotemeta($stderr);
 my $useStdout = 1;
+my $qPath = quotemeta($ENV{PATH});
 #### TODO QUERY:
-my $cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; $exportqs ; $exportqss ; $qUpdater $qInputUris > $qTmp 2> $qStderr )";
+my $cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $exportqs ; $exportqss ; $qUpdater $qInputUris > $qTmp 2> $qStderr )";
 ####
 &Warn("cmd: $cmd\n", $DEBUG_DETAILS);
 my $result = (system($cmd) >> 8);
