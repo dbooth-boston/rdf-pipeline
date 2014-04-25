@@ -13,7 +13,8 @@ foreach my $subdir (qw(cache lm)) {
 		!system($cmd) || die; 
 		}
 	die "$0: Failed to delete $f\n" if -e $f;
-	mkdir $f || die "$0: [ERROR] Failed to re-create empty $f\n";
+	# To prevent making $f with the wrong user/group, don't make it:
+	# mkdir $f || die "$0: [ERROR] Failed to re-create empty $f\n";
 	}
 exit 0;
 
