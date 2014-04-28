@@ -90,7 +90,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 
 	$DEBUG_DETAILS
 
-	$pipelinePrefix
+	$ontologyPrefix
 	$baseUri
 	$baseUriPattern
 	$basePath
@@ -136,6 +136,7 @@ our $VERSION = '0.01';
 use Carp;
 # use diagnostics;
 use Apache2::RequestRec (); # for $r->content_type
+use Apache2::ServerRec (); # for $s->server_hostname and $s->port
 use Apache2::SubRequest (); # for $r->internal_redirect
 use Apache2::RequestIO ();
 # use Apache2::Const -compile => qw(OK SERVER_ERROR NOT_FOUND);
@@ -150,6 +151,7 @@ use Fcntl qw(LOCK_EX O_RDWR O_CREAT);
 use HTTP::Date;
 use APR::Table ();
 use LWP::UserAgent;
+use LWP::Simple;
 use HTTP::Status;
 use Apache2::URI ();
 use URI::Escape;
@@ -188,12 +190,14 @@ our $debugStackDepth = 0;	# Used for indenting debug messages.
 our $test;
 
 ##################  Constants for this server  ##################
-our $pipelinePrefix = "http://purl.org/pipeline/ont#";	# Pipeline ont prefix
+our $ontologyPrefix = "http://purl.org/pipeline/ont#";	# Pipeline ont prefix
 $ENV{DOCUMENT_ROOT} ||= "/home/dbooth/rdf-pipeline/Private/www";	# Set if not set
 ### TODO: Set $baseUri properly.  Needs port?
 $ENV{SERVER_NAME} ||= "localhost";
+$ENV{SERVER_PORT} ||= "80";
 # $baseUri is the URI prefix that corresponds directly to DOCUMENT_ROOT.
 our $baseUri = "http://$ENV{SERVER_NAME}";  # TODO: Should become "scope"?
+$baseUri .= ":" . $ENV{SERVER_PORT} if $ENV{SERVER_PORT} ne "80";
 our $baseUriPattern = quotemeta($baseUri);
 our $basePath = $ENV{DOCUMENT_ROOT};	# Synonym, for convenience
 our $basePathPattern = quotemeta($basePath);
@@ -206,6 +210,7 @@ our $rdfsPrefix = "http://www.w3.org/2000/01/rdf-schema#";
 # our $subClassOf = $rdfsPrefix . "subClassOf";
 our $subClassOf = "rdfs:subClassOf";
 
+# This $configFile will be used only if $RDF_PIPELINE_MASTER_URI is not set:
 our $configFile = "$nodeBasePath/pipeline.ttl";
 our $ontFile = "$basePath/ont/ont.n3";
 our $internalsFile = "$basePath/ont/internals.n3";
@@ -411,14 +416,63 @@ foreach my $k (sort keys %args) {
 	&Warn("  $dk=$dv\n", $DEBUG_DETAILS);
 	}
 
-# Reload config file?
+my $masterUri = $ENV{RDF_PIPELINE_MASTER_URI} || "";
+if ($masterUri) {
+  my $maybeMasterPath = &UriToPath($masterUri);
+  if ($maybeMasterPath) {
+    # Master is on the same server.  Do a direct file access instead of an 
+    # HTTP request, to avoid infinite recursion of HTTP requests. 
+    $configFile = $maybeMasterPath;
+    $masterUri = "";
+    }
+  else {
+    # Master is on a differnet server.
+    # This is where it will be cached when mirrored:
+    $configFile = "$basePath/cache/pipeline_master.ttl";
+    }
+  }
+my $throttleSeconds = $ENV{RDF_PIPELINE_MASTER_DOWNLOAD_THROTTLE_SECONDS};
+$throttleSeconds = 3 if !defined($throttleSeconds);	# Default
+our $lastMasterMirrorTime; 	# Time last mirroring finished
+my $mirrorWasUpdated = 0;
+if ($masterUri) {
+  # Master is on a different server.  Do we need to re-mirror it?
+  if ($lastMasterMirrorTime && $throttleSeconds
+		&& time < $lastMasterMirrorTime + $throttleSeconds
+		&& -e $configFile) {
+    # No need to mirror it again.  Nothing to do.
+    }
+  else {
+    # Refresh the master by mirroring again.
+    &Warn("[INFO] Mirroring $masterUri to $configFile\n", $DEBUG_DETAILS);
+    &MakeParentDirs($configFile);
+    my $code = mirror($masterUri, $configFile);
+    # Set $lastMasterMirrorTime *after* mirroring, so that $throttleSeconds 
+    # will be the minimum time from *after* the last mirror to *before* 
+    # the next mirror.  I.e., prevent it from including the time spent 
+    # doing the mirroring, in case the mirroring takes a long time.
+    $lastMasterMirrorTime = time;
+    $code == RC_OK || $code == RC_NOT_MODIFIED || die "[ERROR] Failed to GET pipeline definition from \$RDF_PIPELINE_MASTER_URI: $masterUri\n";
+    $mirrorWasUpdated = 1 if $code == RC_OK;
+    }
+  }
+
+# At this point $configFile should exist, either from mirroring
+# or from being local.  So now we should be able to just rely on the local
+# file modification date to determine whether to reload the
+# pipeline definition.  However, we also check $mirrorWasUpdate in case
+# it was updated from mirroring faster than the file modification
+# time can detect.
 my ($cmtime, $cinode) = &MTimeAndInode($configFile);
 my ($omtime, $oinode) = &MTimeAndInode($ontFile);
 my ($imtime, $iinode) = &MTimeAndInode($internalsFile);
-$cmtime || die "ERROR: File not found: $configFile\n";
-$omtime || die "ERROR: File not found: $ontFile\n";
-$imtime || die "ERROR: File not found: $internalsFile\n";
-if ($configLastModified != $cmtime
+$cmtime || die "[ERROR] File not found: $configFile\n";
+$omtime || die "[ERROR] File not found: $ontFile\n";
+$imtime || die "[ERROR] File not found: $internalsFile\n";
+
+# Reload the pipeline definition?
+if ( $mirrorWasUpdated
+ 		|| $configLastModified != $cmtime
 		|| $ontLastModified != $omtime
 		|| $internalsLastModified != $imtime
 		|| $configLastInode != $cinode
@@ -437,22 +491,6 @@ if ($configLastModified != $cmtime
 	$configLastInode = $cinode;
 	$ontLastInode = $oinode;
 	$internalsLastInode = $iinode;
-	if (0) {
-		%config = &CheatLoadN3($ontFile, $configFile);
-		%configValues = map { 
-			my $hr; 
-			map { $hr->{$_}=1; } split(/\s+/, ($config{$_}||"")); 
-			($_, $hr)
-			} keys %config;
-		# &Warn("configValues:\n", $DEBUG_DETAILS);
-		foreach my $sp (sort keys %configValues) {
-			last if !$debug;
-			my $hr = $configValues{$sp};
-			foreach my $v (sort keys %{$hr}) {
-				# &Warn("  $sp $v\n", $DEBUG_DETAILS);
-				}
-			}
-		}
 	&LoadNodeMetadata($nm, $ontFile, $configFile);
 	&PrintNodeMetadata($nm) if $debug;
 
@@ -468,6 +506,54 @@ my $subtype = $nm->{value}->{$thisUri}->{nodeType} || "";
 return Apache2::Const::DECLINED if !$subtype;
 # return Apache2::Const::NOT_FOUND if !$subtype;
 return &HandleHttpEvent($nm, $r, $thisUri, %args);
+}
+
+################### GetFromUri ##################
+# Conditionally GET content from a Uri, returning cached
+# content if not modified (304).
+# UNTESTED AND UNUSED!
+# I decided to use the mirror function from LWP::Simple instead.
+sub GetFromUri_UNTESTED_AND_UNUSED
+{
+@_ == 1 or die;
+my ($requestUri) = @_;
+&Warn("GetFromUri($requestUri) called\n", $DEBUG_DETAILS);
+$requestUri =~ s/\#.*//;  # Strip any frag ID
+my $ua = WWW::Mechanize->new();
+$ua->agent("$0/0.01 " . $ua->agent);
+# Set If-Modified-Since and If-None-Match headers in request, if available.
+our $oldHeaders;
+my $oldLMHeader = $oldHeaders->{$requestUri}->{'Last-Modified'} || "";
+my $oldETagHeader = $oldHeaders->{$requestUri}->{'ETag'} || "";
+&Warn("GetFromUri: Setting req L-MH: $oldLMHeader If-N-M: $oldETagHeader\n", $DEBUG_REQUESTS);
+my $req = HTTP::Request->new('GET' => $requestUri);
+$req || confess "Failed to make a new request object ";
+$req->header('If-Modified-Since' => $oldLMHeader) if $oldLMHeader;
+$req->header('If-None-Match' => $oldETagHeader) if $oldETagHeader;
+my $reqString = $req->as_string;
+&Warn("GetFromUri: GET {$requestUri}\n", $DEBUG_REQUESTS);
+&Warn("... with L-MH: $oldLMHeader ETagH: $oldETagHeader\n", $DEBUG_DETAILS);
+&PrintLog("[[\n$reqString\n]]\n");
+#### Send the HTTP request ####
+my $res = $ua->request($req) or confess "HTTP request failed! ";
+my $code = $res->code;
+$code == RC_NOT_MODIFIED || $code == RC_OK or confess "ERROR: Unexpected HTTP response code $code ";
+my $newLMHeader = $res->header('Last-Modified') || "";
+my $newETagHeader = $res->header('ETag') || "";
+if ($code == RC_NOT_MODIFIED) {
+	# Apache does not seem to send the Last-Modified header on 304.
+	$newLMHeader ||= $oldLMHeader;
+	$newETagHeader ||= $oldETagHeader;
+	}
+&Warn("GetFromUri: Got response code: $code\n", $DEBUG_DETAILS);
+&Warn("... with newL-MH: $newLMHeader newETagH: $newETagHeader\n", $DEBUG_DETAILS);
+if ($code == RC_OK) {
+	$oldHeaders->{$requestUri}->{'Last-Modified'} = $newLMHeader || "";
+	$oldHeaders->{$requestUri}->{'ETag'} = $newETagHeader || "";
+	$oldHeaders->{$requestUri}->{'content'} = $ua->content();
+	}
+my $content = $oldHeaders->{$requestUri}->{'content'};
+return ($code, $content);
 }
 
 ################### ForeignSendHttpRequest ##################
@@ -1471,7 +1557,7 @@ return %args;
 ################### CheatLoadN3 #####################
 # Not proper n3 parsing, but good enough for simple POC.
 # Returns a hash map that maps: "$s $p" --> $o
-# Global $pipelinePrefix is also stripped off from terms.
+# Global $ontologyPrefix is also stripped off from terms.
 # Example: "http://localhost/a state" --> "c/cp-state.txt"
 sub CheatLoadN3
 {
@@ -1505,7 +1591,7 @@ my $nTriples = scalar @triples;
 my %config = ();
 foreach my $t (@triples) {
 	# Strip ont prefix from terms:
-	$t = join(" ", map { s/\A$pipelinePrefix([a-zA-Z])/$1/;	$_ }
+	$t = join(" ", map { s/\A$ontologyPrefix([a-zA-Z])/$1/;	$_ }
 		split(/\s+/, $t));
 	# Convert rdfs: namespace to "rdfs:" prefix:
 	$t = join(" ", map { s/\A$rdfsPrefix([a-zA-Z])/rdfs:$1/;	$_ }
@@ -2140,7 +2226,8 @@ my $magic = <$fh>;
 # Remember any warning, to avoid other I/O while $lmCounterFile is locked:
 my $warning = "";	
 if (defined($magic)) {
-	$warning = "Corrupt lmCounter file (bad magic string): $lmCounterFile\n" if $magic ne $MAGIC;
+	$warning = "Corrupt lmCounter file (bad magic string): $lmCounterFile\n"
+		if $magic ne $MAGIC;
 	chomp( $oldTime = <$fh> );
 	chomp( $counter = <$fh> );
 	if (!$counter || !$oldTime || $oldTime>$newTime || $counter<=0) {
@@ -2248,7 +2335,10 @@ sub UriToPath
 my $uri = shift;
 ### Ignore these parameters and use globals $baseUriPattern and $basePath:
 my $path = &AbsUri($uri);
-if ($path =~ s/\A$baseUriPattern\b/$basePath/e) {
+#### TODO: Make this work for IPv6 addresses.
+# Get rid of superfluous port 80 before converting:
+$path =~ s|\A(http(s?)\:\/\/[^\/\:]+)\:80\/|$1\/|;
+if ($path =~ s|\A$baseUriPattern\/|$basePath\/|) {
 	return $path;
 	}
 return "";
@@ -2287,7 +2377,7 @@ sub PathToUri
 {
 my $path = shift;
 my $uri = &AbsPath($path);
-if ($uri =~ s/\A$basePathPattern\b/$baseUri/e) {
+if ($uri =~ s|\A$basePathPattern\/|$baseUri\/|) {
 	return $uri;
 	}
 return "";
