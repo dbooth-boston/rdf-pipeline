@@ -1,0 +1,84 @@
+#!/usr/bin/env perl
+
+# BigData Export a named graph as Turtle.  If no graph is specified,
+# export the default graph.
+#
+# Copyright 2014 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Usage: $0 [ namedGraph ]
+
+use URI::Encode qw(uri_encode uri_decode);
+use URI;
+
+################### Generic preparation ####################
+use warnings;
+my $help = 0;
+my $debug = 0;
+my $graph = "";
+my $server = "";
+use Getopt::Long; # Perl
+GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
+                "graph|g=s" => \$graph,
+                "server|s=s" => \$server,
+                ) or die "$0: Error reading options.
+";
+die "Usage: $0 [ namedGraph ] \n" if $help;
+
+$ENV{SPARQL_SERVER} = $server if $server;
+$ENV{SPARQL_SERVER} or die "$0: ERROR: SPARQL_SERVER env var is not set.  Examples:
+  export SPARQL_SERVER=http://localhost:8080/bigdata/
+  export SPARQL_SERVER=http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test\n";
+$ENV{SPARQL_SERVER} =~ s|\/$||;  # Strip trailing slash if any
+$ENV{SPARQL_SERVER} =~ m/\bbigdata$/ or warn "[WARNING] \$SPARQL_SERVER does not end with \"bigdata\": $ENV{SPARQL_SERVER}\n" if $debug;
+@ARGV = ( $graph, @ARGV ) if $graph;
+@ARGV <= 1 or die "Usage: $0 [ namedGraph ] \n";
+$graph = shift @ARGV || "";
+my $stripped = 0;
+$stripped = 1 if $graph =~ s/^\<//;
+$stripped = 1 if $graph =~ s/\>$//;
+warn "$0: WARNING: Stripped angle brackets from graphURI: $graph\n" if $stripped;
+
+$graph = "" if $graph =~ m/^default$/i;
+# Safety check: make sure there are not bad chars in $graph:
+!$graph || $graph eq URI->new($graph)->as_string or die "$0: [ERROR] Bad graph URI: $graph\n";
+
+################### Server-type-specific code ####################
+
+# I have not found a way to directly export a graph from bigdata,
+# so do it as a CONSTRUCT query instead.
+
+my $tmpDir = $ENV{TMPDIR} || "/tmp";
+$tmpDir =~ s|([^\/])\/$|$1|;	# Strip trailing slash
+my $tmpSparql = "$tmpDir/sparql-export-$$.rq";
+
+warn "# Exporting graph: $graph\n" if $debug;
+foreach my $graph ( $graph ) {
+	my $query = "CONSTRUCT { ?s ?p ?v } WHERE { ?s ?p ?v }\n";
+	$query = "CONSTRUCT { ?s ?p ?v } WHERE { GRAPH <$graph> { ?s ?p ?v }}\n"
+		if $graph;
+	&WriteFile($tmpSparql, $query);
+        my $qtmpSparql = quotemeta($tmpSparql);
+        my $d = ($debug ? "-d" : "");
+        my $p = $0;
+        $p =~ s/\/[^\/]+$// or die;
+	my $qp = quotemeta($p);
+	!system("$qp/sparql-construct $d $qtmpSparql") or die $!;
+	unlink($tmpSparql) if !$debug;
+	}
+exit 0;
+
+############ WriteFile ##########
+# Perl function to write a string to a file.
+sub WriteFile
+{
+@_ == 2 || die;
+my ($f, $s) = @_;
+open(my $fh, ">$f") || die;
+print $fh $s;
+close($fh) || die;
+}
+

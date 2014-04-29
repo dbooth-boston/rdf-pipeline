@@ -1,0 +1,90 @@
+#!/usr/bin/env perl
+
+# BigData SPARQL LOAD operation.
+# Uses sparql-update to load an RDF file into a graph or the default graph.
+#
+# Copyright 2014 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+
+use warnings;
+use strict;
+
+############ Usage #############
+sub Usage
+{
+return "Usage: $0 [ -g graphURI ] [ file.ttl ... ]
+Where file.ttl may be '-' to read from stdin instead of reading from a file.
+If no graphUri is given, the file(s) are read into the default graph.
+";
+}
+
+################### Main ####################
+my $help = 0;
+my $debug = 0;
+my $graph = "";
+my $server = "";
+use Getopt::Long; # Perl
+GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
+                "graph|g=s" => \$graph,
+                "server|s=s" => \$server,
+                ) or die &Usage();
+die &Usage() if $help;
+warn "# Options: graph: $graph server: $server ARGV: @ARGV\n" if $debug;
+
+$ENV{SPARQL_SERVER} = $server if $server;
+
+my $stripped = 0;
+$stripped = 1 if $graph =~ s/^\<//;
+$stripped = 1 if $graph =~ s/\>$//;
+warn "$0: WARNING: Stripped angle brackets from graphURI: $graph\n" if $stripped;
+
+use URI;
+use URI::file;
+
+my $tmpDir = $ENV{TMPDIR} || "/tmp";
+$tmpDir =~ s|([^\/])\/$|$1|;	# Strip trailing slash
+my $tmpRdf = "";
+my $tmpSparql = "$tmpDir/sparql-load-$$.ru";
+
+@ARGV = ( "-" ) if !@ARGV;	# Default to stdin
+warn "# Loading graph: $graph from @ARGV\n" if $debug;
+foreach my $f (@ARGV) {
+	my $into = "";
+	$into = "INTO GRAPH <$graph>" if $graph;
+	# warn "# Loading $f $into ...\n" if @ARGV > 1;
+	if ($f eq "-") {
+		my $s = join("", <>);
+		$tmpRdf = "$tmpDir/sparql-load-$$.ttl";
+		&WriteFile($tmpRdf, $s);
+		$f = $tmpRdf;
+		}
+	-e $f || die "$0: ERROR: File does not exist: $f\n";
+
+	my $uri = URI::file->new_abs( $f )->as_string();
+	my $update = "LOAD <$uri> $into\n";
+	&WriteFile($tmpSparql, $update);
+        my $qtmpSparql = quotemeta($tmpSparql);
+        my $d = ($debug ? "-d" : "");
+        my $p = $0;
+        $p =~ s/\/[^\/]+$// or die;
+	my $qp = quotemeta($p);
+	!system("$qp/sparql-update $d $qtmpSparql") or die $!;
+	unlink($tmpSparql) if !$debug;
+	unlink($tmpRdf) if $tmpRdf && !$debug;
+	}
+exit 0;
+
+############ WriteFile ##########
+# Perl function to write a string to a file.
+sub WriteFile
+{
+@_ == 2 || die;
+my ($f, $s) = @_;
+open(my $fh, ">$f") || die;
+print $fh $s;
+close($fh) || die;
+}
+

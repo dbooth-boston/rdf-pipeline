@@ -1,0 +1,75 @@
+#!/usr/bin/env perl
+
+# BigData SPARQL SELECT query, with result as TSV.
+#
+# Copyright 2014 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Usage: $0 filename.rq
+
+################### Generic preparation ####################
+use warnings;
+use strict;
+
+my $help = 0;
+my $debug = 0;
+my $server = "";
+use Getopt::Long; # Perl
+GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
+                "server|s=s" => \$server,
+                ) or die "$0: Error reading options.
+";
+$ENV{SPARQL_SERVER} = $server if $server;
+$ENV{SPARQL_SERVER} or die "$0: ERROR: SPARQL_SERVER env var is not set.  Examples:
+  export SPARQL_SERVER=http://localhost:8080/bigdata/
+  export SPARQL_SERVER=http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test\n";
+
+die "Usage: $0 [ filename.rq ]\n" if $help || @ARGV > 1;
+@ARGV = ( "-" ) if !@ARGV;	# Default to stdin
+
+my $f = $ARGV[0];
+my $tmpDir = $ENV{TMPDIR} || "/tmp";
+$tmpDir =~ s|([^\/])\/$|$1|;    # Strip trailing slash
+my $tmpSparql = "";
+if ($f eq "-") {
+	my $s = join("", <>);
+	$tmpSparql = "$tmpDir/sparql-select-$$.rq";
+	&WriteFile($tmpSparql, $s);
+	$f = $tmpSparql;
+	}
+-e $f or die "$0: ERROR: File not found: $f\n";
+-f $f or die "$0: ERROR: Not a plain file: $f\n";
+
+my $qf = quotemeta($f);
+
+################### Server-type-specific code ####################
+my $dir = $0;
+$dir =~ s/\/[^\/]+$//;
+my $qdir = quotemeta($dir);
+# warn "# \$SPARQL_SERVER received: $ENV{SPARQL_SERVER}\n" if $debug;
+$ENV{SPARQL_SERVER} =~ s|\/$||;  # Strip trailing slash if any
+$ENV{SPARQL_SERVER} =~ m/\bbigdata$/ or warn "[WARNING] \$SPARQL_SERVER does not end with \"bigdata\": $ENV{SPARQL_SERVER}\n" if $debug;
+# warn "# \$SPARQL_SERVER cleaned: $ENV{SPARQL_SERVER}\n" if $debug;
+my $qss = quotemeta($ENV{SPARQL_SERVER});
+my $cmd = "/usr/bin/curl -s  --data-urlencode  query\@$qf $qss/sparql | perl -p -e 's/\\\\r//g' | xsltproc $qdir/sparql-results-tsv.xsl - | iconv -f UTF-16 -t UTF-8";
+warn "# cmd: $cmd\n" if $debug;
+!system($cmd) or die "$0: $?\n";
+
+####################### Generic cleanup #########################
+unlink($tmpSparql) if $tmpSparql && !$debug;
+exit 0;
+
+############ WriteFile ##########
+# Perl function to write a string to a file.
+sub WriteFile
+{
+@_ == 2 || die;
+my ($f, $s) = @_;
+open(my $fh, ">$f") || die;
+print $fh $s;
+close($fh) || die;
+}
+

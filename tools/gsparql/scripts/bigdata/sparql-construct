@@ -1,0 +1,52 @@
+#!/usr/bin/env perl
+
+# BigData SPARQL CONSTRUCT query, with result as Turtle.
+#
+# Copyright 2014 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+#
+# Usage: $0 filename.rq
+
+################### Generic preparation ####################
+use warnings;
+
+my $help = 0;
+my $debug = 0;
+my $server = "";
+use Getopt::Long; # Perl
+GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
+                "server|s=s" => \$server,
+                ) or die "$0: Error reading options.
+";
+die "Usage: $0 filename.rq\n" if $help;
+
+$ENV{SPARQL_SERVER} = $server if $server;
+$ENV{SPARQL_SERVER} or die "$0: ERROR: SPARQL_SERVER env var is not set.  Examples:
+  export SPARQL_SERVER=http://localhost:8080/bigdata/
+  export SPARQL_SERVER=http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test\n";
+@ARGV == 1 or die "Usage: $0 filename.rq\n";
+my $f = $ARGV[0];
+-e $f or die "$0: ERROR: File not found: $f\n";
+-f $f or die "$0: ERROR: Not a plain file: $f\n";
+my $qf = quotemeta($f);
+
+################### Server-type-specific code ####################
+my $dir = $0;
+$dir =~ s/\/[^\/]+$//;
+my $qdir = quotemeta($dir);
+$ENV{SPARQL_SERVER} =~ s|\/$||;  # Strip trailing slash if any
+$ENV{SPARQL_SERVER} =~ m/\bbigdata$/ or warn "[WARNING] \$SPARQL_SERVER does not end with \"bigdata\": $ENV{SPARQL_SERVER}\n" if $debug;
+my $sesameUrl = $ENV{SPARQL_SERVER};
+# GET /openrdf-workbench/repositories/rdf-pipeline-test/query?queryLn=SPARQL&query=PREFIX%20rdfs%3A%3Chttp%3A%2F%2Fwww.w3.org%2F2000%2F01%2Frdf-schema%23%3E%0APREFIX%20kdm%3A%3Chttp%3A%2F%2Fwww.knowmed.com%2Fsi2p2%2Fkdm%23%3E%0APREFIX%20xsd%3A%3Chttp%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%23%3E%0APREFIX%20rdf%3A%3Chttp%3A%2F%2Fwww.w3.org%2F1999%2F02%2F22-rdf-syntax-ns%23%3E%0A%20CONSTRUCT%20%7B%20%3Fs%20%3Fp%20%3Fv%20.%20%7D%0AWHERE%20%7B%20%3Fs%20%3Fp%20%3Fv%20.%20%7D%0A&limit=100&infer=false&Accept=text%2Fturtle HTTP/1.1
+$sesameUrl .= "/sparql";
+my $qss = quotemeta($sesameUrl);
+my $acceptHeader = "";
+$acceptHeader = "-H 'Accept: text/turtle'";
+my $cmd = "/usr/bin/curl -s  $acceptHeader --data-urlencode  query\@$qf $qss ";
+warn "cmd: $cmd\n" if $debug;
+!system($cmd) or die "$0: $?\n";
+exit 0;
+
