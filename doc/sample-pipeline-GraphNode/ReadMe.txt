@@ -31,8 +31,20 @@ $DOCUMENT_ROOT directory, which may be /var/www:
   curl http://localhost/node/willies
 
 It should return output like this:
+[[
+@prefix : <http://example/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
 
-@@ TODO @@
+:president25 foaf:givenName "Willy" ;
+	foaf:familyName "McKinley" .
+
+:president27 foaf:givenName "Willy" ;
+	foaf:familyName "Taft" .
+
+:president42 foaf:givenName "Willy" ;
+	foaf:familyName "Clinton" .
+]]
+
 
 6. Check the apache2 log for errors:
 
