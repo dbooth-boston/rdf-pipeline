@@ -205,11 +205,7 @@ our $serverName = "localhost";
 $serverName = "127.0.0.1" if !&IsLocalHost($serverName);
 &IsLocalHost($serverName) || die "[ERROR] 127.0.0.1 not recognized as local! ";
 # $baseUri is the URI prefix that corresponds directly to DOCUMENT_ROOT.
-# First, put the extra "/node/" at the end, so that we can use
-# &CanonicalizeUri() on it:
-our $baseUri = &CanonicalizeUri("http://127.0.0.1:$ENV{SERVER_PORT}/node/", $ENV{SERVER_PORT});
-# $baseUri will normally now be "http://localhost/node/".  Strip the "/node/":
-$baseUri =~ s|\/node\/|| or die;
+our $baseUri = &CanonicalizeUri("http://127.0.0.1:$ENV{SERVER_PORT}");
 # $baseUri will normally now be "http://localhost" -- ready for use.
 our $baseUriPattern = quotemeta($baseUri);
 our $basePath = $ENV{DOCUMENT_ROOT};	# Synonym, for convenience
@@ -370,7 +366,7 @@ my $r = shift || die;
 # construct_url omits the query params
 my $thisUri = $r->construct_url(); 
 my $oldThisUri = $thisUri;
-$thisUri = &CanonicalizeUri($thisUri, $ENV{SERVER_PORT});
+$thisUri = &CanonicalizeUri($thisUri);
 my $args = $r->args() || "";
 my %args = &ParseQueryString($args);
 $debug = $args{debug} if exists($args{debug});
@@ -434,16 +430,15 @@ foreach my $k (sort keys %args) {
 	}
 
 my $masterUri = $ENV{RDF_PIPELINE_MASTER_URI} || "";
-$masterUri = &CanonicalizeUri($masterUri, $ENV{SERVER_PORT});
+$masterUri = &CanonicalizeUri($masterUri);
 if ($masterUri) {
-  # Since all URIs are now canonicalized, &UriToPath should suceed
+  # Since all URIs are now canonicalized, &UriToPath should succeed
   # if $masterUri is local.
-  my $maybeMasterPath = &UriToPath($masterUri);
-  if ($maybeMasterPath) {
+  if ($masterUri =~ m|\A$nodeBaseUriPattern\/|) {
     # Master is on the same server.  Do a direct file access instead of an 
     # HTTP request, to avoid infinite recursion of HTTP requests. 
-    $configFile = $maybeMasterPath;
-    $masterUri = "";
+    $configFile = &UriToPath($masterUri);
+    $masterUri = "";	# Indicate that it is on this server
     }
   else {
     # Master is on a differnet server.
@@ -1183,14 +1178,14 @@ my $nmm = $nm->{multi};
 foreach my $k (sort keys %config) {
 	# &Warn("LoadNodeMetadata key: $k\n", $DEBUG_DETAILS);
 	my ($s, $p) = split(/\s+/, $k) or die;
-	$s = &CanonicalizeUri($s, $ENV{SERVER_PORT});
+	$s = &CanonicalizeUri($s);
 	# $p should never be a local node URI anyway, but
 	# I might as well canonicalize it for completeness:
-	$p = &CanonicalizeUri($p, $ENV{SERVER_PORT});
+	$p = &CanonicalizeUri($p);
 	my $v = $config{$k};
 	die if !defined($v);
 	my @vList = split(/\s+/, $v); 
-	@vList = map { &CanonicalizeUri($_, $ENV{SERVER_PORT}) } @vList;
+	@vList = map { &CanonicalizeUri($_) } @vList;
 	# If there is an odd number of items, then it cannot be a hash.
 	my %hHash = ();
 	%hHash = @vList if (scalar(@vList) % 2 == 0);
@@ -1271,7 +1266,7 @@ foreach my $thisUri (@allNodes)
   $thisName = &{$fUriToNativeName}($thisUri, $baseUri, $thisHostRoot)
 	if $fUriToNativeName;
   ### Default each Node to have an updater that is the node name
-  ### with an option file extension:
+  ### with an optional file extension:
   my $thisPath = &UriToPath($thisUri);
   my $updaterFileExtensionsListRef = $nml->{$thisType}->{updaterFileExtensions}
 	|| [];
@@ -2673,12 +2668,11 @@ foreach my $s (sort keys %allSubjects) {
 	}
 }
 
+
 ################ CanonicalizeUri #################
-# Canonicalize the given URI:  If it is an absolute URI for a local 
-# http node on the
-# $thisPort, then canonicalize it to localhost or 127.0.0.1 .
-# Other URIs are passed through unchanged.  The $thisPort argument must
-# be provided even if it is the default port for this scheme.
+# Canonicalize the given URI:  If it is an absolute local http URI,
+# then canonicalize it to localhost or 127.0.0.1 .
+# Other URIs are passed through unchanged.
 # The reason for canonicalizing only node URIs on this host is because
 # the RDF Popeline Framework will be handling requests for them, so
 # it needs to be able to distinguish them from foreign URIs, both
@@ -2688,9 +2682,8 @@ foreach my $s (sort keys %allSubjects) {
 # then the metadata lookup would fail to find the metadata.
 sub CanonicalizeUri
 {
-@_ == 2 || die;
-my ($oldUri, $thisPort) = @_;
-$thisPort || die "$0: [ERROR] CanonicalizeUri called with 0 or undefined port. ";
+@_ == 1 || die;
+my ($oldUri) = @_;
 my $u = URI->new($oldUri);
 defined($u) || confess "[ERROR] Unable to parse URI: $oldUri ";
 # http: or https:  URI?
@@ -2705,18 +2698,13 @@ $host = "localhost";
 # Use 127.0.0.1 if localhost is not known:
 $host = "127.0.0.1" if !&IsLocalHost($host);
 $host || die "$0: [ERROR] $host is not recognized as a local address ";
-# Same port?
-my $uPort = $u->port;
-return $oldUri if $uPort != $thisPort;
-# RDF Pipeline node?
-my $uPath = $u->path;
-return $oldUri if $uPath !~ m|^\/node\/|;
-# At this point we know it is a local http node URI on the same port.
+# At this point we know it is a local http URI.
 # Canonicalize the URI.
 # It seems silly to parse the URI again, but I was unable to find
 # a perl module that would parse an http URI into all of its components
 # in such a way that it could be put back together which changing
 # only $scheme and $auth..
+my $uPort = $u->port;
 my ($scheme, $auth, $path, $query, $frag) = uri_split($oldUri);
 # $auth consists of: [ userinfo "@" ] host [ ":" port ]
 $auth = $host;
