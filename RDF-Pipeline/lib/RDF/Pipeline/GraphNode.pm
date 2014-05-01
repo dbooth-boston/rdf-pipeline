@@ -123,13 +123,15 @@ if (!$thisHostRoot) {
 #### TODO: Make this non-Sesame specific:
 my $cmd = "/usr/bin/curl  -s -S --data-urlencode  'update\@$tmp' '${thisHostRoot}/update'";
 &RDF::Pipeline::Warn("GraphNodeRunUpdater cmd: $cmd\n", $RDF::Pipeline::DEBUG_DETAILS);
-my $result = (system($cmd) >> 8);
+# my $result = (system($cmd) >> 8);
+my $stdout = `$cmd`;
+my $result = $? >> 8;
 my $saveError = $?;
 &RDF::Pipeline::Warn("GraphNodeRunUpdater: Updater returned " . ($result ? "error code:" : "success:") . " $result.\n", $RDF::Pipeline::DEBUG_DETAILS);
-if (-s $stderr) {
-	&RDF::Pipeline::Warn("GraphNodeRunUpdater: Updater stderr" . ($useStdout ? "" : " and stdout") . ":\n[[\n", $RDF::Pipeline::DEBUG_DETAILS);
-	&RDF::Pipeline::Warn(&RDF::Pipeline::ReadFile("<$stderr"), $RDF::Pipeline::DEBUG_DETAILS);
-	&RDF::Pipeline::Warn("]]\n", $RDF::Pipeline::DEBUG_DETAILS);
+if (length($stdout)>2) {
+	my $e = ($stdout =~ m/\bERROR\b/i ? " containing \"$&\"" : "");
+	&RDF::Pipeline::Warn("GraphNodeRunUpdater: Updater unexpectedly produced stdout$e:\n[[\n$stdout\n]]\nTreating it an error.\n", $RDF::Pipeline::DEBUG_DETAILS);
+	$result = 1;
 	}
 unlink $tmp;
 # unlink $stderr;
