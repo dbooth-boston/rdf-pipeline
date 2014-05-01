@@ -1184,6 +1184,7 @@ foreach my $k (sort keys %config) {
 	die if !defined($v);
 	my @vList = split(/\s+/, $v); 
 	@vList = map { &CanonicalizeUri($_) } @vList;
+	$v = join(" ", @vList);		# Ensure $v is canonicalized
 	# If there is an odd number of items, then it cannot be a hash.
 	my %hHash = ();
 	%hHash = @vList if (scalar(@vList) % 2 == 0);
