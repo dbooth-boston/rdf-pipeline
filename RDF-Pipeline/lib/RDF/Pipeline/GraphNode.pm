@@ -164,7 +164,8 @@ $deserName or die;
 $contentType ||= "text/turtle";
 $hostRoot || die "GraphNodeSerializer: ERROR: \$hostRoot not specified\n";
 ### TODO: Make this non-Sesame specific:
-$hostRoot =~ s|/openrdf-workbench/|/openrdf-sesame/| or confess "[ERROR] GraphNode hostRoot does not match sesame pattern: $hostRoot ";
+$hostRoot =~ s|/openrdf-workbench/|/openrdf-sesame/|;
+$hostRoot =~ m|/openrdf-sesame/| or confess "[ERROR] GraphNode hostRoot does not match sesame pattern: $hostRoot ";
 # $hostRoot = "http://localhost:28080/openrdf-sesame/repositories/owlimlite";
 # http://localhost:28080/openrdf-sesame/repositories/owlimlite/rdf-graphs/service?graph=http://example/in
 my $curlUrl =  "${hostRoot}/rdf-graphs/service?graph=$deserName";
