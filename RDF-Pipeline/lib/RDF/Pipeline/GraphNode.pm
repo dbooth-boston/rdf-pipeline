@@ -181,6 +181,10 @@ my $curlCmd = "/usr/bin/curl -s -H 'Accept: text/turtle' -X GET '$curlUrl' -o '$
 &RDF::Pipeline::Warn("GraphNodeSerializer curlCmd: $curlCmd\n", $RDF::Pipeline::DEBUG_DETAILS);
 my $success = !system($curlCmd);
 &RDF::Pipeline::Warn("GraphNodeSerializer($serFilename, $deserName, $contentType, $hostRoot) FAILED\n", $RDF::Pipeline::DEBUG_OFF) if !$success;
+if ($RDF::Pipeline::debug >= $RDF::Pipeline::DEBUG_DETAILS) {
+	my $t = `head -n 20 $serFilename`;
+	&RDF::Pipeline::Warn("GraphNodeSerializer produced  $serFilename :\n[[\n$t\n. . . .\n]]\n", $RDF::Pipeline::DEBUG_DETAILS);
+	}
 return $success;
 }
 
@@ -211,7 +215,7 @@ my $curlCmd = "/bin/cp $serFilename $tmp ; /usr/bin/curl  -s -S --data-urlencode
 my $success = !system($curlCmd);
 &RDF::Pipeline::Warn("GraphNodeDeserializer($serFilename, $deserName, $contentType, $hostRoot) FAILED\n", $RDF::Pipeline::DEBUG_OFF) if !$success;
 if ($RDF::Pipeline::debug >= $RDF::Pipeline::DEBUG_DETAILS) {
-	my $t = `head -n 10 $tmp`;
+	my $t = `head -n 20 $tmp`;
 	&RDF::Pipeline::Warn("GraphNodeDeserializer loaded  $serFilename / $tmp :\n[[\n$t\n. . . .\n]]\n", $RDF::Pipeline::DEBUG_DETAILS);
 	}
 unlink $tmp;
