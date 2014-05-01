@@ -1184,9 +1184,13 @@ foreach my $k (sort keys %config) {
 	# &Warn("LoadNodeMetadata key: $k\n", $DEBUG_DETAILS);
 	my ($s, $p) = split(/\s+/, $k) or die;
 	$s = &CanonicalizeUri($s, $ENV{SERVER_PORT});
+	# $p should never be a local node URI anyway, but
+	# I might as well canonicalize it for completeness:
+	$p = &CanonicalizeUri($p, $ENV{SERVER_PORT});
 	my $v = $config{$k};
 	die if !defined($v);
 	my @vList = split(/\s+/, $v); 
+	@vList = map { &CanonicalizeUri($_, $ENV{SERVER_PORT}) } @vList;
 	# If there is an odd number of items, then it cannot be a hash.
 	my %hHash = ();
 	%hHash = @vList if (scalar(@vList) % 2 == 0);
