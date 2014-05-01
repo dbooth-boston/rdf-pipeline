@@ -80,7 +80,7 @@ our %EXPORT_TAGS = ( 'all' => [ qw(
 	PrintLog
 	Warn
 	MakeParentDirs
-	IsSameServer
+	IsLocalNode
 	IsSameType
 	FormatTime
 	FormatCounter
@@ -432,9 +432,7 @@ foreach my $k (sort keys %args) {
 my $masterUri = $ENV{RDF_PIPELINE_MASTER_URI} || "";
 $masterUri = &CanonicalizeUri($masterUri);
 if ($masterUri) {
-  # Since all URIs are now canonicalized, &UriToPath should succeed
-  # if $masterUri is local.
-  if ($masterUri =~ m|\A$nodeBaseUriPattern\/|) {
+  if (&IsLocalNode($masterUri)) {
     # Master is on the same server.  Do a direct file access instead of an 
     # HTTP request, to avoid infinite recursion of HTTP requests. 
     $configFile = &UriToPath($masterUri);
@@ -617,7 +615,7 @@ if ($depLM && $oldLM && $oldLM eq $depLM) {
 # This is only for prettier debugging output:
 $queryParams .= "&debugStackDepth=" . ($debugStackDepth + &CallStackDepth())
 	if $debug && $nm->{value}->{$depUri}->{nodeType}
-		&& &IsSameServer($baseUri, $depUri);
+		&& &IsLocalNode($depUri);
 $requestUri =~ s/\#.*//;  # Strip any frag ID
 $queryParams =~ s/\A\&/\?/ if $queryParams && $requestUri !~ m/\?/;
 $requestUri .= $queryParams;
@@ -1112,7 +1110,7 @@ foreach my $depUri (sort keys %{$thisMHashDependsOn}) {
   elsif (!$isInput) {
     $method = 'HEAD';
     }
-  my $isSameServer = &IsSameServer($thisUri, $depUri) || 0;
+  my $isSameServer = &IsLocalNode($depUri) || 0;
   my $isSameType   = &IsSameType($nm, $thisType, $depType) || 0;
   #### TODO QUERY: Update local $depUri's requester queries:
   &UpdateQueries($nm, $depUri, $thisUri, $depQuery) 
@@ -1250,7 +1248,7 @@ foreach my $thisUri (@allNodes)
   my $thisType = $nodeTypes[0];
   $thisVHash->{nodeType} = $thisType;
   # Nothing more to do if $thisUri is not hosted on this server:
-  next if !&IsSameServer($baseUri, $thisUri);
+  next if !&IsLocalNode($thisUri);
   # Save original state before setting it to a default value:
   $thisVHash->{stateOriginal} = $thisVHash->{state};
   # Set state and serState if not set.  
@@ -1312,7 +1310,7 @@ foreach my $thisUri (@allNodes)
 foreach my $thisUri (@allNodes) 
   {
   # Nothing to do if $thisUri is not hosted on this server:
-  next if !&IsSameServer($baseUri, $thisUri);
+  next if !&IsLocalNode($thisUri);
   # Make life easier in this loop:
   my $thisVHash = $nmv->{$thisUri};
   my $thisLHash = $nml->{$thisUri};
@@ -1359,7 +1357,7 @@ foreach my $thisUri (@allNodes)
     # $depType will be false if $depUri is not a node:
     my $depType = $nmv->{$depUri}->{nodeType} || "";
     # First set dependsOnSerCache.
-    if ($depType && &IsSameServer($baseUri, $depUri)) {
+    if ($depType && &IsLocalNode($depUri)) {
       # Same server, so re-use the input's serState.
       $thisHHash->{dependsOnSerCache}->{$depUri} = $nmv->{$depUri}->{serState};
       }
@@ -1373,7 +1371,7 @@ foreach my $thisUri (@allNodes)
     # Now set dependsOnCache.
     my $isInput = $thisMHashInputs->{$depUri} 
 	|| $thisMHashParameters->{$depUri} || 0;
-    if (&IsSameServer($baseUri, $depUri) && &IsSameType($nm, $thisType, $depType)) {
+    if (&IsLocalNode($depUri) && &IsSameType($nm, $thisType, $depType)) {
       # Same env.  Reuse the input's state.
       $thisHHash->{dependsOnCache}->{$depUri} = $nmv->{$depUri}->{state};
       # warn "thisUri: $thisUri depUri: $depUri Path 1\n";
@@ -2478,9 +2476,9 @@ foreach my $f (@_) {
 	}
 }
 
-########## IsSameServer ############
+########## IsSameServer_OBSOLETE ############
 # Is $thisUri on the same server as $baseUri?
-sub IsSameServer
+sub IsSameServer_OBSOLETE
 {
 @_ == 2 or die;
 my ($baseUri, $thisUri) = @_;
@@ -2712,6 +2710,16 @@ $auth .= ":$uPort" if $uPort && $uPort != $u->default_port;
 $scheme = "http";
 my $newUri = uri_join($scheme, $auth, $path, $query, $frag);
 return $newUri;
+}
+
+################ IsLocalNode #################
+# Is the given URI for a node on this host?
+# The given URI must already be canonicalized by &CanonicalizeUri().
+sub IsLocalNode
+{
+my $uri = shift || die;
+my $isLocal = ($uri =~ m|\A$nodeBaseUriPattern\/|);
+return $isLocal;
 }
 
 ################ IsLocalHost #################
