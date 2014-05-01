@@ -10,6 +10,7 @@ package RDF::Pipeline;
 #  MyApache2/Chain.pm --test --debug http://localhost/hello
 # Maybe command line test could be made to work again using:
 #   https://metacpan.org/module/Test::Mock::Apache2
+# 4/29/14: No, Test::Mock::Apache2 has a bug that causes a seg fault if used.
 #
 # To restart apache (under root):
 #  apache2ctl stop ; sleep 5 ; truncate -s 0 /var/log/apache2/error.log ; apache2ctl start
@@ -140,12 +141,11 @@ use Apache2::ServerRec (); # for $s->server_hostname and $s->port
 use Apache2::SubRequest (); # for $r->internal_redirect
 use Apache2::RequestIO ();
 # use Apache2::Const -compile => qw(OK SERVER_ERROR NOT_FOUND);
-use Apache2::Const -compile => qw(:common REDIRECT HTTP_NO_CONTENT DIR_MAGIC_TYPE HTTP_NOT_MODIFIED);
+use Apache2::Const -compile => qw(:common REDIRECT HTTP_NO_CONTENT DIR_MAGIC_TYPE HTTP_NOT_MODIFIED HTTP_METHOD_NOT_ALLOWED );
 use Apache2::Response ();
 use APR::Finfo ();
 use APR::Const -compile => qw(FINFO_NORM);
 use Apache2::RequestUtil ();
-use Apache2::Const -compile => qw( HTTP_METHOD_NOT_ALLOWED );
 use Fcntl qw(LOCK_EX O_RDWR O_CREAT);
 
 use HTTP::Date;
@@ -159,6 +159,11 @@ use Time::HiRes ();
 use File::Path qw(make_path remove_tree);
 use WWW::Mechanize;
 use Digest::MD4 qw(md4_base64);
+use Getopt::Long;
+use Socket;
+use URI;
+use URI::Split qw(uri_split uri_join);
+use IO::Interface::Simple;
 
 ################## Node Types ###################
 # use lib qw( /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib );
@@ -195,9 +200,17 @@ $ENV{DOCUMENT_ROOT} ||= "/home/dbooth/rdf-pipeline/Private/www";	# Set if not se
 ### TODO: Set $baseUri properly.  Needs port?
 $ENV{SERVER_NAME} ||= "localhost";
 $ENV{SERVER_PORT} ||= "80";
+&IsLocalHost($ENV{SERVER_NAME}) || die "[ERROR] Non-local \$SERVER_NAME: $ENV{SERVER_NAME}\n";
+our $serverName = "localhost";
+$serverName = "127.0.0.1" if !&IsLocalHost($serverName);
+&IsLocalHost($serverName) || die "[ERROR] 127.0.0.1 not recognized as local! ";
 # $baseUri is the URI prefix that corresponds directly to DOCUMENT_ROOT.
-our $baseUri = "http://$ENV{SERVER_NAME}";  # TODO: Should become "scope"?
-$baseUri .= ":" . $ENV{SERVER_PORT} if $ENV{SERVER_PORT} ne "80";
+# First, put the extra "/node/" at the end, so that we can use
+# &CanonicalizeUri() on it:
+our $baseUri = &CanonicalizeUri("http://127.0.0.1:$ENV{SERVER_PORT}/node/", $ENV{SERVER_PORT});
+# $baseUri will normally now be "http://localhost/node/".  Strip the "/node/":
+$baseUri =~ s|\/node\/|| or die;
+# $baseUri will normally now be "http://localhost" -- ready for use.
 our $baseUriPattern = quotemeta($baseUri);
 our $basePath = $ENV{DOCUMENT_ROOT};	# Synonym, for convenience
 our $basePathPattern = quotemeta($basePath);
@@ -283,8 +296,6 @@ my $nm;
 my $hasHiResTime = &Time::HiRes::d_hires_stat()>0;
 $hasHiResTime || die;
 
-use Getopt::Long;
-
 &GetOptions("test" => \$test,
 	"debug" => \$debug,
 	);
@@ -358,6 +369,8 @@ sub handler
 my $r = shift || die;
 # construct_url omits the query params
 my $thisUri = $r->construct_url(); 
+my $oldThisUri = $thisUri;
+$thisUri = &CanonicalizeUri($thisUri, $ENV{SERVER_PORT});
 my $args = $r->args() || "";
 my %args = &ParseQueryString($args);
 $debug = $args{debug} if exists($args{debug});
@@ -367,7 +380,11 @@ $debugStackDepth = $args{debugStackDepth} || 0;
 # warn("="x30 . " handler " . "="x30 . "\n");
 &Warn("="x30 . " handler " . "="x30 . "\n", $DEBUG_DETAILS);
 &Warn("" . `date`, $DEBUG_DETAILS);
-&Warn("SERVER_NAME: $ENV{SERVER_NAME}\n", $DEBUG_DETAILS);
+&Warn("SERVER_NAME: $ENV{SERVER_NAME} serverName: $serverName\n", $DEBUG_DETAILS);
+&Warn("oldThisUri: $oldThisUri\n", $DEBUG_DETAILS);
+&Warn("thisUri: $thisUri\n", $DEBUG_DETAILS);
+&Warn("baseUri: $baseUri\n", $DEBUG_DETAILS);
+&Warn("basePath: $basePath\n", $DEBUG_DETAILS);
 &Warn("DOCUMENT_ROOT: $ENV{DOCUMENT_ROOT}\n", $DEBUG_DETAILS);
 my @args = %args;
 my $nArgs = scalar(@args);
@@ -417,7 +434,10 @@ foreach my $k (sort keys %args) {
 	}
 
 my $masterUri = $ENV{RDF_PIPELINE_MASTER_URI} || "";
+$masterUri = &CanonicalizeUri($masterUri, $ENV{SERVER_PORT});
 if ($masterUri) {
+  # Since all URIs are now canonicalized, &UriToPath should suceed
+  # if $masterUri is local.
   my $maybeMasterPath = &UriToPath($masterUri);
   if ($maybeMasterPath) {
     # Master is on the same server.  Do a direct file access instead of an 
@@ -1163,6 +1183,7 @@ my $nmm = $nm->{multi};
 foreach my $k (sort keys %config) {
 	# &Warn("LoadNodeMetadata key: $k\n", $DEBUG_DETAILS);
 	my ($s, $p) = split(/\s+/, $k) or die;
+	$s = &CanonicalizeUri($s, $ENV{SERVER_PORT});
 	my $v = $config{$k};
 	die if !defined($v);
 	my @vList = split(/\s+/, $v); 
@@ -2318,6 +2339,8 @@ sub AbsUri
 my $uri = shift;
 # From RFC 3986:
 #    scheme  = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+#### TODO: change this to use the perl URI module:
+#### http://lwp.interglacial.com/ch04_04.htm
 if ($uri !~ m/\A[a-zA-Z][a-zA-Z0-9\+\-\.]*\:/) {
 	# Relative URI
 	$uri =~ s|\A\/||;	# Chop leading / if any
@@ -2336,6 +2359,7 @@ my $uri = shift;
 ### Ignore these parameters and use globals $baseUriPattern and $basePath:
 my $path = &AbsUri($uri);
 #### TODO: Make this work for IPv6 addresses.
+#### TODO: use the URI module: http://lwp.interglacial.com/ch04_01.htm
 # Get rid of superfluous port 80 before converting:
 $path =~ s|\A(http(s?)\:\/\/[^\/\:]+)\:80\/|$1\/|;
 if ($path =~ s|\A$baseUriPattern\/|$basePath\/|) {
@@ -2645,9 +2669,103 @@ foreach my $s (sort keys %allSubjects) {
 	}
 }
 
+################ CanonicalizeUri #################
+# Canonicalize the given URI:  If it is an absolute URI for a local 
+# http node on the
+# $thisPort, then canonicalize it to localhost or 127.0.0.1 .
+# Other URIs are passed through unchanged.  The $thisPort argument must
+# be provided even if it is the default port for this scheme.
+# The reason for canonicalizing only node URIs on this host is because
+# the RDF Popeline Framework will be handling requests for them, so
+# it needs to be able to distinguish them from foreign URIs, both
+# to avoid an infinite recursion of HTTP requests and to lookup
+# metadata based on the URI.  If the URI were a synonym, such as
+# http://127.0.0.1/node/foo instead of http://localhost/node/foo ,
+# then the metadata lookup would fail to find the metadata.
+sub CanonicalizeUri
+{
+@_ == 2 || die;
+my ($oldUri, $thisPort) = @_;
+$thisPort || die "$0: [ERROR] CanonicalizeUri called with 0 or undefined port. ";
+my $u = URI->new($oldUri);
+defined($u) || confess "[ERROR] Unable to parse URI: $oldUri ";
+# http: or https:  URI?
+my $uScheme = $u->scheme;
+return $oldUri if !$uScheme;
+# defined($uScheme) || confess "[ERROR] Undefined scheme from URI: $oldUri ";
+return $oldUri if $uScheme !~ m/^http(s?)$/;
+# Local?
+my $host = $u->host;
+return $oldUri if !&IsLocalHost($host);
+$host = "localhost";
+# Use 127.0.0.1 if localhost is not known:
+$host = "127.0.0.1" if !&IsLocalHost($host);
+$host || die "$0: [ERROR] $host is not recognized as a local address ";
+# Same port?
+my $uPort = $u->port;
+return $oldUri if $uPort != $thisPort;
+# RDF Pipeline node?
+my $uPath = $u->path;
+return $oldUri if $uPath !~ m|^\/node\/|;
+# At this point we know it is a local http node URI on the same port.
+# Canonicalize the URI.
+# It seems silly to parse the URI again, but I was unable to find
+# a perl module that would parse an http URI into all of its components
+# in such a way that it could be put back together which changing
+# only $scheme and $auth..
+my ($scheme, $auth, $path, $query, $frag) = uri_split($oldUri);
+# $auth consists of: [ userinfo "@" ] host [ ":" port ]
+$auth = $host;
+$auth .= ":$uPort" if $uPort && $uPort != $u->default_port;
+$scheme = "http";
+my $newUri = uri_join($scheme, $auth, $path, $query, $frag);
+return $newUri;
+}
+
+################ IsLocalHost #################
+# Is the given host name, which may be either a domain name or
+# an IP address, hosted on this local host machine?
+# Results are cached in a hash for fast repeated lookup.
+sub IsLocalHost
+{
+my $host = shift || return 0;
+our %isLocal;	# Cache
+return $isLocal{$host} if exists($isLocal{$host});
+my $packedIp = gethostbyname($host);
+if (!$packedIp) {
+	$isLocal{$host} = 0;
+	return 0;
+	}
+my $ip = inet_ntoa($packedIp) || "";
+our %localIps;
+%localIps = map { ($_, 1) } &GetIps() if !%localIps;
+#### TODO: is there an IPv6 localhost convention that also needs to be checked?
+#### TODO: Do I really need to check for the ^127\. pattern?
+my $isLocal = $localIps{$ip} || $ip =~ m/^127\./ || 0;
+$isLocal{$host} = $isLocal;
+# Maybe this would speed up a subsequent lookup by IP address,
+# but it probably is not worth the memory use:
+# $isLocal{$ip} = $isLocal;
+return $isLocal;
+}
+
+################ GetIps #################
+# Lookup IP addresses on this host.
+sub GetIps
+{
+my @interfaces = IO::Interface::Simple->interfaces;
+my @ips = grep {$_} map { $_->address } @interfaces;
+return @ips;
+}
+
+
 ##### DO NOT DELETE THE FOLLOWING TWO LINES!  #####
 1;
 __END__
+
+#############################################################
+# Documentation starts here
+#############################################################
 
 =head1 NAME
 
