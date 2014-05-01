@@ -197,6 +197,7 @@ $hostRoot || die "GraphNodeSerializer: ERROR: \$hostRoot not specified\n";
 # $hostRoot = "http://localhost:28080/openrdf-sesame/repositories/owlimlite";
 # http://localhost:28080/openrdf-workbench/repositories/owlimlite/update
 my $curlUrl = "${hostRoot}/update";
+$curlUrl =~ s|/openrdf-sesame/|/openrdf-workbench/|;
 ### TODO: Make this safer by using quotemeta for everything in the command:
 ### TODO: Make this non-Sesame specific.  Might need to pass $nm to wrapper
 ### functions to achieve this.  
