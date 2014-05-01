@@ -210,6 +210,10 @@ my $curlCmd = "/bin/cp $serFilename $tmp ; /usr/bin/curl  -s -S --data-urlencode
 &RDF::Pipeline::Warn("GraphNodeDeserializer curlCmd: $curlCmd\n", $RDF::Pipeline::DEBUG_DETAILS);
 my $success = !system($curlCmd);
 &RDF::Pipeline::Warn("GraphNodeDeserializer($serFilename, $deserName, $contentType, $hostRoot) FAILED\n", $RDF::Pipeline::DEBUG_OFF) if !$success;
+if ($RDF::Pipeline::debug >= $RDF::Pipeline::DEBUG_DETAILS) {
+	my $t = `head -n 10 $tmp`;
+	&RDF::Pipeline::Warn("GraphNodeDeserializer loaded  $serFilename / $tmp :\n[[\n$t\n. . . .\n]]\n", $RDF::Pipeline::DEBUG_DETAILS);
+	}
 unlink $tmp;
 return $success;
 }
