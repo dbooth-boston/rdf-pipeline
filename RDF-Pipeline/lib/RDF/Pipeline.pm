@@ -191,7 +191,6 @@ $debug = eval $debug if defined($debug) && $debug =~ m/^\$\w+$/;
 die "ERROR: debug not defined: $rawDebug " if !defined($debug);
 
 our $debugStackDepth = 0;	# Used for indenting debug messages.
-
 our $test;
 
 ##################  Constants for this server  ##################
@@ -436,7 +435,9 @@ if ($masterUri) {
     # Master is on the same server.  Do a direct file access instead of an 
     # HTTP request, to avoid infinite recursion of HTTP requests. 
     $configFile = &UriToPath($masterUri);
-    $masterUri = "";	# Indicate that it is on this server
+    &Warn("Using LOCAL masterUri: $masterUri with configFile: $configFile:\n", $DEBUG_DETAILS);
+    # Since $masterUri is local, it does not need to be mirrored:
+    $masterUri = "";
     }
   else {
     # Master is on a differnet server.
@@ -473,7 +474,7 @@ if ($masterUri) {
 # At this point $configFile should exist, either from mirroring
 # or from being local.  So now we should be able to just rely on the local
 # file modification date to determine whether to reload the
-# pipeline definition.  However, we also check $mirrorWasUpdate in case
+# pipeline definition.  However, we also check $mirrorWasUpdated in case
 # it was updated from mirroring faster than the file modification
 # time can detect.
 my ($cmtime, $cinode) = &MTimeAndInode($configFile);
@@ -1168,6 +1169,8 @@ sub LoadNodeMetadata
 {
 @_ == 3 or die;
 my ($nm, $ontFile, $configFile) = @_;
+-s $ontFile || &Warn("[ERROR] Empty ontFile: $ontFile\n"); 
+-s $configFile || &Warn("[ERROR] Empty configFile: $configFile\n"); 
 my %config = &CheatLoadN3($ontFile, $configFile);
 my $nmv = $nm->{value};
 my $nml = $nm->{list};
