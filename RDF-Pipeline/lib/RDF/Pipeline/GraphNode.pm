@@ -121,6 +121,7 @@ if (!$thisHostRoot) {
   return "";
   }
 #### TODO: Make this non-Sesame specific:
+$thisHostRoot =~ m|/openrdf-workbench/| or &RDF::Pipeline::Warn("GraphNodeRunUpdater: [WARNING] hostRoot does not contain \"/openrdf-workbench/\": $thisHostRoot\n");
 my $cmd = "/usr/bin/curl  -s -S --data-urlencode  'update\@$tmp' '${thisHostRoot}/update'";
 &RDF::Pipeline::Warn("GraphNodeRunUpdater cmd: $cmd\n", $RDF::Pipeline::DEBUG_DETAILS);
 # my $result = (system($cmd) >> 8);
@@ -166,8 +167,9 @@ $deserName or die;
 $contentType ||= "text/turtle";
 $hostRoot || die "GraphNodeSerializer: ERROR: \$hostRoot not specified\n";
 ### TODO: Make this non-Sesame specific:
+$hostRoot =~ m|/openrdf-workbench/| or &RDF::Pipeline::Warn("GraphNodeSerializer: [WARNING] hostRoot does not contain \"/openrdf-workbench/\": $hostRoot\n");
 $hostRoot =~ s|/openrdf-workbench/|/openrdf-sesame/|;
-$hostRoot =~ m|/openrdf-sesame/| or confess "[ERROR] GraphNode hostRoot does not match sesame pattern: $hostRoot ";
+# $hostRoot =~ m|/openrdf-sesame/| or confess "[ERROR] GraphNode hostRoot does not match sesame pattern: $hostRoot ";
 # $hostRoot = "http://localhost:28080/openrdf-sesame/repositories/owlimlite";
 # http://localhost:28080/openrdf-sesame/repositories/owlimlite/rdf-graphs/service?graph=http://example/in
 my $curlUrl =  "${hostRoot}/rdf-graphs/service?graph=$deserName";
@@ -204,6 +206,7 @@ $hostRoot || die "GraphNodeSerializer: ERROR: \$hostRoot not specified\n";
 # http://localhost:28080/openrdf-workbench/repositories/owlimlite/update
 my $curlUrl = "${hostRoot}/update";
 $curlUrl =~ s|/openrdf-sesame/|/openrdf-workbench/|;
+$hostRoot =~ m|/openrdf-workbench/| or &RDF::Pipeline::Warn("GraphNodeDeserializer: [WARNING] hostRoot does not contain \"/openrdf-workbench/\": $hostRoot\n");
 ### TODO: Make this safer by using quotemeta for everything in the command:
 ### TODO: Make this non-Sesame specific.  Might need to pass $nm to wrapper
 ### functions to achieve this.  
