@@ -1169,8 +1169,11 @@ sub LoadNodeMetadata
 {
 @_ == 3 or die;
 my ($nm, $ontFile, $configFile) = @_;
--s $ontFile || &Warn("[ERROR] Empty ontFile: $ontFile\n"); 
--s $configFile || &Warn("[ERROR] Empty configFile: $configFile\n"); 
+my $oSize = -s $ontFile;
+my $cSize = -s $configFile;
+&Warn("LoadNodeMetadata loading $ontFile ($oSize bytes) $configFile ($cSize bytes)\n", $DEBUG_DETAILS);
+$oSize || &Warn("[ERROR] Empty ontFile: $ontFile\n"); 
+$cSize  || &Warn("[ERROR] Empty configFile: $configFile\n"); 
 my %config = &CheatLoadN3($ontFile, $configFile);
 my $nmv = $nm->{value};
 my $nml = $nm->{list};
@@ -1595,6 +1598,7 @@ my $nc = " " . join(" ", map { chomp;
 	s/\.(\W)/ .$1/g; 	# Add space before period except in a word
 	$_ } <$fh>) . " ";
 close($fh);
+&PrintLog("================= CheatLoadN3 cwm results: ==================\n$nc\n=========================================\n");
 # &PrintLog("-" x 60 . "\n") if $debug;
 # &PrintLog("nc: $nc\n") if $debug;
 # &PrintLog("-" x 60 . "\n") if $debug;
