@@ -1,16 +1,11 @@
 #! /usr/bin/env perl
 
-# Skolemize, de-skolemize or canonicalize RDF blank nodes.
-# Skolem URIs found in the input will be automatically treated 
-# as blank nodes.
-# Skolem URIs matching the .well-known/genid/ URI pattern
-# http://www.w3.org/TR/rdf11-concepts/#section-skolemization
-# 
+# Convert RDF blank nodes (except lists) to URIs by skolemizing them.
 #
-# Input must be ntriples format; output is ntriples.
+# Input must be Turtle format; output is ntriples.
 # Reads stdin, writes stdout.
 #
-# Copyright 2013 by David Booth
+# Copyright 2014 by David Booth
 # Code home: http://code.google.com/p/rdf-pipeline/
 # See license information at http://code.google.com/p/rdf-pipeline/ 
 #
@@ -19,35 +14,26 @@
 
 use warnings;
 use strict;
-use URI::Split qw(uri_split uri_join);
-
-# Not using RedLand parser, and hopefully won't need to,
-# since the input is ntriples, which is easy to parse.
-# If the input is changed to be more general, then a proper RDF
-# parser will be needed.
-### use RDF::Redland;
 
 ################# Usage ###################
 sub Usage
 {
-warn "Usage: $0 [ options ] [ file.nt ... ]
+return "Usage: $0 [ options ] [ file.ttl ... ]
 Options:
   -p, --prefix=prefixUri
-	Use prefixUri as the skolem URI prefix, both in generating 
-	skolem URIs and (if the -b option is used) in recognizing
-	URIs as skolem URIs that should be treated as blank nodes.
-	This option may be repeated to recognize multiple skolem
-	URI prefixes, but only the first will be used in generating
-	skolem URIs.
+	Use prefixUri as the base in generating skolem URIs.
+	A unique UUID-derived suffix will be appended.
 
-  -s, --skolem
-	Treat skolem URIs (found in input) as blank nodes.  Skolem
-	URIs are any that either use a prefix given by a -p option
-	or match the .well-known/genid/ suffix as described in
-	http://www.w3.org/TR/rdf11-concepts/#section-skolemization
+  -u, --unique=uniqueUri
+	Use uniqueUri as the unique base in parsing skolem URIs.
+	A sequence number will be appended to uniqueUri to produce
+	the generated URI corresponding to a bnode.  Suggestion:
+	end uniqueUri with a colon \":\" to separate it from the
+	sequence number.  If this option is specified, the -p
+	option will be ignored.
 
-  -b, --bnodes
-	Output blank nodes instead of skolemizing.  I.e., de-skolemize.
+  -b, --base=baseUri
+	Use baseUri as the base in parsing relative URIs.
 
   -h, --help
 	Print this usage message.\n";
@@ -55,155 +41,113 @@ Options:
 
 ################# Main ###################
 
-# List of skolem URI prefixes, e.g., http://example/
-my @optPrefix = ();	
+use Data::GUID;
 
+my $prefixUri = "http://example/@";
+my $uniqueUri = "";
+my $baseUri = $prefixUri;
+my $help = 0;
+my $debug = 0;
 use Getopt::Long; # Perl
-if (!GetOptions(
-                "prefix|p=s" => \@optPrefix,
-                "skolem|s" => \$optSkolem,
-                "bnodes|b" => \$optBnodes,
-                "help|h" => \$optHelp,
-                )) {
-	warn "$0: Error reading options.\n";
-	&Usage();
-	exit 1;
-	}
-if ($optHelp) {
-	&Usage();
-	exit 0;
-	}
+GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
+                "prefix|p=s" => \$prefixUri,
+                "unique|u=s" => \$uniqueUri,
+                "base|b=s" => \$baseUri,
+                ) or die "$0: Error reading options.  " . &Usage();
 
-foreach my $p (@optPrefix) {
-	next if $p =~ m/[\/\#\?]$/;
-	warn "$0: WARNING: Skolemization prefix does not end with "/", "#" or "?": $p
- This may cause unintended URIs to be treated as skolem URIs.
- For example given a prefix \"http://example/foo\", the URI
- \"http://example/foods\" would be treated as a skolem URI.\n";
-	}
-my $prefixPattern = join(")|(", map {quotemeta($_)} @optPrefix);
-$prefixPattern = "($prefixPattern)" if $prefixPattern;
-# http://example.com/.well-known/genid/d26a2d0e98334696f4ad70a677abc1f6
-my $wellKnownPattern = quotemeta("/.well-known/genid/");
+die &Usage() if $help;
+@ARGV <= 1 || die "$0: Too many arguments.  " . &Usage();
+my $f = shift;
 
-# Collect all triples having at least one bnode.  Others are processed
-# and output immediately.
-while (my $line = <>) {
-	my ($s, $p, $v) = &ParseTriple($line);
-	if (!defined($v)) {
-		# Empty line or comment line
-		print $line;
-		next;
-		}
-	my $sIsBnode = &IsBnode($s);
-	my $vIsBnode = &IsBnode($v);
-	if ($sIsBnode && $vIsBnode) {
-		my $triple = { s=>$s, p=>$p, v=>$v };
-		$bothBnodeTriples{$s}->{$v}->{$triple} = 1;
-		}
-	elsif ($sIsBnode) {
-		my $triple = { s=>$s, p=>$p, v=>$v };
-		$sBnodeTriples{$s}->{$triple} = 1;
-		}
-	elsif ($vIsBnode) {
-		my $triple = { s=>$s, p=>$p, v=>$v };
-		$vBnodeTriples{$v}->{$triple} = 1;
-		}
-	else	{
-		# No bnodes in this triple, so nothing to do.  :)
-		print $line;
+die "$0 [ERROR] prefixUri must not have angle brackets: $prefixUri\n"
+	if $prefixUri =~ m/^\</ || $prefixUri =~ m/\>$/;
+
+$uniqueUri = $prefixUri . &NewUniqueID() if !$uniqueUri;
+
+die "$0 [ERROR] uniqueUri must not have angle brackets: $uniqueUri\n"
+	if $uniqueUri =~ m/^\</ || $uniqueUri =~ m/\>$/;
+
+my $counter = 0;
+my %triples;
+my %terms;
+my %bnodes;
+my %isList;
+my $listFirst = "<http://www.w3.org/1999/02/22-rdf-syntax-ns#first>";
+my $pipe = "rapper -q -i turtle -o ntriples -I $baseUri  - |";
+$pipe    = "rapper -q -i turtle -o ntriples -I $baseUri $f |" if $f;
+open(STDIN, $pipe) || die "$0: [ERROR] Failed to open pipe: $pipe\nIs rapper installed?\n";
+warn "INPUT N-Triples:\n[[\n" if $debug;
+while(<>) {
+	my $line = $_;
+	warn $line if $debug;
+	chomp;
+	s/^\s+//;		# Strip leading whitespace
+	s/\s+$//;		# Strip trailing whitespace
+	next if !m/\S/;		# Skip blank lines
+	s/\s*\.$//;		# Strip terminating "."
+	my($s, $p, $v) = split(/\s/, $_, 3);
+	defined($v) || die "$0: [ERROR] Failed to parse line: $line";
+	$triples{$s}->{$p}->{$v} = 1;;
+	$isList{$s} = 1 if $p eq $listFirst;
+	foreach my $t ($s, $p, $v) {
+		$terms{$t} = $t;
+		$bnodes{$t} = 1 if $t =~ m/^_/;
 		}
 	}
+warn "]]\n" if $debug;
+warn "===================================================\n" if $debug;
 
-
-	@@@@@@@@@ Relabel blanks in model @@@@@@@@@
-$byBlankDegree[0] = {};
-foreach triple: {
-	if ($sIsBlank && $vIsBlank) {
-		$abutters{$s}->{f}->{$p}->{$v} = 1;
-		$abutters{$v}->{r}->{$p}->{$s} = 1;
-		# From $s (forward)
-		my $sDegree = $blankDegree{$s}++;
-		delete($byBlankDegree[$sDegree]->{$s}) if $sDegree;
-		$byBlankDegree[$sDegree+1]->{$s} = 1;
-		# From $v (reverse)
-		my $vDegree = $blankDegree{$v}++;
-		delete($byBlankDegree[$vDegree]->{$v}) if $vDegree;
-		$byBlankDegree[$vDegree+1]->{$v} = 1;
-		}
-	elsif ($sIsBlank) {
-		$abutters{$s}->{f}->{$p}->{$v} = 1;
-		my $sDegree = $blankDegree{$s} || 0;
-		$byBlankDegree[$sDegree]->{$s} = 1;
-		}
-	elsif ($vIsBlank) {
-		$abutters{$v}->{r}->{$p}->{$s} = 1;
-		my $vDegree = $blankDegree{$v} || 0;
-		$byBlankDegree[$vDegree]->{$v} = 1;
-		}
-	else {
-		# No bnodes in this triple, so nothing to do.  :)
-		}
+# Generate URIs for bnodes that are not lists.
+foreach my $bnode (sort keys %bnodes) {
+	next if $isList{$bnode};
+	$counter++;
+	my $uri = "<" . $uniqueUri . sprintf("%04x", $counter) . ">" ;
+	warn "bnode $bnode -> $uri\n" if $debug;
+	$terms{$bnode} = $uri;
 	}
-@@ TODO: Sort this to be deterministic
-foreach my $blank (keys %{$byBlankDegree[0]}) {
-	@@ Relabeling must decrease the blank degree for all abutters
-	&RelabelBlank($blank, $abutters{$blank})
+warn "===================================================\n" if $debug;
 
-# Now mint canonical bnodes for the easy triples -- the ones having
-# only one bnode.  The canonical bnode will be named based on the lexically
-# sorted first triple that uses this bnode.
-foreach my $s (keys %sBnodeTriples) {
-	my @sortedSBnodeTriples = sort {
-		$a->{p} cmp $b->{p} || $a->{v} cmp $b->{v}
-		} @{$s};
-	my $first = $sortedTriples[0] or die;
-	my $node = &Mint
+# Dump out the result.
+foreach my $s (sort keys %triples) {
+	my $newS = $terms{$s};
+	print "$newS ";
+	my $pIndent = "";
+	my $pHash = $triples{$s};
+	foreach my $p (sort keys %{$pHash}) {
+		my $newP = $terms{$p};
+		print $pIndent, $newP, " ";
+		my $vIndent = "";
+		my $vHash = $pHash->{$p};
+		foreach my $v (sort keys %{$vHash}) {
+			my $newV = $terms{$v};
+			print $vIndent, $newV, " ";
+			$vIndent = ", ";
+			}
+		print ";\n";
+		$pIndent = "\t";
+		}
+		
+	print "\t.\n";
+	}
+exit 0;
 
-		exit 0;
-
-########### ParseTriple ############
-sub ParseTriple
+################ NewUniqueID ################
+# Return a new unique ID suitable for use in a URI or filename.
+# It is derived from a base64-encoded string,
+# after changing characters that would not be safe in a filename
+# or URI, and prepending "h" to ensure that it never starts with "-",
+# which might otherwise be mistaken for a command option in linux.
+sub NewUniqueID
 {
-my $line = shift;
-return(undef, undef, undef) if !defined($line);
-$line = &Trim($line);
-$line =~ s/^\#.*//;
-return(undef, undef, undef) if $line eq "";
-if ($line !~ m/^(\S+)\s+(\S+)\s+(\S.*\S)\s*\.$/) {
-	die "$0: ERROR parsing ntriples at line $.: $line\n";
-	}
-my $s = $1;
-my $p = $2;
-my $v = $3;
-return($s, $p, $v);
-}
-
-########## Trim ############
-# Perl function to remove whitespace from beginning and end of a string.
-sub Trim
-{
-my $s = shift @_;
-$s =~ s/\A[\s\n\r]+//s;
-$s =~ s/[\s\n\r]+\Z//s;
-return $s;
-}
-
-################## IsBnode #################
-# Return 1 iff the given node is (effectively) a blank node.
-# Uses global options and $prefixPattern and $wellKnownPattern.
-sub IsBnode
-{
-@_ == 1 or die;
-my ($node) = @_;
-return 1 if $node =~ m/^_\:/;
-return 0 if !$optSkolem;
-return 0 if $node !~ m/^\<(.*)\>$/;
-my $uri = $1;
-my ($scheme, $auth, $path, $query, $frag) = uri_split($uri);
-return 1 if $prefixPattern && $uri =~ m/^$prefixPattern/;
-# my $wellKnownPattern = quotemeta("/.well-known/genid/");
-return 1 if $scheme =~ m/^http(s?)$/ && $path =~ m|^$wellKnownPattern|;
-return 0;
+my $guid = Data::GUID->new;
+my $hash = "h" . Data::GUID->new->as_base64;
+# Ensure that it is filename- and URI-friendly, i.e.,
+# it contains only [a-zA-Z0-9_\-]+:
+$hash =~ tr|+/=|\-_|d;
+# Sanity check:
+die if $hash !~ m/\A[a-zA-Z0-9_\-]+\Z/;
+return $hash;
 }
 
