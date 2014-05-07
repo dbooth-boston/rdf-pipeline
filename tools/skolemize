@@ -43,7 +43,7 @@ Options:
 
 use Data::GUID;
 
-my $prefixUri = "http://example/@";
+my $prefixUri = "urn:@";
 my $uniqueUri = "";
 my $baseUri = $prefixUri;
 my $help = 0;
