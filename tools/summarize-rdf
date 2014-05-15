@@ -32,17 +32,17 @@
 #    5. Literals by datatype:  UNTYPED:3  
 #    6. 
 #    7. ===== Predicates by Subject Class =====
-#    8. p1:FileNode|4
-#    9.   p1:inputs -> { rdf:List|3 }|3
-#   10.   p1:updater -> { (UNTYPED)|3 }|3
-#   11.   rdf:type -> { rdfs:Class|1 }|1
+#    8. p1:FileNode 4
+#    9.   p1:inputs -> { rdf:List 3 } 3
+#   10.   p1:updater -> { (UNTYPED) 3 } 3
+#   11.   rdf:type -> { rdfs:Class 1 } 1
 #   12. 
-#   13. rdf:List|4
-#   14.   rdf:first -> { p1:FileNode|3 UNKNOWN|1 }|4
-#   15.   rdf:rest -> { rdf:List|2 }|2
+#   13. rdf:List 4
+#   14.   rdf:first -> { p1:FileNode 3 UNKNOWN 1 } 4
+#   15.   rdf:rest -> { rdf:List 2 } 2
 #   16. 
-#   17. rdfs:Class|1
-#   18.   rdfs:subClassOf -> { rdfs:Class|1 }|1
+#   17. rdfs:Class 1
+#   18.   rdfs:subClassOf -> { rdfs:Class 1 } 1
 #   19. 
 #   20. ===== Namespaces =====
 #   21. PREFIX p1: <http://purl.org/pipeline/ont#> 
@@ -206,7 +206,7 @@ print "Nodes by kind:  ";
 foreach my $t (sort keys %typeInstances) {
 	my @instances = keys %{$typeInstances{$t}};
 	my $ni = scalar(@instances);
-	print "$t|$ni  ";
+	print "$t $ni  ";
 	}
 print "\n";
 
@@ -215,7 +215,7 @@ foreach my $dt (sort keys %datatypeValues) {
 	my @values = keys %{$datatypeValues{$dt}};
 	my $nv = scalar(@values);
 	my $sdt = &ShortenUri($dt);
-	print "$sdt|$nv  ";
+	print "$sdt $nv  ";
 	}
 print "\n";
 print "\n";
@@ -241,7 +241,7 @@ foreach my $c (@sortedClasses) {
 	my $sc = &ShortenUri($c);
 	my @instances = keys %{$classInstances{$c}};
 	my $ni = scalar(@instances);
-	print "$sc|$ni\n";
+	print "$sc $ni\n";
 	my @sortedPredicates = sort {&ShortenUri($a) cmp &ShortenUri($b)}
 			keys %{$classPredicates{$c}};
 	foreach my $p (@sortedPredicates) {
@@ -260,10 +260,10 @@ foreach my $c (@sortedClasses) {
 			my $nc = $oClasses{$c};
 			my $sc = &ShortenUri($c);
 			$sc = "($sc)" if $isDatatype{$c};
-			print "$sc|$nc ";
+			print "$sc $nc ";
 			}
 		my $no = scalar(@objects);
-		print "}|$no\n";
+		print "} $no\n";
 		}
 	print "\n";
 	}
