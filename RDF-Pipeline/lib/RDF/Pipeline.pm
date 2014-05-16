@@ -13,7 +13,7 @@ package RDF::Pipeline;
 # 4/29/14: No, Test::Mock::Apache2 has a bug that causes a seg fault if used.
 #
 # To restart apache (under root):
-#  apache2ctl stop ; sleep 5 ; truncate -s 0 /var/log/apache2/error.log ; apache2ctl start
+#  apache2ctl stop ; sleep 2 ; truncate -s 0 /var/log/apache2/error.log ; apache2ctl start
 # To also restart sesame:
 #  apache2ctl stop ; service tomcat6 restart ; sleep 3 ; truncate -s 0 /var/log/apache2/error.log ; apache2ctl start
 
@@ -1085,7 +1085,8 @@ my @requesterQueries = sort values %requesterQueries;
 my $pUpstreamQueries = &{$fRunParametersFilter}($nm, $thisUri, $parametersFilter, $pThisInputs, $latestQuery, \@requesterQueries);
 &Warn("Ran parametersFilter\n", $DEBUG_DETAILS);
 ####
-foreach my $depUri (sort keys %{$thisMHashDependsOn}) {
+my @dependsOn = (sort keys %{$thisMHashDependsOn});
+foreach my $depUri (@dependsOn) {
   # In case $thisUri dependsOn itself, ignore it.
   # See issue 58.
   next if $depUri eq $thisUri;
@@ -1159,6 +1160,10 @@ foreach my $depUri (sort keys %{$thisMHashDependsOn}) {
     }
   &Warn("... oldDepLM: $oldDepLM newDepLM: $newDepLM stale: $thisIsStale\n", $DEBUG_DETAILS);
   }
+# If a node dependsOn nothing, then treat it as always stale.
+# Otherwise it will never fire after the first time, which would be useless.
+####### TODO: Not sure this works.  See test 0054 also.
+# $thisIsStale = 1 if !@dependsOn;
 &Warn("RequestLatestDependsOn(nm, $thisUri, $oldThisLM, $callerUri, $callerLM, $oldDepLMs) returning: $thisIsStale\n", $DEBUG_DETAILS);
 return( $thisIsStale, $newDepLMs )
 }
@@ -2046,6 +2051,21 @@ $nm->{value}->{FileNode}->{fExists} = \&FileExists;
 $nm->{value}->{FileNode}->{defaultContentType} = "text/plain";
 }
 
+############# ConstructQueryStringExports ##############
+# Create export statements for setting environment variables
+# named after query parameters.  For safety, only export query parameters 
+# starting with a lowercase letter and thereafter containing only
+# letters, digits or underscore.
+sub ConstructQueryStringExports
+{
+my $qs = shift;
+defined($qs) || die;
+my %params = &ParseQueryString($qs);
+my @allowed = grep { m/^[a-z][a-zA-Z0-9_]*$/ } sort keys %params;
+my @exports = map { "export $_=" . quotemeta($params{$_}) . " ; " } @allowed;
+return join("", @exports) || "";
+}
+
 ############# FileNodeRunParametersFilter ##############
 # Run the parametersFilter, returning a listRef of input queryStrings.
 sub FileNodeRunParametersFilter
@@ -2069,6 +2089,7 @@ my $qInputUris = join(" ", map {quotemeta($_)} @{$pInputUris});
 &Warn("qInputUris: $qInputUris\n", $DEBUG_DETAILS);
 my $qLatestQuery = quotemeta($latestQuery);
 my $exportqs = "export QUERY_STRING=$qLatestQuery";
+$exportqs = &ConstructQueryStringExports($latestQuery) . " $exportqs";
 my $qss = quotemeta(join(" ", @{$pOutputQueries}));
 my $exportqss = "export QUERY_STRINGS=$qss";
 my $tmp = "$tmpDir/parametersFilterOut" . &GenerateNewLM() . ".txt";
@@ -2174,6 +2195,7 @@ my ($lm, $latestQuery, %requesterQueries) =
 $lm = $lm;				# Avoid unused var warning
 my $qLatestQuery = quotemeta($latestQuery);
 my $exportqs = "export QUERY_STRING=$qLatestQuery";
+$exportqs = &ConstructQueryStringExports($latestQuery) . " $exportqs";
 # my $qss = quotemeta(&BuildQueryString(%requesterQueries));
 my $qss = quotemeta(join(" ", sort values %requesterQueries));
 my $exportqss = "export QUERY_STRINGS=$qss";
@@ -2630,7 +2652,7 @@ my $nmv = $nm->{value} || {};
 my $nml = $nm->{list}  || {};
 my $nmh = $nm->{hash}  || {};
 my $nmm = $nm->{multi} || {};
-&PrintLog("Node Metadata:\n") if $debug;
+&PrintLog("\nNode Metadata:\n") if $debug;
 my %allSubjects = (%{$nmv}, %{$nml}, %{$nmh}, %{$nmm});
 foreach my $s (sort keys %allSubjects) {
 	last if !$debug;
@@ -2672,6 +2694,7 @@ foreach my $s (sort keys %allSubjects) {
 		  }
 		}
 	}
+&PrintLog("\n") if $debug;
 }
 
 
