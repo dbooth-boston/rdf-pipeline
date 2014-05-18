@@ -10,7 +10,17 @@
 
 ################### Generic preparation ####################
 use warnings;
-my $debug = 1;
+
+my $help = 0;
+my $debug = 0;
+use Getopt::Long; # Perl
+GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
+                ) or die "$0: Error reading options.
+";
+die "Usage: $0 filename.rq\n" if $help;
+
 $ENV{SPARQL_SERVER} or die "$0: ERROR: SPARQL_SERVER env var is not set.  Example:
   export SPARQL_SERVER=http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test\n";
 @ARGV == 1 or die "Usage: $0 filename.rq\n";

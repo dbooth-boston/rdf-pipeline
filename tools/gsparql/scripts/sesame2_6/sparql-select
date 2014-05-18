@@ -11,10 +11,20 @@
 ################### Generic preparation ####################
 use warnings;
 use strict;
+
+my $help = 0;
 my $debug = 0;
+use Getopt::Long; # Perl
+GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
+                ) or die "$0: Error reading options.
+";
+
 $ENV{SPARQL_SERVER} or die "$0: ERROR: SPARQL_SERVER env var is not set.  Example:
   export SPARQL_SERVER=http://localhost:8080/openrdf-workbench/repositories/rdf-pipeline-test\n";
-@ARGV <= 1 or die "Usage: $0 [ filename.rq ]\n";
+
+die "Usage: $0 [ filename.rq ]\n" if $help || @ARGV > 1;
 @ARGV = ( "-" ) if !@ARGV;	# Default to stdin
 
 my $f = $ARGV[0];
@@ -37,7 +47,9 @@ my $dir = $0;
 $dir =~ s/\/[^\/]+$//;
 my $qdir = quotemeta($dir);
 my $qss = quotemeta($ENV{SPARQL_SERVER});
-my $cmd = "/usr/bin/curl -s  --data-urlencode  query\@$qf $qss/query?queryLn=SPARQL | perl -p -e 's/\\\\r//g' | xsltproc $qdir/sparql-results-tsv.xsl - | iconv -f UTF-16 -t UTF-8";
+# Updated for sesame 2.7.11:
+# my $cmd = "/usr/bin/curl -s  --data-urlencode  query\@$qf $qss/query?queryLn=SPARQL | perl -p -e 's/\\\\r//g' | xsltproc $qdir/sparql-results-tsv.xsl - | iconv -f UTF-16 -t UTF-8";
+my $cmd = "/usr/bin/curl -s -d 'action=exec' -d 'queryLn=SPARQL' -d 'ref=text' --data-urlencode  query\@$qf $qss/query | perl -p -e 's/\\\\r//g' | xsltproc $qdir/sparql-results-tsv.xsl - | iconv -f UTF-16 -t UTF-8";
 warn "cmd: $cmd\n" if $debug;
 !system($cmd) or die "$0: $?\n";
 

@@ -18,12 +18,16 @@ return "Usage: $0 [ -g graphURI ]
 }
 
 ################### Main ####################
+my $help = 0;
+my $debug = 0;
 my $graph = "";
 use Getopt::Long; # Perl
 GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
                 "graph|g=s" => \$graph,
                 ) or die &Usage();
-die &Usage() if @ARGV;
+die &Usage() if @ARGV || $help;
 
 my $stripped = 0;
 $stripped = 1 if $graph =~ s/^\<//;
