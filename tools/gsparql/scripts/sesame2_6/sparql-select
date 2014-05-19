@@ -46,10 +46,12 @@ my $qf = quotemeta($f);
 my $dir = $0;
 $dir =~ s/\/[^\/]+$//;
 my $qdir = quotemeta($dir);
-my $qss = quotemeta($ENV{SPARQL_SERVER});
+my $ss = $ENV{SPARQL_SERVER};
+$ss =~ s/openrdf\-workbench/openrdf\-sesame/;
+my $qss = quotemeta($ss);
 # Updated for sesame 2.7.11:
-# my $cmd = "/usr/bin/curl -s  --data-urlencode  query\@$qf $qss/query?queryLn=SPARQL | perl -p -e 's/\\\\r//g' | xsltproc $qdir/sparql-results-tsv.xsl - | iconv -f UTF-16 -t UTF-8";
-my $cmd = "/usr/bin/curl -s -d 'action=exec' -d 'queryLn=SPARQL' -d 'ref=text' --data-urlencode  query\@$qf $qss/query | perl -p -e 's/\\\\r//g' | xsltproc $qdir/sparql-results-tsv.xsl - | iconv -f UTF-16 -t UTF-8";
+# curl -s --data-urlencode 'query@/tmp/j.rq' -H 'Accept: text/tab-separated-values' http://localhost:8080/openrdf-sesame/repositories/rdf-pipeline-test
+my $cmd = "/usr/bin/curl -s --data-urlencode query\@$qf -H 'Accept: text/tab-separated-values' $qss";
 warn "cmd: $cmd\n" if $debug;
 !system($cmd) or die "$0: $?\n";
 
