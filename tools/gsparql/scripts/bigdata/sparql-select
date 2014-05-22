@@ -54,7 +54,9 @@ $ENV{SPARQL_SERVER} =~ s|\/$||;  # Strip trailing slash if any
 $ENV{SPARQL_SERVER} =~ m/\bbigdata$/ or warn "[WARNING] \$SPARQL_SERVER does not end with \"bigdata\": $ENV{SPARQL_SERVER}\n" if $debug;
 # warn "# \$SPARQL_SERVER cleaned: $ENV{SPARQL_SERVER}\n" if $debug;
 my $qss = quotemeta($ENV{SPARQL_SERVER});
-my $cmd = "/usr/bin/curl -s  --data-urlencode  query\@$qf $qss/sparql | perl -p -e 's/\\\\r//g' | xsltproc $qdir/sparql-results-tsv.xsl - | iconv -f UTF-16 -t UTF-8";
+# bigdata now supports TSV output, but includes a carriage return:
+# my $cmd = "/usr/bin/curl -s  --data-urlencode  query\@$qf $qss/sparql | perl -p -e 's/\\\\r//g' | xsltproc $qdir/sparql-results-tsv.xsl - | iconv -f UTF-16 -t UTF-8";
+my $cmd = "/usr/bin/curl -s  --data-urlencode  query\@$qf -H 'Accept: text/tab-separated-values' $qss/sparql | perl -p -e 's/\\\\r//g' ";
 warn "# cmd: $cmd\n" if $debug;
 !system($cmd) or die "$0: $?\n";
 
