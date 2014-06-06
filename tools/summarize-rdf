@@ -1,5 +1,7 @@
 #!/usr/bin/perl -w
 
+use strict;
+
 # Summary of schema implied by RDF instance data -- classes and predicates.
 # Files are read from command line or stdin, in Turtle format.
 #
@@ -101,8 +103,6 @@
 #
 ############################################################
 
-use strict;
-
 use RDF::Helper::Constants qw( :all );
 use RDF::Trine;
 use RDF::Trine::Model;
@@ -135,6 +135,31 @@ my $RDF_REST = RDF::Trine::Node::Resource->new(RDF_REST);
 my $RDFS_CLASS = RDF::Trine::Node::Resource->new(RDFS_CLASS);
 my $RDFS_SUBCLASS_OF = RDF::Trine::Node::Resource->new(RDFS_SUBCLASS_OF);
 
+################## Get options ###################
+
+my $impliedRanges = 0;
+my $help = 0;
+use Getopt::Long; # Perl
+GetOptions(
+                "help|h" => \$help,
+                "impliedRanges|i" => \$impliedRanges,
+                ) or die "$0: Error reading options.\n";
+
+die "Usage: $0 [ options ] [ turtleFiles...]
+Options:
+	-i, --impliedRanges
+		Include implied classes (based on predicate ranges) 
+		for nodes with no declared class.  For example, given
+		  :s :p :o .
+		then :o is implicitly declared as:
+		  :o a :pRange .
+		Implied classes are shown in parentheses: \"(:pRange)\"
+
+	-h, --help
+		Print usage info and exit
+" if $help;
+
+###################### Read RDF ######################
 # my $subject = RDF::Trine::Node::Resource->new('http://example.org/aircraft/B787');
 # my $predicate = RDF::Trine::Node::Resource->new('http://purl.org/dc/terms/title');
 # my $object = RDF::Trine::Node::Literal->new('Boeing 787', 'en');
@@ -163,12 +188,19 @@ my %predicateSubjects;	# predicates -> hash of subjects
 my %predicateObjects;	# predicates -> hash of objects
 my %isDatatype;		# Remember whether a URI is a datatype
 my %subjectPredicates;	# Maps subjects -> hash of predicates
+my %objectPredicates;	# Maps objects -> hash of predicates
+my %isImpliedClass;	# True if this class was range implied by predicate
 my $si = $model->get_statements(undef, undef, undef);
 while (my $ts = $si->next()) {
 	my $s = $ts->subject();
 	my $p = $ts->predicate();
 	my $o = $ts->object();
+	# WARNING: when $s $p or $o are used as hash indexes they
+	# are silently turned into strings first, so if you use keys %hash
+	# to get them back from a hash, you will get strings -- NOT objects.
 	$subjectPredicates{$s}->{$p} = 1;
+	$objectPredicates{$o}->{$p} = 1 if $impliedRanges && &IsInteresting($p, $o);
+	# $objectPredicates{$o}->{$p} = 1;
 	# print "\t$s $p $o\n";
 	if ($p->equal($RDF_TYPE)) {
 		$typesOf{$s}->{$o} = 1;
@@ -202,12 +234,31 @@ while (my $ts = $si->next()) {
 	# print "\t$s $p $o type: $t\n";
 	}
 
+if ($impliedRanges) {
+  # Load implied range classes into %typesOf.  This is done in
+  # two steps in order to load *all* implied range classes for a
+  # given object, rather than stopping after the first.
+  foreach my $o (sort keys %objectPredicates) {
+    my $shortO = &ShortenUri($o);
+    # warn "TypesOf($shortO) = " . join(" ", map {&ShortenUri($_)} &TypesOf($o)) . "\n";
+    next if keys %{$typesOf{$o}};
+    foreach my $p (sort keys %{$objectPredicates{$o}}) {
+      my $pUri = $p;
+      $pUri =~ s/\>$/Range\>/ or die "0: [ERROR] Bad predicate: $p\n";
+      # my $pClass = RDF::Trine::Node::Resource->new($pUri);
+      $isImpliedClass{$pUri} = 1;
+      $typesOf{$o}->{$pUri} = 1;
+      }
+    }
+  # The rest of the work will be done by ShortenUri.
+  }
+
 print "Nodes by kind:  ";
 foreach my $t (sort keys %typeInstances) {
-	my @instances = keys %{$typeInstances{$t}};
-	my $ni = scalar(@instances);
-	print "$t $ni  ";
-	}
+my @instances = keys %{$typeInstances{$t}};
+my $ni = scalar(@instances);
+print "$t $ni  ";
+}
 print "\n";
 
 print "Literals by datatype:  ";
@@ -275,6 +326,28 @@ foreach my $ns (sort {$namespaces{$a} cmp $namespaces{$b}} keys %namespaces) {
 	}
 exit 0;
 
+############## IsInteresting ##############
+# This is a helper for determining implied range classes based on predicates,
+# given predicate $p and object $o.
+sub IsInteresting
+{
+@_ == 2 || die;
+my ($p, $o) = @_;
+#### TODO: Make these constants:
+return 0 if $o->is_literal();
+return 0 if $o->equal($RDF_NIL);
+return 0 if $o->equal($RDF_FIRST);
+return 0 if $o->equal($RDF_REST);
+return 0 if $o->equal($RDF_LIST);
+return 0 if $o->equal($RDFS_CLASS);
+return 0 if $p->equal($RDF_NIL);
+return 0 if $p->equal($RDF_FIRST);
+return 0 if $p->equal($RDF_REST);
+return 0 if $p->equal($RDF_TYPE);
+return 0 if $p->equal($RDFS_SUBCLASS_OF);
+return 1;
+}
+
 ######################## TypesOf ########################
 # Look up the type of a subject (from global %typesOf) or default to UNK.
 sub TypesOf
@@ -287,17 +360,20 @@ return ( "UNKNOWN" );
 
 ######################## ShortenUri ########################
 # Shorten the URI by stripping and remembering (in global %namespaces)
-# the part before last slash or hash.
+# the part before last slash or hash.  Also uses global %isImpliedClass.
 sub ShortenUri
 {
 my $uri = shift;
-$uri = $uri->as_string() if RDF::Trine::Node->is_node();
+my $originalUri = $uri;
+$uri = $uri->as_string() if ref $uri && $uri->is_node();
 $uri = $1 if $uri =~ m/^\<(.*)\>$/;
 return $uri if $uri =~ m/^\"/ || $uri =~ m/\"$/;	# Ignore literals
 return $uri if $uri !~ s/(^.*[\/\#])(.)/$2/;
 my $ns = $1;
 my $prefix = $namespaces{$ns} || $standardNamespaces{$ns} || $nextPrefix++;
 $namespaces{$ns} = $prefix;
-return "$prefix:$uri";
+my $result = "$prefix:$uri";
+$result = "($result)" if $isImpliedClass{$originalUri};
+return $result;
 }
 
