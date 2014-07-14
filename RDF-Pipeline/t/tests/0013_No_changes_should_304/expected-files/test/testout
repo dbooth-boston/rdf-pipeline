@@ -4,7 +4,61 @@ Server: Apache/2.2.22 (Ubuntu)
 Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
 ETag: "LM1326111111.111111000001"
 Content-Length: 30
-Content-Location: http://localhost/cache/addone/state
+Content-Location: http://localhost/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+101
+301
+501
+701
+901
+1101
+1301
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 30
+Content-Location: http://localhost/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+101
+301
+501
+701
+901
+1101
+1301
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 30
+Content-Location: http://localhost/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+101
+301
+501
+701
+901
+1101
+1301
+----------------------------------------------------------------------
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 30
+Content-Location: http://localhost/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
 Vary: Accept-Encoding
 Content-Type: text/plain
 

@@ -20,8 +20,10 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
 ############ CUSTOMIZE HERE ################
+!system("cd ../0012_Modified_multipliertxt ; ./test-script") or die;
 # Invoke the URL, concatenating its output to $wwwDir/test/testout :
 my $testUrl = 'http://localhost/node/addone';
+!system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
 ############################################
 
