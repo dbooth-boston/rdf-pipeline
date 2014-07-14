@@ -6,3 +6,15 @@
 "HEAD /node/addone-updater HTTP/1.1" 304
 "HEAD /node/odds-updater HTTP/1.1" 304
 ----------------------------------------------------------------------
+"GET /node/addone HTTP/1.1" 200
+"HEAD /node/addone-updater HTTP/1.1" 304
+"HEAD /node/odds-updater HTTP/1.1" 304
+----------------------------------------------------------------------
+"GET /node/addone HTTP/1.1" 200
+"HEAD /node/addone-updater HTTP/1.1" 304
+"HEAD /node/odds-updater HTTP/1.1" 304
+----------------------------------------------------------------------
+"GET /node/addone HTTP/1.1" 200
+"HEAD /node/addone-updater HTTP/1.1" 304
+"HEAD /node/odds-updater HTTP/1.1" 304
+----------------------------------------------------------------------
