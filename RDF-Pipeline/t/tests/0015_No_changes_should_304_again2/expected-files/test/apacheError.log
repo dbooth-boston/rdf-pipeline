@@ -1,3 +1,71 @@
+          UPDATED      query parameters of http://localhost/node/addone
+          UPDATED      depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              UPDATED      query parameters of http://localhost/node/mult
+              UPDATED      depUri http://localhost/node/mult-updater of http://localhost/node/mult
+                UPDATING http://localhost/node/multiplier.txt inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_multiplier.txt_HASHhcV7QV2n_lGuOvzsyC53Etw/serCache of http://localhost/node/mult
+              UPDATED      depUri http://localhost/node/multiplier.txt of http://localhost/node/mult
+                  UPDATED      query parameters of http://localhost/node/odds
+                      UPDATED      query parameters of http://localhost/node/max
+                    UPDATING http://localhost/node/max {/home/dbooth/rdf-pipeline/Private/www/node/max} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_max_HASHhqGe3F178J8lfxP_1dJCmDA/state
+                  UPDATED      depUri http://localhost/node/max of http://localhost/node/odds
+                  UPDATED      depUri http://localhost/node/odds-updater of http://localhost/node/odds
+                UPDATING http://localhost/node/odds {odds-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_odds_HASHhD6HCI1OMEiNa3DqHERr7qA/state
+              UPDATED      depUri http://localhost/node/odds of http://localhost/node/mult
+            UPDATING http://localhost/node/mult {mult-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_mult_HASHhrWUK3O0zq4NSkO2MsWOEIw/state
+          UPDATED      depUri http://localhost/node/mult of http://localhost/node/addone
+        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/addone
+          NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              NO CHANGE to query parameters of http://localhost/node/mult
+              NO CHANGE to depUri http://localhost/node/mult-updater of http://localhost/node/mult
+              NO CHANGE to depUri http://localhost/node/multiplier.txt of http://localhost/node/mult
+                  NO CHANGE to query parameters of http://localhost/node/odds
+                      NO CHANGE to query parameters of http://localhost/node/max
+                  NO CHANGE to depUri http://localhost/node/max of http://localhost/node/odds
+                  NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
+              NO CHANGE to depUri http://localhost/node/odds of http://localhost/node/mult
+          NO CHANGE to depUri http://localhost/node/mult of http://localhost/node/addone
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/addone
+          NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              NO CHANGE to query parameters of http://localhost/node/mult
+              NO CHANGE to depUri http://localhost/node/mult-updater of http://localhost/node/mult
+                UPDATING http://localhost/node/multiplier.txt inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_multiplier.txt_HASHhcV7QV2n_lGuOvzsyC53Etw/serCache of http://localhost/node/mult
+              UPDATED      depUri http://localhost/node/multiplier.txt of http://localhost/node/mult
+                  NO CHANGE to query parameters of http://localhost/node/odds
+                      NO CHANGE to query parameters of http://localhost/node/max
+                  NO CHANGE to depUri http://localhost/node/max of http://localhost/node/odds
+                  NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
+              NO CHANGE to depUri http://localhost/node/odds of http://localhost/node/mult
+            UPDATING http://localhost/node/mult {mult-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_mult_HASHhrWUK3O0zq4NSkO2MsWOEIw/state
+          UPDATED      depUri http://localhost/node/mult of http://localhost/node/addone
+        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/addone
+          NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              NO CHANGE to query parameters of http://localhost/node/mult
+              NO CHANGE to depUri http://localhost/node/mult-updater of http://localhost/node/mult
+              NO CHANGE to depUri http://localhost/node/multiplier.txt of http://localhost/node/mult
+                  NO CHANGE to query parameters of http://localhost/node/odds
+                      NO CHANGE to query parameters of http://localhost/node/max
+                  NO CHANGE to depUri http://localhost/node/max of http://localhost/node/odds
+                  NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
+              NO CHANGE to depUri http://localhost/node/odds of http://localhost/node/mult
+          NO CHANGE to depUri http://localhost/node/mult of http://localhost/node/addone
+----------------------------------------------------------------------
+          NO CHANGE to query parameters of http://localhost/node/addone
+          NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
+              NO CHANGE to query parameters of http://localhost/node/mult
+              NO CHANGE to depUri http://localhost/node/mult-updater of http://localhost/node/mult
+              NO CHANGE to depUri http://localhost/node/multiplier.txt of http://localhost/node/mult
+                  NO CHANGE to query parameters of http://localhost/node/odds
+                      NO CHANGE to query parameters of http://localhost/node/max
+                  NO CHANGE to depUri http://localhost/node/max of http://localhost/node/odds
+                  NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
+              NO CHANGE to depUri http://localhost/node/odds of http://localhost/node/mult
+          NO CHANGE to depUri http://localhost/node/mult of http://localhost/node/addone
+----------------------------------------------------------------------
           NO CHANGE to query parameters of http://localhost/node/addone
           NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
               NO CHANGE to query parameters of http://localhost/node/mult
