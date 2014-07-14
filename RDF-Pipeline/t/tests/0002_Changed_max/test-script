@@ -20,6 +20,9 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
 ############ CUSTOMIZE HERE ################
+# OBSOLETE: Disable this test, per ReadMe.txt :
+exit 0;
+
 my $testUrl = 'http://localhost/node/addone';
 # Get rid of lm and cache directories, both here and $wwwDir:
 !system("flush-caches") or die;
@@ -27,8 +30,10 @@ my $testUrl = 'http://localhost/node/addone';
 !system("../../helpers/copy-dir.perl -s /dev/null setup-files/cache") or die;
 # Init max to 13:
 !system("echo 13 > '$wwwDir/node/max.txt'") or die;
-# Wait 1 second to ensure that a strong ETag is issued and any
-# change will be detectable:
+# Wait at least 1 second to ensure that Apache will issue a strong ETag
+# instead of a weak ETag, to ensure later change is detectable,
+# as described at:
+# https://issues.apache.org/bugzilla/show_bug.cgi?id=42987
 sleep 1;
 # Run the pipeline, which should update every node:
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
@@ -39,8 +44,10 @@ sleep 1;
 !system("echo 9 > '$wwwDir/node/max.txt'") or die;
 # Run again, and the result should not change:
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
-# Flush the cache, and the change should not be visible:
-!system("flush-caches") or die;
+# However, changing the updater itself should cause it to be run again,
+# because each node implicitly dependsOn its updater:
+##### Commented out, because this is not yet implemented.  See issue #58
+# !system("touch '$wwwDir/node/max'") or die;
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
 ############################################
 
