@@ -229,31 +229,6 @@ our $tmpDir = "$basePath/tmp";
 our $URI = 'URI';
 our $FILE = 'FILE';
 
-# Set $RDF_PIPELINE_DEV_DIR and $PATH so that updaters will inherit them:
-if (!$ENV{RDF_PIPELINE_DEV_DIR}) {
-	#### TODO: Avoid hard-coding this:
-	my $p = "/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm";
-	# /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm
-	#   -->
-	# /home/dbooth/rdf-pipeline/trunk
-	$p =~ s|(\/[^\/]+){4}$|| or die "Failed to parse Pipeline.pm file path: $p ";
-	# Maybe let set_env.sh set this instead:
-	# $ENV{RDF_PIPELINE_DEV_DIR} = $p;
-	my $both = `. $p/set_env.sh ; echo \$PATH \$RDF_PIPELINE_DEV_DIR`;
-	chomp $both;
-	my ($path, $dev, $extra) = split(/ /, $both);
-	die "[ERROR] \$PATH or \$RDF_PIPELINE_DEV_DIR contains a space "
-		if $extra;
-	die "[ERROR] Failed to parse PATH and RDF_PIPELINE_DEV_DIR from {$both} "
-		if !$path || !$dev;
-	$ENV{PATH} = $path;
-	$ENV{RDF_PIPELINE_DEV_DIR} = $dev;
-	}
-die "[INTERNAL ERROR] RDF_PIPELINE_DEV_DIR not set in environment! "
-	if !$ENV{RDF_PIPELINE_DEV_DIR};
-my $qToolsDir = quotemeta("$ENV{RDF_PIPELINE_DEV_DIR}/tools");
-die "[INTERNAL ERROR] PATH not set properly: $ENV{PATH} "
-	if $ENV{PATH} !~ m/$qToolsDir/;
 our @systemArgs = qw(debug debugStackDepth callerUri callerLM method);
 
 ################### Runtime data ####################
@@ -387,6 +362,34 @@ $debugStackDepth = $args{debugStackDepth} || 0;
 &Warn("baseUri: $baseUri\n", $DEBUG_DETAILS);
 &Warn("basePath: $basePath\n", $DEBUG_DETAILS);
 &Warn("DOCUMENT_ROOT: $ENV{DOCUMENT_ROOT}\n", $DEBUG_DETAILS);
+# Set $RDF_PIPELINE_DEV_DIR and $PATH so that updaters will inherit them.
+# For some reason, it does not work to set this only once when the thread
+# starts.  $ENV{PATH}, at least, seems to be reset each time the handler
+# is called.
+if (!$ENV{RDF_PIPELINE_DEV_DIR}) {
+	#### TODO: Avoid hard-coding this:
+	my $p = "/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm";
+	# /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm
+	#   -->
+	# /home/dbooth/rdf-pipeline/trunk
+	$p =~ s|(\/[^\/]+){4}$|| or die "Failed to parse Pipeline.pm file path: $p ";
+	# Maybe let set_env.sh set this instead:
+	# $ENV{RDF_PIPELINE_DEV_DIR} = $p;
+	my $both = `. $p/set_env.sh ; echo \$PATH \$RDF_PIPELINE_DEV_DIR`;
+	chomp $both;
+	my ($path, $dev, $extra) = split(/ /, $both);
+	die "[ERROR] \$PATH or \$RDF_PIPELINE_DEV_DIR contains a space "
+		if $extra;
+	die "[ERROR] Failed to parse PATH and RDF_PIPELINE_DEV_DIR from {$both} "
+		if !$path || !$dev;
+	$ENV{PATH} = $path;
+	$ENV{RDF_PIPELINE_DEV_DIR} = $dev;
+	}
+die "[INTERNAL ERROR] RDF_PIPELINE_DEV_DIR not set in environment! "
+	if !$ENV{RDF_PIPELINE_DEV_DIR};
+my $qToolsDir = quotemeta("$ENV{RDF_PIPELINE_DEV_DIR}/tools");
+die "[INTERNAL ERROR] PATH not set properly: $ENV{PATH} "
+	if $ENV{PATH} !~ m/$qToolsDir/;
 my @args = %args;
 my $nArgs = scalar(@args);
 &Warn("Query string (elements $nArgs): $args\n", $DEBUG_DETAILS);
@@ -2218,6 +2221,11 @@ my $useStdout = 0;
 my $stateOriginal = $nm->{value}->{$thisUri}->{stateOriginal} || "";
 &Warn("stateOriginal: $stateOriginal\n", $DEBUG_DETAILS);
 $useStdout = 1 if $updater && !$stateOriginal;
+die "[INTERNAL ERROR] RDF_PIPELINE_DEV_DIR not set in environment! "
+	if !$ENV{RDF_PIPELINE_DEV_DIR};
+my $qToolsDir = quotemeta("$ENV{RDF_PIPELINE_DEV_DIR}/tools");
+die "[INTERNAL ERROR] PATH not set properly: $ENV{PATH} "
+	if $ENV{PATH} !~ m/$qToolsDir/;
 my $qPath = quotemeta($ENV{PATH}) || die;
 my $cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $qUpdater $qState $ipFiles > $qStderr 2>&1 )";
 $cmd =    "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $qUpdater         $ipFiles > $qState 2> $qStderr )"
