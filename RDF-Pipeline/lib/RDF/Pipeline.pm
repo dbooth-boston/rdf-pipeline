@@ -242,12 +242,18 @@ if (!$ENV{RDF_PIPELINE_DEV_DIR}) {
 	my $both = `. $p/set_env.sh ; echo \$PATH \$RDF_PIPELINE_DEV_DIR`;
 	chomp $both;
 	my ($path, $dev, $extra) = split(/ /, $both);
-	die "Failed to parse PATH and RDF_PIPELINE_DEV_DIR from {$both} "
-		if !$path || !$dev || $extra;
+	die "[ERROR] \$PATH or \$RDF_PIPELINE_DEV_DIR contains a space "
+		if $extra;
+	die "[ERROR] Failed to parse PATH and RDF_PIPELINE_DEV_DIR from {$both} "
+		if !$path || !$dev;
 	$ENV{PATH} = $path;
 	$ENV{RDF_PIPELINE_DEV_DIR} = $dev;
 	}
-
+die "[INTERNAL ERROR] RDF_PIPELINE_DEV_DIR not set in environment! "
+	if !$ENV{RDF_PIPELINE_DEV_DIR};
+my $qToolsDir = quotemeta("$ENV{RDF_PIPELINE_DEV_DIR}/tools");
+die "[INTERNAL ERROR] PATH not set properly: $ENV{PATH} "
+	if $ENV{PATH} !~ m/$qToolsDir/;
 our @systemArgs = qw(debug debugStackDepth callerUri callerLM method);
 
 ################### Runtime data ####################
@@ -1019,7 +1025,7 @@ my ($nm, $thisUri, $callerUri, $callerLM) = @_;
 }
 
 ################### RequestLatestDependsOns ################### 
-# Logic table for each $depUri:
+# Logic table for each $depUri (where x means "don't care"):
 #       is      known   is      same    same
 #       Input   Fresh   Node    Server  Type    Action
 #       0       0       0       x       x       Foreign HEAD
