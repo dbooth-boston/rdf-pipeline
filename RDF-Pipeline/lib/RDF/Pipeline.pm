@@ -365,7 +365,7 @@ $debugStackDepth = $args{debugStackDepth} || 0;
 # Set $RDF_PIPELINE_DEV_DIR and $PATH so that updaters will inherit them.
 # For some reason, it does not work to set this only once when the thread
 # starts.  $ENV{PATH}, at least, seems to be reset each time the handler
-# is called.
+# is called after the first time.
 if (!$ENV{RDF_PIPELINE_DEV_DIR}) {
 	#### TODO: Avoid hard-coding this:
 	my $p = "/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF/Pipeline.pm";
