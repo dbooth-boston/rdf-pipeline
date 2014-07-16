@@ -643,7 +643,7 @@ my $reqString = $req->as_string;
 # TODO: http://tinyurl.com/cbxgu4y says:
 #   If you want to get a large result it is better to write to a file directly:
 #   my $res = $ua->request($req,'file_name.txt');
-my $res = $ua->request($req) or die;
+my $res = $ua->request($req) || die;
 my $code = $res->code;
 &Warn("Code: $code\n", $DEBUG_DETAILS);
 $code == RC_NOT_MODIFIED || $code == RC_OK or die "ERROR: Unexpected HTTP response code $code ";
@@ -712,7 +712,7 @@ my $depSerCache = $thisHHash->{dependsOnSerCache}->{$depUri} || "";
 my $depCache = $thisHHash->{dependsOnCache}->{$depUri} || "";
 my ($oldCacheLM) = &LookupLMs($thisType, $depCache);
 $oldCacheLM ||= "";
-my $fExists = $nmv->{$thisType}->{fExists} or die;
+my $fExists = $nmv->{$thisType}->{fExists} || die;
 my $thisHostRoot = $nmh->{$thisType}->{hostRoot}->{$baseUri} || $basePath;
 $oldCacheLM = "" if $oldCacheLM && !&{$fExists}($depCache, $thisHostRoot);
 if (!$depLM || $depLM eq $oldCacheLM) {
@@ -885,8 +885,8 @@ defined($latestQuery) || confess;
 &Warn("UpdateQueries(nm, $thisUri, $latestUri, $latestQuery)\n", $DEBUG_DETAILS);
 my $pOutputs = $nm->{multi}->{$thisUri}->{outputs} || {};
 $latestUri = "" if !$pOutputs->{$latestUri};	# Treat as anonymous requester?
-my $thisVHash = $nm->{value}->{$thisUri} or die;
-my $parametersFile = $thisVHash->{parametersFile} or die;
+my $thisVHash = $nm->{value}->{$thisUri} || die;
+my $parametersFile = $thisVHash->{parametersFile} || die;
 my ($lm, $oldLatestQuery, @oldRequesterQueries) = 
 	&LookupLMs($FILE, $parametersFile);
 # my @results = &LookupLMs($FILE, $parametersFile);
@@ -963,16 +963,16 @@ my ($oldThisLM, %oldDepLMs) = &LookupLMs($URI, $thisUri);
 $oldThisLM ||= "";
 return $oldThisLM if $method eq "GRAB";
 # Run thisUri's update policy for this event:
-my $fUpdatePolicy = $thisVHash->{fUpdatePolicy} or die;
+my $fUpdatePolicy = $thisVHash->{fUpdatePolicy} || die;
 my $policySaysFreshen = 
 	&{$fUpdatePolicy}($nm, $method, $thisUri, $callerUri, $callerLM);
 return $oldThisLM if !$policySaysFreshen;
 my ($thisIsStale, $newDepLMs) = 
 	&RequestLatestDependsOns($nm, $thisUri, $oldThisLM, $callerUri, $callerLM, \%oldDepLMs);
-my $thisType = $thisVHash->{nodeType} or die;
-my $state = $thisVHash->{state} or die;
+my $thisType = $thisVHash->{nodeType} || die;
+my $state = $thisVHash->{state} || die;
 my $thisTypeVHash = $nm->{value}->{$thisType} || {};
-my $fExists = $thisTypeVHash->{fExists} or die;
+my $fExists = $thisTypeVHash->{fExists} || die;
 my $thisHostRoot = $nm->{hash}->{$thisType}->{hostRoot}->{$baseUri} || $basePath;
 $oldThisLM = "" if !&{$fExists}($state, $thisHostRoot);	# state got deleted?
 $thisIsStale = 1 if !$oldThisLM;
@@ -988,7 +988,7 @@ my $thisParameters = $thisLHash->{parameterCaches} || [];
 # have changed but there is no updater.
 die "ERROR: Node $thisUri is STUCK: Inputs but no updater. " 
 	if @{$thisInputs} && !$thisUpdater;
-my $fRunUpdater = $thisTypeVHash->{fRunUpdater} or die;
+my $fRunUpdater = $thisTypeVHash->{fRunUpdater} || die;
 # If there is no updater then it is up to $fRunUpdater to generate
 # an LM for the static state.
 if ($thisUpdater) {
@@ -1067,11 +1067,11 @@ my $thisIsStale = 0;
 my $newDepLMs = {};
 #### TODO QUERY: lookup this node's query parameters and filter them 
 #### so that they can be passed upstream.
-my $parametersFile = $thisVHash->{parametersFile} or die;
+my $parametersFile = $thisVHash->{parametersFile} || die;
 my ($parametersLM, $latestQuery, %requesterQueries) = 
 	&LookupLMs($FILE, $parametersFile);
 $parametersLM ||= "";
-my $parametersFileUri = $thisVHash->{parametersFileUri} or die;
+my $parametersFileUri = $thisVHash->{parametersFileUri} || die;
 my $oldParametersLM = $oldDepLMs->{$parametersFileUri};
 # Treat first time as changed:
 my $pChanged = !defined($oldParametersLM) || 0;
@@ -1086,7 +1086,7 @@ if ($pChanged) {
 &Warn("... oldParametersLM: $oldParametersLM parametersLM: $parametersLM\n", $DEBUG_DETAILS);
 $newDepLMs->{$parametersFileUri} = $parametersLM;
 #### TODO QUERY: Make this call the user's parameterFilter
-my $fRunParametersFilter = $thisTypeVHash->{fRunParametersFilter} or die;
+my $fRunParametersFilter = $thisTypeVHash->{fRunParametersFilter} || die;
 my $parametersFilter = $thisVHash->{parametersFilter} || "";
 $fRunParametersFilter = \&LatestRunParametersFilter if !$parametersFilter;
 my $pThisInputs = $nm->{list}->{$thisUri}->{inputs} || [];
@@ -1195,7 +1195,8 @@ my $nmh = $nm->{hash};
 my $nmm = $nm->{multi};
 foreach my $k (sort keys %config) {
 	# &Warn("LoadNodeMetadata key: $k\n", $DEBUG_DETAILS);
-	my ($s, $p) = split(/\s+/, $k) or die;
+	my ($s, $p) = split(/\s+/, $k);
+	defined($p) || die;
 	$s = &CanonicalizeUri($s);
 	# $p should never be a local node URI anyway, but
 	# I might as well canonicalize it for completeness:
@@ -1258,9 +1259,9 @@ my @allNodes = sort keys %{$nmm->{Node}->{member}};
 foreach my $thisUri (@allNodes) 
   {
   # Make life easier in this loop:
-  my $thisVHash = $nmv->{$thisUri} or die;
-  my $thisLHash = $nml->{$thisUri} or die;
-  my $thisMHash = $nmm->{$thisUri} or die;
+  my $thisVHash = $nmv->{$thisUri} || die;
+  my $thisLHash = $nml->{$thisUri} || die;
+  my $thisMHash = $nmm->{$thisUri} || die;
   # Set nodeType, which should be most specific node type.
   my @types = sort keys %{$thisMHash->{a}};
   my @nodeTypes = &LeafClasses($nm, @types);
@@ -2111,6 +2112,13 @@ my $qTmp = quotemeta($tmp);
 my $qUpdater = quotemeta($parametersFilter);
 my $qStderr = quotemeta($stderr);
 my $useStdout = 1;
+die "[INTERNAL ERROR] RDF_PIPELINE_DEV_DIR not set in environment! "
+	if !$ENV{RDF_PIPELINE_DEV_DIR};
+my $qToolsDir = quotemeta("$ENV{RDF_PIPELINE_DEV_DIR}/tools");
+die "[INTERNAL ERROR] PATH not set properly: $ENV{PATH} "
+	if $ENV{PATH} !~ m/$qToolsDir/;
+&Warn("ENV{PATH}: $ENV{PATH}\n", $DEBUG_DETAILS);
+&Warn("ENV{RDF_PIPELINE_DEV_DIR}: $ENV{RDF_PIPELINE_DEV_DIR}\n", $DEBUG_DETAILS);
 my $qPath = quotemeta($ENV{PATH}) || die;
 #### TODO QUERY:
 my $cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $exportqs ; $exportqss ; $qUpdater $qInputUris > $qTmp 2> $qStderr )";
@@ -2197,8 +2205,8 @@ my $ipFiles = "$inputFiles $parameterFiles";
 #### TODO: Move this code out of this function and pass $latestQuery
 #### as a parameter to FileNodeRunUpdater.
 #### TODO QUERY:
-my $thisVHash = $nm->{value}->{$thisUri} or die;
-my $parametersFile = $thisVHash->{parametersFile} or die;
+my $thisVHash = $nm->{value}->{$thisUri} || die;
+my $parametersFile = $thisVHash->{parametersFile} || die;
 my ($lm, $latestQuery, %requesterQueries) = 
 	&LookupLMs($FILE, $parametersFile);
 $lm = $lm;				# Avoid unused var warning
@@ -2226,6 +2234,8 @@ die "[INTERNAL ERROR] RDF_PIPELINE_DEV_DIR not set in environment! "
 my $qToolsDir = quotemeta("$ENV{RDF_PIPELINE_DEV_DIR}/tools");
 die "[INTERNAL ERROR] PATH not set properly: $ENV{PATH} "
 	if $ENV{PATH} !~ m/$qToolsDir/;
+&Warn("ENV{PATH}: $ENV{PATH}\n", $DEBUG_DETAILS);
+&Warn("ENV{RDF_PIPELINE_DEV_DIR}: $ENV{RDF_PIPELINE_DEV_DIR}\n", $DEBUG_DETAILS);
 my $qPath = quotemeta($ENV{PATH}) || die;
 my $cmd = "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $qUpdater $qState $ipFiles > $qStderr 2>&1 )";
 $cmd =    "( cd '$nodeBasePath' ; export THIS_URI=$qThisUri ; export PATH=$qPath ; $qUpdater         $ipFiles > $qState 2> $qStderr )"
