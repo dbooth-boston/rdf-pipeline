@@ -1,0 +1,12 @@
+# RDF Pipeline definition.
+
+# The RDF Pipeline ontology:
+@prefix p: <http://purl.org/pipeline/ont#> .
+
+# Prefix for nodes in your pipeline:
+@prefix : <http://localhost/node/> .
+
+##### Pipeline definition starts here #####
+
+:perlenv a p:FileNode .
+

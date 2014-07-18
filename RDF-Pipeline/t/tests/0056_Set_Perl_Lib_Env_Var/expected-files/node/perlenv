@@ -1,0 +1,31 @@
+#! /usr/bin/perl -w
+
+use strict;
+
+# Verify that the Perl lib and other env vars are set properly 
+# to include RDF Pipeline libs.
+
+# The perl lib path:
+my $inc = join(" ", @INC) || "";
+print "\@INC=$inc\n\n";
+$inc =~ m/Pipeline/ or die "Perl \@INC is not set properly: $inc\n";
+
+my $lib = $ENV{PERL5LIB} || "";
+print "PERL5LIB=$lib\n\n";
+$lib || die "\$PERL5LIB is not set!\n";
+
+my $dev = $ENV{RDF_PIPELINE_DEV_DIR} || "";
+print "RDF_PIPELINE_DEV_DIR=$dev\n\n";
+$dev || die "\$RDF_PIPELINE_DEV_DIR is not set!\n";
+
+my $server = $ENV{SPARQL_SERVER} || "";
+print "SPARQL_SERVER=$server\n\n";
+# Okay if this isn't set:
+# $server || die "\$SPARQL_SERVER is not set!\n";
+
+my $path = $ENV{PATH} || "";
+print "PATH=$path\n\n";
+$path =~ m/rdf-pipeline/ or die "\$PATH is not set!\n";
+
+exit 0;
+

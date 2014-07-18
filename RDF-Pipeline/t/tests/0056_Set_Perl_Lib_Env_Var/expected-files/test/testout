@@ -1,0 +1,21 @@
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 825
+Content-Location: http://localhost/cache/URI/SHORT_perlenv_HASHhTDYU8PiOVmUv3ipWpRfTHw/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+@INC=/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib /etc/perl /usr/local/lib/perl/5.14.2 /usr/local/share/perl/5.14.2 /usr/lib/perl5 /usr/share/perl5 /usr/lib/perl/5.14 /usr/share/perl/5.14 /usr/local/lib/site_perl .
+
+PERL5LIB=:/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib
+
+RDF_PIPELINE_DEV_DIR=/home/dbooth/rdf-pipeline/trunk
+
+SPARQL_SERVER=
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/t:/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/t/helpers:/home/dbooth/rdf-pipeline/trunk/tools:/home/dbooth/rdf-pipeline/trunk/tools/gsparql/scripts/sesame2_6:/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/t:/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/t/helpers:/home/dbooth/rdf-pipeline/trunk/tools:/home/dbooth/rdf-pipeline/trunk/tools/gsparql/scripts/sesame2_6
+
+----------------------------------------------------------------------
