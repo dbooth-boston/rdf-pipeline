@@ -8,8 +8,11 @@
 p:Node		a rdfs:Class .
 p:FileNode	rdfs:subClassOf p:Node ;
   p:defaultContentType "text/plain" .
-p:JenaNode      rdfs:subClassOf p:Node .
-p:SesameNode    rdfs:subClassOf p:Node .
+p:ExampleHtmlNode	rdfs:subClassOf p:Node ;
+  p:defaultContentType "text/html" .
+p:GraphNode     rdfs:subClassOf p:Node .
+p:JenaNode      rdfs:subClassOf p:GraphNode .
+p:SesameNode    rdfs:subClassOf p:GraphNode .
 p:PerlNode      rdfs:subClassOf p:Node .
 p:MysqlNode	rdfs:subClassOf p:Node .
 p:OracleNode	rdfs:subClassOf p:Node .
@@ -17,8 +20,9 @@ p:OracleNode	rdfs:subClassOf p:Node .
 ######### Node properties ##########
 p:inputs 	rdfs:domain p:Node .
 p:parameters 	rdfs:domain p:Node .
-p:dependsOn 	rdfs:domain p:Node .
- 
+p:dependsOn 	rdfs:domain p:Node .	# Includes inputs and parameters
+p:contentType 	rdfs:domain p:Node .
+
 # p:state specifies the "state" cache for a node.
 # It is node-type-specific, e.g., filename for FileNode .
 # It may be set explicitly, otherwise a default will be used.
