@@ -1,0 +1,84 @@
+#!/usr/bin/env perl
+
+# Sesame 2.6.x SPARQL DROP operation.
+# Uses sparql-update to delete a graph file into a graph or the default graph.
+#
+# Copyright 2014 by David Booth
+# Code home: http://code.google.com/p/rdf-pipeline/
+# See license information at http://code.google.com/p/rdf-pipeline/ 
+
+use warnings;
+use strict;
+
+############ Usage #############
+sub Usage
+{
+return "Usage: $0 [ --all ] [ --default ] [ -g graphURI ] ...
+Where:  --all means all graphs, including the default graph
+        --default means the default graph
+The -g option may be repeated.  Graph names may also be given
+on the command line without being preceeded by -g.  Graph names
+should not include <angle brackets>.\n";
+}
+
+################### Main ####################
+use URI;
+use URI::file;
+
+my $help = 0;
+my $debug = "";
+my $defaultGraph = 0;
+my $allGraphs = 0;
+my @graphs = ();
+use Getopt::Long; # Perl
+GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
+                "graph|g=s" => \@graphs,
+                "all" => \$allGraphs,
+                "default" => \$defaultGraph,
+                ) or die &Usage();
+die &Usage() if $help;
+
+push(@graphs, "--default") if $defaultGraph;
+push(@graphs, "--all") if $allGraphs;
+push(@graphs, @ARGV);
+die &Usage() if !@graphs;
+
+my $tmpSparql = "/tmp/sparql-drop-$$.ru";
+
+my $graphs = join("\n\t", @graphs);
+warn "Graphs to drop: \n\t$graphs\n" if $debug;
+
+foreach my $graph (@graphs) {
+	my $stripped = 0;
+	$stripped = 1 if $graph =~ s/^\<//;
+	$stripped = 1 if $graph =~ s/\>$//;
+	warn "$0: WARNING: Stripped angle brackets from graphURI: $graph\n" if $stripped;
+
+	# Guard against command injection:
+	die "$0: [ERROR] Bad character in graph name: $graph\n" if $graph =~ m/\>/;
+	my $sparql = "DROP SILENT GRAPH <$graph>\n";
+	$sparql = "DROP SILENT DEFAULT\n" if $graph eq "--default";
+	$sparql = "DROP SILENT ALL\n" if $graph eq "--all";
+	
+	# TODO: Make this safer by creating an unguessable tmp file
+	&WriteFile($tmpSparql, $sparql);
+	warn $sparql if $debug;
+	$debug = "-d" if $debug;
+	!system("sparql-update $debug $tmpSparql") or die $!;
+	}
+unlink($tmpSparql) if -e $tmpSparql && !$debug;
+exit 0;
+
+############ WriteFile ##########
+# Perl function to write a string to a file.
+sub WriteFile
+{
+@_ == 2 || die;
+my ($f, $s) = @_;
+open(my $fh, ">$f") || die;
+print $fh $s;
+close($fh) || die;
+}
+
