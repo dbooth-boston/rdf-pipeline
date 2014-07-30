@@ -95,15 +95,21 @@ use strict;
 # This script depends on some other perl modules.  To install
 # them, execute the following shell commands:
 #
-#   cpan  RDF::Helper::Constants
 #   cpan  RDF::Trine
 #   cpan  RDF::Trine::Model
 #   cpan  RDF::Trine::Statement
 #   cpan  RDF::Trine::Node::Resource
 #
+# TROUBLESHOOTING
+# If summarize-rdf is run with the Perl Redland binding installed
+# (which do not work as of this writing 7/30/14), then Trine will
+# try to load the Redland turtle parser but it will fail with:
+#   Name "_p_librdf_world_s::OWNER" used only once: possible typo at /usr/share/perl5/RDF/Redland.pm line 49.
+# In this case the solution is to uninstall the Redland Perl binding
+# using the Ubuntu Software Center.
+
 ############################################################
 
-use RDF::Helper::Constants qw( :all );
 use RDF::Trine;
 use RDF::Trine::Model;
 use RDF::Trine::Statement;
@@ -127,13 +133,13 @@ keys %standardNamespaces == keys %inverseStandardNamespaces or die;
 my %namespaces;		# Remembers namespaces seen, stripped by &ShortenUri
 my $nextPrefix = "p1";
 
-my $RDF_TYPE = RDF::Trine::Node::Resource->new(RDF_TYPE);
-my $RDF_NIL = RDF::Trine::Node::Resource->new(RDF_NIL);
-my $RDF_LIST = RDF::Trine::Node::Resource->new(RDF_LIST);
-my $RDF_FIRST = RDF::Trine::Node::Resource->new(RDF_FIRST);
-my $RDF_REST = RDF::Trine::Node::Resource->new(RDF_REST);
-my $RDFS_CLASS = RDF::Trine::Node::Resource->new(RDFS_CLASS);
-my $RDFS_SUBCLASS_OF = RDF::Trine::Node::Resource->new(RDFS_SUBCLASS_OF);
+my $RDF_TYPE         = RDF::Trine::Node::Resource->new($inverseStandardNamespaces{rdf} . "type");
+my $RDF_NIL          = RDF::Trine::Node::Resource->new($inverseStandardNamespaces{rdf} . "nil");
+my $RDF_LIST         = RDF::Trine::Node::Resource->new($inverseStandardNamespaces{rdf} . "List");
+my $RDF_FIRST        = RDF::Trine::Node::Resource->new($inverseStandardNamespaces{rdf} . "first");
+my $RDF_REST         = RDF::Trine::Node::Resource->new($inverseStandardNamespaces{rdf} . "rest");
+my $RDFS_CLASS       = RDF::Trine::Node::Resource->new($inverseStandardNamespaces{rdfs} . "Class");
+my $RDFS_SUBCLASS_OF = RDF::Trine::Node::Resource->new($inverseStandardNamespaces{rdfs} . "subClassOf");
 
 ################## Get options ###################
 
