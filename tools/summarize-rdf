@@ -205,8 +205,7 @@ while (my $ts = $si->next()) {
 	# are silently turned into strings first, so if you use keys %hash
 	# to get them back from a hash, you will get strings -- NOT objects.
 	$subjectPredicates{$s}->{$p} = 1;
-	$objectPredicates{$o}->{$p} = 1 if $impliedRanges && &IsInteresting($p, $o);
-	# $objectPredicates{$o}->{$p} = 1;
+	$objectPredicates{$o}->{$p} = 1;
 	# print "\t$s $p $o\n";
 	if ($p->equal($RDF_TYPE)) {
 		$typesOf{$s}->{$o} = 1;
@@ -245,10 +244,12 @@ if ($impliedRanges) {
   # two steps in order to load *all* implied range classes for a
   # given object, rather than stopping after the first.
   foreach my $o (sort keys %objectPredicates) {
+    next if !&IsObjectInteresting($o);
     my $shortO = &ShortenUri($o);
     # warn "TypesOf($shortO) = " . join(" ", map {&ShortenUri($_)} &TypesOf($o)) . "\n";
     next if keys %{$typesOf{$o}};
     foreach my $p (sort keys %{$objectPredicates{$o}}) {
+      next if !&IsPredicateInteresting($p);
       my $pUri = $p;
       $pUri =~ s/\>$/Range\>/ or die "0: [ERROR] Bad predicate: $p\n";
       # my $pClass = RDF::Trine::Node::Resource->new($pUri);
@@ -291,14 +292,26 @@ foreach my $s (keys %subjectPredicates) {
 		}
 	}
 
+# Figure out which subject classes are root classes.  A root class is
+# a class whose instances never appear in the object position of a triple.
+my %isRootClass = map {($_,1)} keys %classInstances;
+foreach my $o (keys %objectPredicates) {
+	my @types = &TypesOf($o);
+	foreach my $t (@types) {
+		$isRootClass{$t} = 0;
+		}
+	}
+
 print "===== Predicates by Subject Class =====\n";
 my @sortedClasses = sort {&ShortenUri($a) cmp &ShortenUri($b)}
 		keys %classInstances;
 foreach my $c (@sortedClasses) {
+	my $isRoot = "";
+	$isRoot = "*" if $isRootClass{$c};
 	my $sc = &ShortenUri($c);
 	my @instances = keys %{$classInstances{$c}};
 	my $ni = scalar(@instances);
-	print "$sc $ni\n";
+	print "$isRoot$sc $ni\n";
 	my @sortedPredicates = sort {&ShortenUri($a) cmp &ShortenUri($b)}
 			keys %{$classPredicates{$c}};
 	foreach my $p (@sortedPredicates) {
@@ -325,6 +338,9 @@ foreach my $c (@sortedClasses) {
 	print "\n";
 	}
 
+print "* Indicates a root class, whose instances are never objects.\n";
+print "\n";
+
 print "===== Namespaces =====\n";
 foreach my $ns (sort {$namespaces{$a} cmp $namespaces{$b}} keys %namespaces) {
 	my $p = $namespaces{$ns};
@@ -332,25 +348,38 @@ foreach my $ns (sort {$namespaces{$a} cmp $namespaces{$b}} keys %namespaces) {
 	}
 exit 0;
 
-############## IsInteresting ##############
+############################################################################
+#                          END OF MAIN                                     #
+############################################################################
+
+############## IsPredicateInteresting ##############
 # This is a helper for determining implied range classes based on predicates,
-# given predicate $p and object $o.
-sub IsInteresting
+# given predicate $p.
+sub IsPredicateInteresting
 {
-@_ == 2 || die;
-my ($p, $o) = @_;
-#### TODO: Make these constants:
+@_ == 1 || die;
+my ($p) = @_;
+return 0 if $p->equal($RDF_NIL);
+return 0 if $p->equal($RDF_FIRST);
+return 0 if $p->equal($RDF_REST);
+return 0 if $p->equal($RDF_TYPE);
+return 0 if $p->equal($RDFS_SUBCLASS_OF);
+return 1;
+}
+
+############## IsObjectInteresting ##############
+# This is a helper for determining implied range classes based on predicates,
+# given object $o.
+sub IsObjectInteresting
+{
+@_ == 1 || die;
+my ($o) = @_;
 return 0 if $o->is_literal();
 return 0 if $o->equal($RDF_NIL);
 return 0 if $o->equal($RDF_FIRST);
 return 0 if $o->equal($RDF_REST);
 return 0 if $o->equal($RDF_LIST);
 return 0 if $o->equal($RDFS_CLASS);
-return 0 if $p->equal($RDF_NIL);
-return 0 if $p->equal($RDF_FIRST);
-return 0 if $p->equal($RDF_REST);
-return 0 if $p->equal($RDF_TYPE);
-return 0 if $p->equal($RDFS_SUBCLASS_OF);
 return 1;
 }
 
