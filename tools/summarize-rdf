@@ -27,29 +27,31 @@ use strict;
 #   13. p:URI <http://www.w3.org/2000/01/rdf-schema#subClassOf> p:Node .
 #
 # EXAMPLE OUTPUT:
-#    1. ===== Input Summary =====
-#    2. Parsing turtle: /tmp/pipeline.ttl 
-#    3. Total triples: 19
-#    4. Nodes by kind:  BLANK:4  LITERAL:3  URI:7  
-#    5. Literals by datatype:  UNTYPED:3  
-#    6. 
-#    7. ===== Predicates by Subject Class =====
-#    8. p1:FileNode 4
-#    9.   p1:inputs -> { rdf:List 3 } 3
-#   10.   p1:updater -> { (UNTYPED) 3 } 3
-#   11.   rdf:type -> { rdfs:Class 1 } 1
-#   12. 
-#   13. rdf:List 4
-#   14.   rdf:first -> { p1:FileNode 3 UNKNOWN 1 } 4
-#   15.   rdf:rest -> { rdf:List 2 } 2
-#   16. 
-#   17. rdfs:Class 1
-#   18.   rdfs:subClassOf -> { rdfs:Class 1 } 1
-#   19. 
-#   20. ===== Namespaces =====
-#   21. PREFIX p1: <http://purl.org/pipeline/ont#> 
-#   22. PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> 
-#   23. PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#> 
+#     1. ===== Input Summary =====
+#     2. Parsing turtle: /tmp/jin.ttl
+#     3. Total triples: 19
+#     4. Nodes by kind:  BLANK 4  LITERAL 3  URI 7
+#     5. Literals by datatype:  UNTYPED 3
+#     6.
+#     7. ===== Predicates by Subject Class =====
+#     8. p1:FileNode 4
+#     9.   p1:inputs 3 -> { rdf:List 3 } 3
+#    10.   p1:updater 3 -> { (UNTYPED) 3 } 3
+#    11.   rdf:type 4 -> { rdfs:Class 1 } 1
+#    12.
+#    13. rdf:List 4
+#    14.   rdf:first 4 -> { p1:FileNode 3 UNKNOWN 1 } 4
+#    15.   rdf:rest 4 -> { rdf:List 2 } 2
+#    16.
+#    17. rdfs:Class 1
+#    18.   rdfs:subClassOf 1 -> { rdfs:Class 1 } 1
+#    19.
+#    20. * Indicates a root class, whose instances are never objects.
+#    21.
+#    22. ===== Namespaces =====
+#    23. PREFIX p1: <http://purl.org/pipeline/ont#>
+#    24. PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+#    25. PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 #
 # EXPLANATION OF OUTPUT:
 # Numbers are instance counts.  Braces group a list of classes,
@@ -58,7 +60,7 @@ use strict;
 # For brevity, class and predicate names have been shortened by
 # stripping a presumed namespace (though not necessarily a namespace
 # that you declared using @prefix).  Namespace prefixes are listed
-# at the end (on lines 21-23), but they are not necessarily the
+# at the end (on lines 23-25), but they are not necessarily the
 # same as the prefixes that were used in the input turtle, because
 # the original prefixes are lost in parsing.
 #
@@ -71,13 +73,15 @@ use strict;
 # in the subject position of a triple.
 #
 # Line 9 indicates that the domain of p1:inputs included p1:FileNode,
-# and the range included rdf:List, and there were 3 distinct rdf:List
-# values in the object position of a triple.  
+# range included rdf:List, there were 3 triples having a p1:FileNode
+# instance in the subject position and p1:inputs as predicate, and 
+# there were 3 distinct rdf:List values in the object position of a triple.  
 #
 # Line 10 indicates that the range of p1:updater was a set of
 # untyped literal values, and there were 3 distinct literals.
 # A datatype range (as opposed to a class range) is indicated 
-# in parentheses.
+# in parentheses.  It also indiates that there were 3 triples
+# with subject class p1:FileNode and predicate p1:updater.
 #
 # Line 14 indicates that the rdf:first predicate has a range that
 # includes both the p1:FileNode class (having 3 instances) and 
@@ -90,6 +94,11 @@ use strict;
 #
 # Line 17 indicates that there was one distinct instance of class 
 # rdf:Class as a subject.
+#
+# Line 20: In this example there were no root classes, i.e., 
+# classes whose instances never appear in the object position,
+# but if there had been, then each would have been marked
+# with an asterisk.
 #
 # DEPENDENCIES
 # This script depends on some other perl modules.  To install
@@ -302,6 +311,18 @@ foreach my $o (keys %objectPredicates) {
 		}
 	}
 
+# Count the triples by subject class and predicate.
+my %nTriples;
+$si = $model->get_statements(undef, undef, undef);
+while (my $ts = $si->next()) {
+	my $s = $ts->subject();
+	my $p = $ts->predicate();
+	my $o = $ts->object();
+	foreach my $t (&TypesOf($s)) {
+		$nTriples{$t}->{$p}++;
+		}
+	}
+
 print "===== Predicates by Subject Class =====\n";
 my @sortedClasses = sort {&ShortenUri($a) cmp &ShortenUri($b)}
 		keys %classInstances;
@@ -316,8 +337,9 @@ foreach my $c (@sortedClasses) {
 			keys %{$classPredicates{$c}};
 	foreach my $p (@sortedPredicates) {
 		my $sp = &ShortenUri($p);
-		print "  $sp -> { ";
-		#### TODO: include the count of triples using this predicate
+		# Number of triples using this predicate:
+		my $nt = $nTriples{$c}->{$p} || die;
+		print "  $sp $nt -> { ";
 		my %oClasses;
 		my @objects = keys %{$predicateObjects{$p}};
 		foreach my $o (@objects) {
