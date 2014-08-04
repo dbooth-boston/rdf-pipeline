@@ -135,6 +135,7 @@ our $VERSION = '0.01';
 
 # See http://perl.apache.org/docs/2.0/user/intro/start_fast.html
 use Carp;
+use POSIX qw(strftime);
 # use diagnostics;
 use Apache2::RequestRec (); # for $r->content_type
 use Apache2::ServerRec (); # for $s->server_hostname and $s->port
@@ -199,6 +200,7 @@ $ENV{DOCUMENT_ROOT} ||= "/home/dbooth/rdf-pipeline/Private/www";	# Set if not se
 ### TODO: Set $baseUri properly.  Needs port?
 $ENV{SERVER_NAME} ||= "localhost";
 $ENV{SERVER_PORT} ||= "80";
+our $thisHost = "$ENV{SERVER_NAME}:$ENV{SERVER_PORT}";
 &IsLocalHost($ENV{SERVER_NAME}) || die "[ERROR] Non-local \$SERVER_NAME: $ENV{SERVER_NAME}\n";
 our $serverName = "localhost";
 $serverName = "127.0.0.1" if !&IsLocalHost($serverName);
@@ -241,6 +243,7 @@ our $ontLastInode = 0;
 our $internalsLastInode = 0;
 
 our $logFile = "/tmp/rdf-pipeline-log.txt";
+our $timingLogFile = "/tmp/rdf-pipeline-timing.tsv";
 # unlink $logFile || die;
 
 my %config = ();		# Maps: "?s ?p" --> "v1 v2 ... vn"
@@ -726,8 +729,10 @@ my $contentType = $thisVHash->{contentType}
 	|| $nmv->{$thisType}->{defaultContentType}
 	|| "text/plain";
 &Warn("UPDATING $depUri local cache: $depCache of $thisUri\n", $DEBUG_CACHES); 
+my $startTime = Time::HiRes::time();
 &{$fDeserializer}($depSerCache, $depCache, $contentType, $thisHostRoot) 
 	or die "ERROR: Failed to deserialize $depSerCache to $depCache with Content-Type: $contentType\n";
+&LogDeltaTimingData("Deserialize", $thisUri, $startTime, 0);
 &SaveLMs($thisType, $depCache, $depLM);
 &Warn("DeserializeToLocalCache returning (finished).\n", $DEBUG_DETAILS);
 }
@@ -738,6 +743,7 @@ sub HandleHttpEvent
 @_ >= 3 or die;
 my ($nm, $r, $thisUri, %args) = @_;
 &Warn("HandleHttpEvent called: thisUri: $thisUri\n", $DEBUG_DETAILS);
+my $startTime = Time::HiRes::time();
 my $thisVHash = $nm->{value}->{$thisUri} || {};
 my $thisType = $thisVHash->{nodeType} || "";
 if (!$thisType) {
@@ -817,6 +823,7 @@ $r->headers_out->set('Content-Location' => &PathToUri($serState));
 # &Warn("  $contents\n", $DEBUG_DETAILS);
 # &Warn("]]\n", $DEBUG_DETAILS);
 $r->sendfile($serStateAbsPath);
+&LogDeltaTimingData("HandleHttpEvent", $thisUri, $startTime, 1);
 return Apache2::Const::OK;
 }
 
@@ -825,6 +832,7 @@ sub FreshenSerState
 {
 @_ == 5 or die;
 my ($nm, $method, $thisUri, $callerUri, $callerLM) = @_;
+my $fssStartTime = Time::HiRes::time();
 &Warn("FreshenSerState $method $thisUri From: $callerUri\n", $DEBUG_REQUESTS);
 &Warn("... callerLM: $callerLM\n", $DEBUG_DETAILS);
 my $thisVHash = $nm->{value}->{$thisUri} || die;
@@ -859,11 +867,14 @@ if (!$serStateLM || !-e $serState || ($newThisLM && $newThisLM ne $serStateLM)) 
   $fSerializer || die;
   &Warn("UPDATING $thisUri serState: $serState\n", $DEBUG_CACHES); 
   my $thisHostRoot = $nm->{hash}->{$thisType}->{hostRoot}->{$baseUri} || $basePath;
+  my $startTime = Time::HiRes::time();
   &{$fSerializer}($serState, $state, $contentType, $thisHostRoot) 
     or die "ERROR: Failed to serialize $state to $serState with Content-Type: $contentType\n";
+  &LogDeltaTimingData("Serialize", $thisUri, $startTime, 0);
   $serStateLM = $newThisLM;
   &SaveLMs($FILE, $serState, $serStateLM);
   }
+&LogDeltaTimingData("FreshenSerState", $thisUri, $fssStartTime, 0);
 &Warn("FreshenSerState: Returning serStateLM: $serStateLM\n", $DEBUG_DETAILS);
 return $serStateLM
 }
@@ -883,6 +894,7 @@ defined($thisUri) || confess;
 defined($latestUri) || confess;
 defined($latestQuery) || confess;
 &Warn("UpdateQueries(nm, $thisUri, $latestUri, $latestQuery)\n", $DEBUG_DETAILS);
+my $startTime = Time::HiRes::time();
 my $pOutputs = $nm->{multi}->{$thisUri}->{outputs} || {};
 $latestUri = "" if !$pOutputs->{$latestUri};	# Treat as anonymous requester?
 my $thisVHash = $nm->{value}->{$thisUri} || die;
@@ -916,6 +928,7 @@ if (!$lm || $isNewLatest || $isNewOutQuery) {
 		|| ($isNewLatest && !$thisVHash->{parametersFilter});
 	&SaveLMs($FILE, $parametersFile, $lm, $latestQuery, %newRequesterQueries);
 	}
+&LogDeltaTimingData("UpdateQueries", $thisUri, $startTime, 0);
 return $lm;
 }
 
@@ -997,8 +1010,10 @@ if ($thisUpdater) {
 else	{
 	&Warn("Generating LM of static node: $thisUri\n", $DEBUG_CHANGES); 
 	}
+my $startTime = Time::HiRes::time();
 my $newThisLM = &{$fRunUpdater}($nm, $thisUri, $thisUpdater, $state, 
 	$thisInputs, $thisParameters, $oldThisLM, $callerUri, $callerLM);
+&LogDeltaTimingData("Update", $thisUri, $startTime, 0);
 &Warn("WARNING: fRunUpdater on $thisUri $thisUpdater returned false LM\n") if !$newThisLM;
 $newThisLM or die;
 &SaveLMs($URI, $thisUri, $newThisLM, %{$newDepLMs});
@@ -2469,6 +2484,16 @@ close($fh) || die;
 return 1;
 }
 
+########## ISO8601 ############
+# Convert the given epoch time to ISO8601 format in UTC timezone.
+sub ISO8601
+{
+use DateTime;
+my $time = shift;
+my $dt = DateTime->from_epoch(epoch => $time, time_zone => 'UTC');
+return $dt->iso8601;
+}
+
 ########## CallStackDepth ###########
 sub CallStackDepth
 {
@@ -2508,6 +2533,63 @@ warn "debug not defined!\n" if !defined($debug);
 warn "configLastModified not defined!\n" if !defined($configLastModified);
 print STDERR $msg if !defined($level) || $debug >= $level;
 return 1;
+}
+
+########## LogDeltaTimingData ############
+# Log performance timing data per node.  Used as:
+#   my $startTime = Time::HiRes::time();
+#   ... Do something being timed ...
+#   &LogDeltaTimingData($function, $thisUri, $startTime, $flush);
+# Where $flush is a boolean indicating whether the file buffer
+# should be flushed.  This logs the delta seconds between the current
+# time and $startTime, for $function and $thisUri.
+sub LogDeltaTimingData
+{
+die if @_ < 4 || @_ > 4;
+my ($function, $thisUri, $startTime, $flush) = @_;
+return if !$timingLogFile;
+my $endTime = Time::HiRes::time();
+&LogTimingData($endTime, $function, $thisUri, $endTime - $startTime, $flush);
+return;
+}
+
+########## LogTimingData ############
+# *** Normally &LogDeltaTimingData is called instead of this function. ***
+#
+# Log performance timing data per node:
+#   &LogTimingData($timestamp, $function, $thisUri, $seconds, $flush);
+# Where $flush is a boolean indicating whether the file buffer
+# should be flushed.
+sub LogTimingData
+{
+die if @_ < 5 || @_ > 5;
+my ($timestamp, $function, $thisUri, $seconds, $flush) = @_;
+return if !$timingLogFile;
+our $timingLogFileIsOpen;
+our $timingLogFH;
+our $timingLogExists;
+if (!$timingLogFileIsOpen) {
+	$timingLogExists ||= (-e $timingLogFile && -s $timingLogFile);
+	open($timingLogFH, ">>$timingLogFile") || die "[ERROR] Failed to open timingLogFile: $timingLogFile\n";
+	$timingLogFileIsOpen = 1;
+	if (!$timingLogExists) {
+		print $timingLogFH "Timestamp\tFunction\tHost\tNode\tSeconds\n";
+		$timingLogExists = 1;
+		}
+	}
+# ISO8601 timestamp
+my $isoTS = &ISO8601($timestamp);
+my $s = sprintf("%8.6f", $seconds);
+$thisUri =~ m|\/node\/| or die;
+my $host = $`;
+my $node = $';
+$host =~ s|^http(s?):\/\/||;
+print $timingLogFH "$isoTS\t$function\t$host\t$node\t$s\n";
+if ($flush) {
+	close $timingLogFH || die;
+	$timingLogFileIsOpen = 0;
+	}
+return;
 }
 
 ########## MakeParentDirs ############
