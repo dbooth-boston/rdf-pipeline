@@ -1,11 +1,13 @@
 #!/usr/bin/env perl
 
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
 # Sesame 2.x Export a named graph as Turtle.  If no graph is specified,
 # export the default graph.
-#
-# Copyright 2013 by David Booth
-# Code home: http://code.google.com/p/rdf-pipeline/
-# See license information at http://code.google.com/p/rdf-pipeline/ 
 #
 # Usage: $0 [ namedGraph ]
 
