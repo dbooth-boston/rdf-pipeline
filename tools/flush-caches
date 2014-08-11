@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0.html
 # Code home: https://github.com/dbooth-boston/rdf-pipeline/
 
-# Flush the pipeline caches on the current machine. 
+# Flush the pipeline caches on the current machine.  
 
 my $wwwDir = $ENV{'RDF_PIPELINE_WWW_DIR'} or &EnvNotSet('RDF_PIPELINE_WWW_DIR');
 
