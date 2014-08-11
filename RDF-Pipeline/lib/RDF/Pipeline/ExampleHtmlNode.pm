@@ -2,9 +2,11 @@
 package RDF::Pipeline::ExampleHtmlNode;
 
 # RDF Pipeline Framework -- ExampleHtmlNode
-# Copyright 2012 David Booth <david@dbooth.org>
-# Code home: http://code.google.com/p/rdf-pipeline/
-# See license information at http://code.google.com/p/rdf-pipeline/ 
+
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software licence, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
 
 # This is a simple, minimal example wrapper that is only used to test
 # the wrapper mechanism in the RDF Pipeline framework and to

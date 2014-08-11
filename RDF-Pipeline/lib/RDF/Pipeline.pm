@@ -2,9 +2,12 @@
 package RDF::Pipeline;
 
 # RDF Pipeline Framework
-# Copyright 2011 & 2012 David Booth <david@dbooth.org>
+# 
+# Copyright 2014 by David Booth <david@dbooth.org>
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
 # Code home: http://code.google.com/p/rdf-pipeline/
-# See license information at http://code.google.com/p/rdf-pipeline/ 
 
 # Command line test (cannot currently be used, due to bug #9 fix):
 #  MyApache2/Chain.pm --test --debug http://localhost/hello

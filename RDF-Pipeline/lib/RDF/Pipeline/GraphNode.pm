@@ -2,9 +2,11 @@
 package RDF::Pipeline::GraphNode;
 
 # RDF Pipeline Framework -- GraphNode
-# Copyright 2012 David Booth <david@dbooth.org>
-# Code home: http://code.google.com/p/rdf-pipeline/
-# See license information at http://code.google.com/p/rdf-pipeline/ 
+
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software licence, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
 
 
 use 5.10.1; 	# It *may* work under lower versions, but has not been tested.
