@@ -1,5 +1,11 @@
 #! /usr/bin/env perl
 
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
 # Replicate some n-triples RDF data, replacing specified terms 
 # to make the replicated data different.  This program is used 
 # to generate a larger quantity of similar data from a given
@@ -36,10 +42,6 @@
 #   replicate-rdf -l -f results.tsv input.nt | tail -n +3 | sort -u > /tmp/got
 #   tail -n +2 results.tsv | perl -n -e 'print join("\n", split(/\t/, $_));' | sort -u > /tmp/want
 #   diff /tmp/want /tmp/got
-#
-# Copyright 2013 by David Booth
-# Code home: http://code.google.com/p/rdf-pipeline/
-# See license information at http://code.google.com/p/rdf-pipeline/ 
 #
 # Regression test for this code is 0046_Test-replicate-rdf .
 

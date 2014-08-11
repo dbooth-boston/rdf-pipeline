@@ -1,5 +1,11 @@
 #! /usr/bin/env perl
 
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
 # Extract a sample of RDF triples, retaining only one
 # instance of each class and one value of each datatype.  
 # Input must be a file in ntriples format.
@@ -11,10 +17,6 @@
 # so the same blank node label in different files will be
 # treated as the *same* node instead of being relabeled.
 # This is probably a bug.
-#
-# Copyright 2013 by David Booth
-# Code home: http://code.google.com/p/rdf-pipeline/
-# See license information at http://code.google.com/p/rdf-pipeline/ 
 #
 # Regression test for this code is 0038_Test_sample-rdf .
 

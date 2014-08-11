@@ -1,11 +1,13 @@
 #! /usr/bin/perl -w
 
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
 # Sparql Template Expander
 # See the documentation for Perl module RDF::Pipeline::Template
-#
-# Copyright 2013 by David Booth
-# Code home: http://code.google.com/p/rdf-pipeline/
-# See license information at http://code.google.com/p/rdf-pipeline/ 
 #
 # You may need to set the library path environment variable $PERL5LIB :
 #    export PERL5LIB='/home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib'

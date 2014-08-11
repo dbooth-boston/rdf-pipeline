@@ -1,5 +1,13 @@
 #! /usr/bin/env perl
 
+# Convert RDF literals to short-hand form.
+
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
 # Convert RDF literals to their default short-hand form, without
 # the ^^<datatype> tags.  Only xsd:string, xsd:integer, xsd:decimal,
 # xsd:double and xsd:boolean literals are affected.  This is useful 
@@ -10,10 +18,6 @@
 # Input must be ntriples format; output is Turtle because ntriples
 # does not allow the short-hand form of literals.  
 # Reads stdin, writes stdout.
-#
-# Copyright 2013 by David Booth
-# Code home: http://code.google.com/p/rdf-pipeline/
-# See license information at http://code.google.com/p/rdf-pipeline/ 
 #
 # Regression test for this code is 0039_Test_default-rdf-literals .
 ##################################################################

@@ -1,5 +1,11 @@
 #!/usr/bin/env perl
 
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
 # isolate-bug.perl
 #
 # Given a testProgram and an originalFile containing lines of data,
@@ -38,8 +44,6 @@
 # 2 (error).  The error case would mean that the testProgram
 # could not be run on that input set.
 #
-# Copyright 2013-2014 by David Booth
-# License: Apache 2.0
 
 use warnings;
 

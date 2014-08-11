@@ -1,14 +1,16 @@
 #! /usr/bin/perl -w
 
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
 # Copy TSV stdin to stdout, selecting columns by name.
 # The first input line must be a header line
 # containing the tab-separated column names.
 # This program is analogous to the standard Unix "cut" command,
 # but specifies columns by name instead of by numeric position.
-#
-# Author: David Booth, 23-Jan-2014
-# License: Apache 2.0
-# See: http://www.apache.org/licenses/LICENSE-2.0.html
 
 sub DieUsage
 {

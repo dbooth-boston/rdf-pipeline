@@ -1,13 +1,15 @@
 #! /usr/bin/perl -w 
 
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
 # Test wrapper functions from the command line.
 # This script may be customized for use in testing a new
 # wrapper.  It doesn't do much, but it was used in initially testing
 # GraphNode, though only a part of the functionality.
-
-# Copyright 2012 David Booth <david@dbooth.org>
-# Code home: http://code.google.com/p/rdf-pipeline/
-# See license information at http://code.google.com/p/rdf-pipeline/ 
 
 use 5.10.1; 	# It *may* work under lower versions, but has not been tested.
 use strict;
