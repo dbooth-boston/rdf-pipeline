@@ -150,7 +150,7 @@ while (1) {
 	my $p = $2;
 	my $v = $3;
 	my $terminator = $8;
-	# print "s:{$1} p:{$p} v:{$v} terminator:{$terminator}\n";
+	# print "s:{$s} p:{$p} v:{$v} terminator:{$terminator}\n";
 	if ($v =~ m/\.\Z/s && $v !~ m/^[\+\-]?[0-9]+\.\Z/) {
 		# Damned statement terminator without a precedeing space:
 		#   p:foo p:p p:bar.  instead of   p:foo p:p p:bar .
@@ -180,7 +180,10 @@ while (1) {
 		$all = "$s $p $v .\n$s $p $all";
 		next;
 		}
-	else { die; }
+	else 	{ 
+		warn "$0: [ERROR] Unknown terminator: $terminator\n";
+		die "s:{$s} p:{$p} v:{$v} terminator:{$terminator}\n";
+		}
 	}
 
 # TODO: Change this to be extensible, so that new formats can be added easily.
