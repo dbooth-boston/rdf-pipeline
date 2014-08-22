@@ -8,14 +8,19 @@
 
 # Flush the pipeline caches on the current machine.  
 
-my $wwwDir = $ENV{'RDF_PIPELINE_WWW_DIR'} or &EnvNotSet('RDF_PIPELINE_WWW_DIR');
-
 use Getopt::Long; # Perl
 my $debug = 0;
 GetOptions(
                 "debug|d" => \$debug,
                 ) or die "$0: Error reading options.
 ";
+
+my $wwwDir = $ENV{'RDF_PIPELINE_WWW_DIR'} or &EnvNotSet('RDF_PIPELINE_WWW_DIR');
+
+# Strip trailing slash if any:
+$wwwDir =~ s/\/$// if $wwwDir ne "/";
+
+-d $wwwDir || die "$0: [ERROR] Not a directory: $wwwDir\n";
 
 foreach my $subdir (qw(cache lm)) {
 	my $f = "$wwwDir/$subdir";
