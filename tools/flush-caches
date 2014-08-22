@@ -10,12 +10,20 @@
 
 my $wwwDir = $ENV{'RDF_PIPELINE_WWW_DIR'} or &EnvNotSet('RDF_PIPELINE_WWW_DIR');
 
+use Getopt::Long; # Perl
+my $debug = 0;
+GetOptions(
+                "debug|d" => \$debug,
+                ) or die "$0: Error reading options.
+";
+
 foreach my $subdir (qw(cache lm)) {
 	my $f = "$wwwDir/$subdir";
+	warn "Checking for $f ...\n" if $debug;
 	if (-e "$f") {
 		my $qf = quotemeta($f);
 		my $cmd = "/bin/rm -r $qf";
-		# warn "$cmd\n";
+		warn "$cmd\n" if $debug;
 		!system($cmd) || die; 
 		}
 	die "$0: Failed to delete $f\n" if -e $f;
