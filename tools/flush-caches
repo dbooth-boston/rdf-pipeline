@@ -14,7 +14,7 @@ foreach my $subdir (qw(cache lm)) {
 	my $f = "$wwwDir/$subdir";
 	if (-e "$f") {
 		my $qf = quotemeta($f);
-		my $cmd = "rm -r $qf";
+		my $cmd = "/bin/rm -r $qf";
 		# warn "$cmd\n";
 		!system($cmd) || die; 
 		}
