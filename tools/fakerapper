@@ -23,7 +23,7 @@ GetOptions(
                 "quiet|q" => \$quiet,
                 "input|i=s" => \$inType,
                 "output|o=s" => \$outType,
-                "base|b=s" => \$baseUri,
+                "base|I=s" => \$baseUri,
                 ) or die "$0: Error reading options\n";
 
 warn "# $0 old ARGV: @oldArgv\n" if $debug;
