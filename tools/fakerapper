@@ -1,0 +1,34 @@
+#! /usr/bin/perl -w
+
+# Pretend to be rapper but run jena riot instead.
+# This is a work-around for rapper not being installed,
+# used by RDF Pipeline Framework tools/skolemize .
+
+# Author: David Booth
+# License: Apache 2.0
+
+# For Jena riot:
+$ENV{JENAROOT} ||= "/opt/jena/apache-jena-2.12.0";
+# export PATH=$PATH:$JENAROOT/bin
+
+my $debug = 0;
+my $baseUri = "urn:@";
+my $inType = "turtle";
+my $outType = "ntriples";
+use Getopt::Long; # Perl
+GetOptions(
+                "debug|d" => \$debug,
+                "input|i=s" => \$inType,
+                "output|o=s" => \$outType,
+                "base|b=s" => \$baseUri,
+                ) or die "$0: Error reading options\n";
+
+$inType eq "turtle" || die "$0: [ERROR] Input type must be turtle for jena riot, but is: $inType\n";
+$outType eq "ntriples" || die "$0: [ERROR] Output type must be ntriples for jena riot, but is: $outType\n";
+
+@ARGV == 1 || die "Usage: $0 -i turtle -o ntriples file.ttl\n";
+my $f = shift;
+
+!system("$ENV{JENAROOT}/bin/riot --syntax=$inType $f") || die "$0: [ERROR] Jena riot failed: $?\n";
+exit 0;
+
