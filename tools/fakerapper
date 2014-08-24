@@ -19,10 +19,10 @@ my $outType = "ntriples";
 use Getopt::Long; # Perl
 GetOptions(
                 "debug|d" => \$debug,
+                "quiet|q" => \$quiet,
                 "input|i=s" => \$inType,
                 "output|o=s" => \$outType,
                 "base|b=s" => \$baseUri,
-                "quiet|q" => \$baseUri,
                 ) or die "$0: Error reading options\n";
 
 $inType eq "turtle" || die "$0: [ERROR] Input type must be turtle for jena riot, but is: $inType\n";
