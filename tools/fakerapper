@@ -26,7 +26,7 @@ GetOptions(
                 "base|b=s" => \$baseUri,
                 ) or die "$0: Error reading options\n";
 
-warn "# $0 ARGV: @ARGV\n" if $debug;
+warn "# $0 old ARGV: @oldArgv\n" if $debug;
 $inType eq "turtle" || die "$0: [ERROR] Input type must be turtle for jena riot, but is: $inType\n";
 $outType eq "ntriples" || die "$0: [ERROR] Output type must be ntriples for jena riot, but is: $outType\n";
 
