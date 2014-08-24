@@ -12,6 +12,7 @@ $ENV{JENAROOT} ||= "/opt/jena/apache-jena-2.12.0";
 # export PATH=$PATH:$JENAROOT/bin
 
 my $debug = 0;
+my $quiet = 0;
 my $baseUri = "urn:@";
 my $inType = "turtle";
 my $outType = "ntriples";
@@ -21,6 +22,7 @@ GetOptions(
                 "input|i=s" => \$inType,
                 "output|o=s" => \$outType,
                 "base|b=s" => \$baseUri,
+                "quiet|q" => \$baseUri,
                 ) or die "$0: Error reading options\n";
 
 $inType eq "turtle" || die "$0: [ERROR] Input type must be turtle for jena riot, but is: $inType\n";
@@ -29,6 +31,8 @@ $outType eq "ntriples" || die "$0: [ERROR] Output type must be ntriples for jena
 @ARGV == 1 || die "Usage: $0 -i turtle -o ntriples file.ttl\n";
 my $f = shift;
 
+my $cmd = "$ENV{JENAROOT}/bin/riot --syntax=$inType $f";
+warn "# $0 cmd: $cmd\n" if $debug;
 !system("$ENV{JENAROOT}/bin/riot --syntax=$inType $f") || die "$0: [ERROR] Jena riot failed: $?\n";
 exit 0;
 
