@@ -1,0 +1,573 @@
+#! /usr/bin/env perl
+
+# Copyright 2014 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
+# Convert TSV to RDF.  Whitespace is trimmed from cells.
+# Empty cells are skipped -- they do not generate triples.
+# Reads stdin, writes stdout.
+#
+# Regression test for this code is @@ TODO @@ .
+
+# TODO: Include headers in metadata table.
+#
+# TODO: Add a --guess option to guess column data types
+# and primary key.  If multiple columns are candidate keys
+# (i.e., have unique values) then weights might be used
+# to choose, based on:
+#	- earlier column in the table;
+#	- column datatype;
+#	- column with only positive integers, versus other content;
+#	- column name ends with "ID"; 
+#	- column values are the same or similar length.
+# However, it is easy enough to specify which column is the
+# primary key, so we probably should not get overly sophisticated
+# in guessing the primary key.   Maybe the primary key column
+# could be specified as a pattern (or substring or initial substring) 
+# to accommodate minor changes in column names.  For example, 
+# a '--primaryKey=foo' option might select the first column whose 
+# name contains "foo", and '--primaryKey=^foo$' would have to
+# match the whole column name.
+
+##################################################################
+
+use warnings;
+use strict;
+use URI::Template;
+
+################# Usage ###################
+sub Usage
+{
+return "Usage: $0 [ options ] [ file.ttl ... ]
+Options:
+  -b, --base=baseUri
+	Use baseUri as the base in generating URIs.
+
+  -m, --meta=metadataFile.tsv
+	Use metadata from metadataFile.tsv instead of input file.
+
+  -d, --debug
+	Print this usage message.
+
+  -h, --help
+	Print this usage message.
+";
+}
+
+################# Main ###################
+
+my $baseUri = "http://example/";
+my $help = 0;
+my $debug = 0;
+my $metadataFile = "";
+use Getopt::Long; # Perl
+GetOptions(
+                "debug|d" => \$debug,
+                "help|h" => \$help,
+                "base|b=s" => \$baseUri,
+                "meta|m=s" => \$metadataFile,
+                ) or die "$0: Error reading options.  " . &Usage();
+
+die &Usage() if $help;
+$baseUri || die &Usage();
+
+# print "\@prefix : <$baseUri>\n\n";
+
+my $tsv = &ReadTsv();
+# warn "======================= DATA table: ======================\n" if $debug;
+# &PrintTable($tsv) if $debug;
+# warn "==========================================================\n" if $debug;
+# warn "\n" if $debug;
+
+my $meta = &RemoveMetadataRows($tsv);
+my $headersRef = shift @{$tsv};
+my @headers = @{$headersRef};
+
+if ($metadataFile) {
+	warn "Reading separate metadataFile: $metadataFile\n" if $debug;
+	my $rawMeta = &ReadTsv($metadataFile);
+	$meta = &RemoveMetadataRows($rawMeta);
+	# Make sure the metadata headers match the data headers.
+	my $metaHeadersRef = ${$rawMeta}[0];
+	$metaHeadersRef || die "$0: [ERROR] metadataFile has no header row: $metadataFile\n";
+	my @metaHeaders = @{$metaHeadersRef};
+	my $nmh = scalar(@metaHeaders);
+	my $nh = scalar(@headers);
+	for (my $i=0; $i<@metaHeaders && $i<@headers; $i++) {
+		$metaHeaders[$i] eq $headers[$i] || die "$0: [ERROR] Metadata header ($metaHeaders[$i]) in column $i does not match data header ($headers[$i]) in corresponding data column.\n";
+		}	
+	if ($nmh > $nh) {
+		my $nExtras = $nmh - $nh;
+		my $extras = join("|", @metaHeaders[ $#headers+1 .. $#metaHeaders ] );
+		die "$0: [ERROR] $nExtras extra metadata columns: $extras\n";
+		}
+	elsif ($nmh < $nh) {
+		my $nExtras = $nh - $nmh;
+		my $extras = join("|", @headers[ $#metaHeaders+1 .. $#headers ] );
+		die "$0: [ERROR] $nExtras extra data columns: $extras\n";
+		}
+	}
+
+# print "======================= META table: ======================\n" if $debug;
+# &PrintTable($meta) if $debug;
+# print "==========================================================\n" if $debug;
+# warn "\n" if $debug;
+# print "======================= DATA table: ======================\n" if $debug;
+# &PrintTable($tsv) if $debug;
+# print "==========================================================\n" if $debug;
+# print "\n" if $debug;
+# exit 0;
+
+our %NAMESPACE;
+{
+no warnings qw(qw);
+%NAMESPACE = qw(
+	rdf:	<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+	dc:	<http://purl.org/dc/elements/1.1/>
+	rdfs:	<http://www.w3.org/2000/01/rdf-schema#>
+	owl:	<http://www.w3.org/2002/07/owl#>
+	xsd:	<http://www.w3.org/2001/XMLSchema#>
+	);
+}
+
+my %uriTemplateValues;	# For #SetUriTemplateVariable
+
+my %isPreProcessingDirective = map {($_,1)} qw( 
+	Prefix 
+	Perl_BEGIN 
+	SetUriTemplateVariable
+	);
+
+# Pre-processing directives 
+for (our $ROW=0; $ROW<@{$meta}; $ROW++) {
+	my $mr = $meta->[$ROW];
+	my ($directive, $args, @fields) = @{$mr};
+	next if !$isPreProcessingDirective{$directive};
+	warn "BEGIN Preprocessing directive: $directive args: $args ROW: $ROW fields: @fields\n" if $debug > 1;
+	our $ARGS = $args;
+	no strict 'refs';
+	&{$directive}($args, @fields);
+	warn "END Preprocessing directive: $directive args: $args ROW: $ROW fields: @fields\n" if $debug > 1;
+	}
+
+# Output namespaces.
+foreach my $prefix (sort keys %NAMESPACE) {
+	print "\@prefix $prefix\t$NAMESPACE{$prefix} .\n";
+	}
+print "\n";
+
+# Set up maps/indexes.
+our $TABLE = $tsv;
+our $ROW;
+our $COLUMN;
+our $HEADER;
+our @HEADERS = @headers;
+our %HEADER_TO_COLUMN;
+our $META;
+our $ARGS;
+our $S;
+our $P;
+our %KEY_TO_ROW;	# Maps header to column hash to row number (0 based)
+our %PK_TO_ROW;		# Maps $PRIMARY_KEY column hash to row number (0 based)
+our $PRIMARY_KEY;	# Header name of primary key column
+our %DATA;	# Maps column name to cell value in current row
+our $NROWS = scalar(@$tsv);
+our $NCOLUMNS = scalar(@headers);
+warn "NCOLUMNS: $NCOLUMNS NROWS: $NROWS headers: @headers\n" if $debug;
+for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+	$HEADER_TO_COLUMN{$headers[$COLUMN]} = $COLUMN;
+	}
+for ($ROW=0; $ROW<$NROWS; $ROW++) {
+	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+		# For PK 'PROJECT ID' value 'P001' in first row:
+		# $KEY_TO_ROW{'PROJECT ID'}->{'P001'} = 0;
+		$KEY_TO_ROW{$headers[$COLUMN]}->{$TABLE->[$ROW][$COLUMN]} = $ROW;
+		$PK_TO_ROW{$TABLE->[$ROW][$COLUMN]} = $ROW
+			if defined($PRIMARY_KEY) && $headers[$COLUMN] eq $PRIMARY_KEY;
+		}
+	}
+
+# Process all data rows.
+for ($ROW=0; $ROW<$NROWS; $ROW++) {
+	warn "================= DATA ROW ====================\n" if $debug;
+	warn " ROW $ROW: @{$tsv->[$ROW]}\n" if $debug;
+	warn "===============================================\n" if $debug;
+	$S = "_:row$ROW";
+	my @underscores = map {""} @headers;
+	my @predicates = map {""} @headers;
+	my $firstMeta = 1;
+	# for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+	foreach my $mr (@{$meta}) {
+		my ($directive, $args, @metaFields) = @{$mr};
+		$directive || die;
+		# Preprocessing directives have already been handled, so skip:
+		next if $isPreProcessingDirective{$directive};
+		@metaFields || die;
+		@headers == @metaFields || die;
+		$ARGS = $args;
+		my @r = @{$tsv->[$ROW]};	# TODO: comment out
+		warn "ROW CONTAINS: @r\n" if $debug > 1;
+		warn "--------------- META --------------------\n" if $debug;
+		warn "Directive: $directive ARGS: $ARGS metaFields: @metaFields\n" if $debug;
+
+		warn "UNDERSCORE: $_\n" if $debug > 1;
+		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+			$HEADER = $headers[$COLUMN];
+			$META = $metaFields[$COLUMN];
+			if ($firstMeta) {
+				# Init per-column data
+				my $p = &MakeVar($HEADER) || "UNDEFINED";
+				$predicates[$COLUMN] = "table:$p";
+				$underscores[$COLUMN] = $tsv->[$ROW]->[$COLUMN];
+				}
+			no strict 'refs';
+			defined(&{$directive}) || die "$0: [ERROR] No function $directive defined for directive: #$directive\n";
+			# TODO: make this not depend on having the metadata
+			# columns in the same order as the data columns:
+			$_ = $underscores[$COLUMN];
+			$P = $predicates[$COLUMN];
+			%DATA = map {($headers[$_], $underscores[$_])} 0..$#headers;
+			warn "Calling &$directive();\n" if $debug > 1;
+			&{$directive}();
+			warn "Done calling &$directive();\n" if $debug > 1;
+			$underscores[$COLUMN] = $_;
+			$predicates[$COLUMN] = $P;
+			}
+		$firstMeta = 0;
+		}
+	}
+exit 0;
+
+
+#####################################################################
+######################### END OF MAIN ###############################
+#####################################################################
+
+################## Perl_Filter #################
+sub Perl_Filter
+{
+our $ARGS;
+our $META;
+our ($ROW, $COLUMN);
+warn "Called Perl_Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $debug > 1;
+my $warning;
+($_, $warning) = &EvalWarnings($ARGS) if $ARGS ne "";
+warn "[WARNING] Perl_Filter: eval ARGS produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
+die "[ERROR] Perl_Filter: eval ARGS produced error at data row $ROW column $COLUMN: $@\n" if $@;
+defined($_) || die "$0: [ERROR] Eval of ARGS {$ARGS} failed: $?\n";
+warn "  After eval(ARGS) UNDERBAR: $_\n" if $debug > 1;
+($_, $warning) = &EvalWarnings($META) if $META ne "";
+warn "[WARNING] Perl_Filter: eval META produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
+die "[ERROR] Perl_Filter: eval META error at data row $ROW column $COLUMN: $@\n" if $@;
+defined($_) || die "$0: [ERROR] Eval of META {$META} failed: $?\n";
+warn "  Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $debug > 1;
+}
+
+################## Echo #################
+# Print a triple for each cell in the table, using the current 
+# subject $S, the current predicate $P and the current cell value $_ .
+sub Echo
+{
+warn "Called Echo(@_)\n" if $debug > 1;
+our $S;
+our $P;
+my $v = $_;
+return if !$S || !$P || !defined($v) || $v eq "";
+# Auto-quote strings:
+# TODO: Fix.  Not right for numbers.
+if ($v !~ m/^"/) {
+	my $oldv = $v;
+	if ($v =~ s/\"/ /g) {
+		warn "$0: [WARNING] Embedded quotes changed to spaces: \"$oldv\"\n";
+		}
+	$v = "\"$v\"";
+	}
+print "$S $P $v .\n";
+return $_;
+}
+
+################## Prefix #################
+# Called as:
+#   &Prefix($args, @fields);
+# where @fields are meta fields, not data fields, because #Prefix is
+# a preprocessing directive.
+sub Prefix
+{
+# Process $ARGS the same as any other field:
+my @fields = @_;
+my $oldDebug = $debug;
+$debug = 2;
+for (my $i=0; $i<@fields; $i++) {
+	my $f = $fields[$i];
+	next if $f !~ m/\S/;
+	$f = &Trim($f);
+	# Ignore optional "@prefix" and trailing period:
+	$f =~ s/^\@//;
+	$f =~ s/^prefix\s+//i;
+	$f =~ s/\s*\.$//;
+	my ($prefix, $uri, @extra) = split(/\s+/, $f, -1);
+	die "$0: [ERROR] Prefix: Bad declaration: $fields[$i]\n"
+		if @extra || !$uri || $prefix !~ m/\:$/;
+	# Remove optional <..> around the URI template:
+	my $bareUri = $uri;
+	$bareUri =~ s/^\<(.*)\>$/$1/;
+	my ($eUri, $undefVar) = &ExpandUriTemplate($bareUri, %uriTemplateValues);
+	die "$0: [ERROR] Prefix: Undefined variable $undefVar in URI template: $bareUri\n" if $undefVar;
+	$NAMESPACE{$prefix} = "<$eUri>";
+	warn "  PREFIX: $prefix <$eUri>\n" if $debug > 1;
+	}
+$debug = $oldDebug;
+# die "STOPPED!\n";
+}
+
+################## SetUriTemplateVariable #################
+# Set %uriTemplateValues, for use in URI Templates.
+sub SetUriTemplateVariable
+{
+# Process $ARGS the same as any other field:
+my @fields = @_;
+my $oldDebug = $debug;
+$debug = 2;
+for (my $i=0; $i<@fields; $i++) {
+	my $f = $fields[$i];
+	next if $f !~ m/\S/;
+	$f = &Trim($f);
+	my @varVal = split(/\s+/, $f, -1);
+	our $COLUMN = $i-1;
+	die "[ERROR] SetUriTemplateVariable: Odd number of components at meta row $ROW column $COLUMN: $f\n" if (@varVal % 2) != 0;
+	while(@varVal) {
+		my $var = shift @varVal;
+		my $rawVal = shift @varVal;
+		warn "[WARNING] SetUriTemplateVariable: Variable $var redeclared at meta row $ROW column $COLUMN: $f\n" if exists($uriTemplateValues{$var});
+		# The value itself may be a template that needs expansion:
+		# 	foo http://example/{bar}/baz
+		my ($val, $undefVar) = &ExpandUriTemplate($rawVal, %uriTemplateValues);
+		die "[ERROR] SetUriTemplateVariable: Undefined variable $undefVar found in URI template expression $rawVal at meta row $ROW column $COLUMN\n" if $undefVar;
+		$uriTemplateValues{$var} = $val;
+		warn "SetUriTemplateVariable var: $var value: $val\n";
+		}
+	}
+if ($debug > 1) {
+	use Data::Dumper;
+	warn "uriTemplateValues = \n";
+	my $d = &Dumper(\%uriTemplateValues);
+	warn "$d\n";
+	}
+$debug = $oldDebug;
+# die "STOPPED!\n";
+}
+
+############### ExpandUriTemplate ###############
+# Usage:
+#   my ($value, $undefVar) = &ExpandUriTemplate($expr, %varValMappings);
+# Where $undefVar will be the name of an undefined variable in $expr
+# if it has any that are undefined.   If all variables in $expr
+# are defined in %varValMappings then $undefVar will be the empty string.
+sub ExpandUriTemplate
+{
+@_ >= 1 || die;
+my $expr = shift;
+my %varValMappings = @_;
+my $template = URI::Template->new( $expr );
+my @variables = $template->variables();
+warn "ExpandUriTemplate EXPR: $expr VARIABLES: @variables\n" if $debug > 1;
+foreach my $v (@variables) {
+	warn "  EXPR: $expr VARIABLE: $v\n" if $debug > 1;
+	# Return error if any variable in $expr is undefined
+	return("", $v) if !exists($varValMappings{$v});
+	}
+if (0) {
+	foreach my $tvar (sort keys %varValMappings) {
+		my $tval = $varValMappings{$tvar};
+		warn "  VAR: $tvar VAL: $tval\n" if $debug > 1;
+		}
+	}
+my $val      = $template->process( %varValMappings )->as_string;
+return($val, "");
+}
+
+################## Perl_BEGIN #################
+sub Perl_BEGIN
+{
+# Process $ARGS the same as any other field:
+my @fields = @_;
+# $debug = 2;
+for (my $i=0; $i<@fields; $i++) {
+	my $f = $fields[$i];
+	next if $f !~ m/\S/;
+	$f = &Trim($f);
+	warn "  Running eval of Perl_BEGIN {$f}\n" if $debug > 1;
+	my $warning;
+	(undef, $warning) = &EvalWarnings($f);
+	our $COLUMN = $i-1;
+	warn "[WARNING] Perl_BEGIN: eval warning at meta row $ROW column $COLUMN: $warning\n" if $warning;
+	die "[ERROR] Perl_BEGIN: eval error at meta row $ROW column $COLUMN: $@\n" if $@;
+	}
+# die "STOPPED!\n";
+}
+
+################## Perl_RunOnce #################
+sub Perl_RunOnce
+{
+warn "Called Perl_RunOnce(@_)\n" if $debug;
+&Perl_Run(@_) if $ROW == 0;
+}
+
+################## Perl_Run #################
+sub Perl_Run
+{
+our $ARGS;
+our $META;
+our ($ROW, $COLUMN);
+my $saveUnderbar = $_;
+my $shouldWarn = $debug && ($ARGS || $META);
+warn "Called Perl_Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
+my $result = "";
+my $warning;
+($result, $warning) = &EvalWarnings($ARGS) if $ARGS ne "";
+warn "$0: [WARNING] Perl_Run: eval of ARGS {$ARGS} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
+my $e = $@ || $! || $?;
+die "$0: [ERROR] Perl_Run: eval of ARGS {$ARGS} failed while evaluating data row $ROW column $COLUMN: $e\n" if $e;
+warn "  Perl_Run After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
+$_ = $saveUnderbar;
+$e = $@ || $! || $?;
+($result, $warning) = &EvalWarnings($META) if $META ne "";
+warn "$0: [WARNING] Perl_Run: eval of META {$META} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
+die "$0: [ERROR] Perl_Run: eval of META {$META} failed while evaluating data row $ROW column $COLUMN: $e\n" if $e;
+warn "  Perl_Run After eval(META) UNDERBAR: $_\n" if $shouldWarn;
+$_ = $saveUnderbar;
+warn "  Perl_Run Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+}
+
+################# EvalWarnings ##################
+# Run eval while trapping warnings, and return the eval result and
+# any warnings.  Old eval errors are cleared first.
+# TODO: Also declare "our" variables in %vars.
+# Usage:
+#   my ($result, $warnings) = &EvalWarnings($expr);
+sub EvalWarnings
+{
+@_ == 1 || die;
+my $expr = shift @_;
+# my $ours = "";
+# $ours =  TODO
+our $ARGS;
+our $META;
+our $HEADER;
+our ($ROW, $COLUMN);
+my $result;
+my $warnings = "";
+local $SIG{__WARN__} = sub {
+	$warnings .= (shift || "");
+	};
+# Clear old errors prior to eval.  $@ does not need to be cleared.
+$! = 0;
+$? = 0;
+$result = eval $expr;
+return($result, $warnings);
+}
+
+################# RemoveMetadataRows ##################
+# Destructively remove and return metadata rows from the given data table.
+# Metadata rows are returned as a ref to an array of row refs -- the
+# same form as the given data table.  The metadata directive is
+# the first cell in each metadata row.  The #META column is removed
+# entirely from the data table.  
+sub RemoveMetadataRows
+{
+my $tsv = shift @_ || die;
+my $meta = [];
+my $firstCellValue = $tsv->[0]->[0];
+defined($firstCellValue) || die "$0: [ERROR] Table has no header row!\n";
+# warn "firstCellValue: {$firstCellValue}\n";
+return $meta if $firstCellValue ne "#META";
+# Temporarily remove the header row:
+my $headers = shift @{$tsv};
+# Get rid of "#META" header cell:
+shift @{$headers};
+# Grab the metadata rows:
+while (@{$tsv} && $tsv->[0]->[0] =~ s/^\#(\S*)\s*//) {
+	my $directive = $1;
+	my $row = shift @{$tsv};
+	# warn "REMOVED ROW: @{$row}\n";
+	next if $directive eq "" || $directive =~ m/^\#/;
+	my $args = shift @{$row};
+	push(@{$meta}, [ $directive, $args, @{$row} ]);
+	}
+# Put back the header row:
+unshift(@{$tsv}, $headers);
+# Strip the #META column from all the data rows:
+for (my $i=1; $i<@{$tsv}; $i++) {
+	shift @{$tsv->[$i]};
+	}
+return $meta;
+}
+
+############### PrintTable ###############
+sub PrintTable
+{
+my $tsv = shift @_ || die;
+foreach my $row (@{$tsv}) {
+	my $line = join("\t", @{$row});
+	print "$line\n";
+	}
+}
+
+########## ReadTsv ###########
+# Read a TSV file from a filename (if given) or stdin,
+# trimming leading and trailing whitespace from all cells.
+# Returns a reference to an array (the rows) of array 
+# references (the column values).  The result is guaranteed
+# to have the same number of cells in each row.
+sub ReadTsv
+{
+@_ <= 1 or die;
+my $f = shift @_ || "";
+my $fh = \*STDIN;
+!$f || open($fh, "<$f") || die "$0: [ERROR] Cannot open $f\n";
+my $result = [];
+my $nColumns = 0;
+my $row = 0;
+while (my $line = <$fh>) {
+	chomp $line;
+	my @fields = map {&Trim($_)} split(/\t/, $line, -1);
+	@fields || die "$0: [ERROR] No data fields found in " . ($f ? "STDIN" : $f) . "\n";
+	my $nf = scalar(@fields);
+	$nColumns = $nf if !$nColumns;
+	$nf == $nColumns || die "$0: [ERROR] Number of data columns ($nf) does not match the number of header columns ($nColumns) on data row $row in " . ($f ? "STDIN" : $f) . "\n";
+	# warn "\tRead $nf columns\n";
+	push(@{$result}, [ @fields ] );
+	$row++;
+	}
+!$f || close($fh);
+# warn "Read $row rows\n";
+return $result;
+}
+
+########## Trim ############
+# Perl function to remove whitespace from beginning and end of a string.
+sub Trim
+{
+my $s = shift @_;
+$s =~ s/\A[\s\n\r]+//s;
+$s =~ s/[\s\n\r]+\Z//s;
+return $s;
+}
+
+########## MakeVar ###########
+# Turn the given column name into a variable.
+sub MakeVar
+{
+my $v = shift @_ || die;
+# $v =~ m/^[a-zA-Z_]/ or warn "$0: [WARNING] Column name starts with a non-letter or underscore: \"$v\"\n";
+$v =~ s/[^A-Za-z0-9_]/_/g;
+$v =~ s/_+/_/g;
+$v =~ s/_$//;
+$v =~ s/^_//;
+$v = "" if $v !~ m/^[A-Za-z]/;	# Must start with a letter
+return $v;
+}
+
