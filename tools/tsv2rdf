@@ -84,7 +84,7 @@ my $tsv = &ReadTsv();
 
 my $meta = &RemoveMetadataRows($tsv);
 my $headersRef = shift @{$tsv};
-my @headers = @{$headersRef};
+our @HEADERS = @{$headersRef};
 
 if ($metadataFile) {
 	warn "Reading separate metadataFile: $metadataFile\n" if $debug;
@@ -95,18 +95,18 @@ if ($metadataFile) {
 	$metaHeadersRef || die "$0: [ERROR] metadataFile has no header row: $metadataFile\n";
 	my @metaHeaders = @{$metaHeadersRef};
 	my $nmh = scalar(@metaHeaders);
-	my $nh = scalar(@headers);
-	for (my $i=0; $i<@metaHeaders && $i<@headers; $i++) {
-		$metaHeaders[$i] eq $headers[$i] || die "$0: [ERROR] Metadata header ($metaHeaders[$i]) in column $i does not match data header ($headers[$i]) in corresponding data column.\n";
+	my $nh = scalar(@HEADERS);
+	for (my $i=0; $i<@metaHeaders && $i<@HEADERS; $i++) {
+		$metaHeaders[$i] eq $HEADERS[$i] || die "$0: [ERROR] Metadata header ($metaHeaders[$i]) in column $i does not match data header ($HEADERS[$i]) in corresponding data column.\n";
 		}	
 	if ($nmh > $nh) {
 		my $nExtras = $nmh - $nh;
-		my $extras = join("|", @metaHeaders[ $#headers+1 .. $#metaHeaders ] );
+		my $extras = join("|", @metaHeaders[ $#HEADERS+1 .. $#metaHeaders ] );
 		die "$0: [ERROR] $nExtras extra metadata columns: $extras\n";
 		}
 	elsif ($nmh < $nh) {
 		my $nExtras = $nh - $nmh;
-		my $extras = join("|", @headers[ $#metaHeaders+1 .. $#headers ] );
+		my $extras = join("|", @HEADERS[ $#metaHeaders+1 .. $#HEADERS ] );
 		die "$0: [ERROR] $nExtras extra data columns: $extras\n";
 		}
 	}
@@ -139,6 +139,9 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Prefix 
 	Perl_BEGIN 
 	SetUriTemplateVariable
+	Class
+	Property
+	Object
 	);
 
 # Pre-processing directives 
@@ -164,7 +167,6 @@ our $TABLE = $tsv;
 our $ROW;
 our $COLUMN;
 our $HEADER;
-our @HEADERS = @headers;
 our %HEADER_TO_COLUMN;
 our $META;
 our $ARGS;
@@ -175,18 +177,18 @@ our %PK_TO_ROW;		# Maps $PRIMARY_KEY column hash to row number (0 based)
 our $PRIMARY_KEY;	# Header name of primary key column
 our %DATA;	# Maps column name to cell value in current row
 our $NROWS = scalar(@$tsv);
-our $NCOLUMNS = scalar(@headers);
-warn "NCOLUMNS: $NCOLUMNS NROWS: $NROWS headers: @headers\n" if $debug;
+our $NCOLUMNS = scalar(@HEADERS);
+warn "NCOLUMNS: $NCOLUMNS NROWS: $NROWS headers: @HEADERS\n" if $debug;
 for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-	$HEADER_TO_COLUMN{$headers[$COLUMN]} = $COLUMN;
+	$HEADER_TO_COLUMN{$HEADERS[$COLUMN]} = $COLUMN;
 	}
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 		# For PK 'PROJECT ID' value 'P001' in first row:
 		# $KEY_TO_ROW{'PROJECT ID'}->{'P001'} = 0;
-		$KEY_TO_ROW{$headers[$COLUMN]}->{$TABLE->[$ROW][$COLUMN]} = $ROW;
+		$KEY_TO_ROW{$HEADERS[$COLUMN]}->{$TABLE->[$ROW][$COLUMN]} = $ROW;
 		$PK_TO_ROW{$TABLE->[$ROW][$COLUMN]} = $ROW
-			if defined($PRIMARY_KEY) && $headers[$COLUMN] eq $PRIMARY_KEY;
+			if defined($PRIMARY_KEY) && $HEADERS[$COLUMN] eq $PRIMARY_KEY;
 		}
 	}
 
@@ -196,8 +198,8 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	warn " ROW $ROW: @{$tsv->[$ROW]}\n" if $debug;
 	warn "===============================================\n" if $debug;
 	$S = "_:row$ROW";
-	my @underscores = map {""} @headers;
-	my @predicates = map {""} @headers;
+	my @underscores = map {""} @HEADERS;
+	my @predicates = map {""} @HEADERS;
 	my $firstMeta = 1;
 	# for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 	foreach my $mr (@{$meta}) {
@@ -206,7 +208,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$directive};
 		@metaFields || die;
-		@headers == @metaFields || die;
+		@HEADERS == @metaFields || die;
 		$ARGS = $args;
 		my @r = @{$tsv->[$ROW]};	# TODO: comment out
 		warn "ROW CONTAINS: @r\n" if $debug > 1;
@@ -215,7 +217,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 
 		warn "UNDERSCORE: $_\n" if $debug > 1;
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-			$HEADER = $headers[$COLUMN];
+			$HEADER = $HEADERS[$COLUMN];
 			$META = $metaFields[$COLUMN];
 			if ($firstMeta) {
 				# Init per-column data
@@ -229,7 +231,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 			# columns in the same order as the data columns:
 			$_ = $underscores[$COLUMN];
 			$P = $predicates[$COLUMN];
-			%DATA = map {($headers[$_], $underscores[$_])} 0..$#headers;
+			%DATA = map {($HEADERS[$_], $underscores[$_])} 0..$#HEADERS;
 			warn "Calling &$directive();\n" if $debug > 1;
 			&{$directive}();
 			warn "Done calling &$directive();\n" if $debug > 1;
@@ -287,6 +289,41 @@ if ($v !~ m/^"/) {
 	}
 print "$S $P $v .\n";
 return $_;
+}
+
+################## Class #################
+# Sets $CLASS{$HEADER}
+# Called as:
+#   &Class($args, @fields);
+# where @fields are meta fields, not data fields, because #Class is
+# a preprocessing directive.
+sub Class
+{
+# Process $ARGS the same as any other field:
+my @fields = @_;
+my $oldDebug = $debug;
+$debug = 2;
+for (my $i=0; $i<@fields; $i++) {
+	my $f = $fields[$i];
+	next if $f !~ m/\S/;
+	$f = &Trim($f);
+	# Ignore optional "@prefix" and trailing period:
+	$f =~ s/^\@//;
+	$f =~ s/^prefix\s+//i;
+	$f =~ s/\s*\.$//;
+	my ($prefix, $uri, @extra) = split(/\s+/, $f, -1);
+	die "$0: [ERROR] Class: Bad declaration: $fields[$i]\n"
+		if @extra || !$uri || $prefix !~ m/\:$/;
+	# Remove optional <..> around the URI template:
+	my $bareUri = $uri;
+	$bareUri =~ s/^\<(.*)\>$/$1/;
+	my ($eUri, $undefVar) = &ExpandUriTemplate($bareUri, %uriTemplateValues);
+	die "$0: [ERROR] Class: Undefined variable $undefVar in URI template: $bareUri\n" if $undefVar;
+	$NAMESPACE{$prefix} = "<$eUri>";
+	warn "  PREFIX: $prefix <$eUri>\n" if $debug > 1;
+	}
+$debug = $oldDebug;
+# die "STOPPED!\n";
 }
 
 ################## Prefix #################
@@ -387,6 +424,28 @@ if (0) {
 	}
 my $val      = $template->process( %varValMappings )->as_string;
 return($val, "");
+}
+
+################## EvalMetaCells #################
+# Run the given function on each of the cells in the current meta row,
+# setting and saving standard variables.
+sub EvalMetaCells
+{
+# Process $ARGS the same as any other field:
+my @fields = @_;
+# $debug = 2;
+for (my $i=0; $i<@fields; $i++) {
+	my $f = $fields[$i];
+	next if $f !~ m/\S/;
+	$f = &Trim($f);
+	warn "  Running eval of EvalMetaCells {$f}\n" if $debug > 1;
+	my $warning;
+	(undef, $warning) = &EvalWarnings($f);
+	our $COLUMN = $i-1;
+	warn "[WARNING] EvalMetaCells: eval warning at meta row $ROW column $COLUMN: $warning\n" if $warning;
+	die "[ERROR] EvalMetaCells: eval error at meta row $ROW column $COLUMN: $@\n" if $@;
+	}
+# die "STOPPED!\n";
 }
 
 ################## Perl_BEGIN #################
