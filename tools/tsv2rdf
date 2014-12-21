@@ -214,7 +214,6 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		warn "ROW CONTAINS: @r\n" if $debug > 1;
 		warn "--------------- META --------------------\n" if $debug;
 		warn "Directive: $directive ARGS: $ARGS metaFields: @metaFields\n" if $debug;
-
 		warn "UNDERSCORE: $_\n" if $debug > 1;
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 			$HEADER = $HEADERS[$COLUMN];
@@ -247,6 +246,67 @@ exit 0;
 #####################################################################
 ######################### END OF MAIN ###############################
 #####################################################################
+
+################## New_PerlRun #################
+# Process all data rows for the current meta row $MROW.
+# Called as:
+#   $MROW = ...
+#   &New_PerlRun(\&f)
+sub New_PerlRun
+{
+our ($MROW, $ROW, $NROWS, $COLUMN, $NCOLUMNS);
+our ($DIRECTIVE, $ARGS);
+our @METAS;
+($DIRECTIVE, $ARGS, @METAS) = @{$meta->[$MROW]};
+$DIRECTIVE || die;
+# Preprocessing directives have already been handled, so skip:
+next if $isPreProcessingDirective{$DIRECTIVE};
+@METAS || die;
+@HEADERS == @METAS || die;
+
+for ($ROW=0; $ROW<$NROWS; $ROW++) {
+	warn "================= DATA ROW ====================\n" if $debug;
+	warn " ROW $ROW: @{$tsv->[$ROW]}\n" if $debug;
+	warn "===============================================\n" if $debug;
+	$S = "_:row$ROW";
+	my @underscores = map {""} @HEADERS;
+	my @predicates = map {""} @HEADERS;
+	my $firstMeta = 1;
+	# for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+	foreach my $mr (@{$meta}) {
+
+		my @r = @{$tsv->[$ROW]};	# TODO: comment out
+		warn "ROW CONTAINS: @r\n" if $debug > 1;
+		warn "--------------- META --------------------\n" if $debug;
+		warn "Directive: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
+		warn "UNDERSCORE: $_\n" if $debug > 1;
+
+		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+			$HEADER = $HEADERS[$COLUMN];
+			$META = $METAS[$COLUMN];
+			if ($firstMeta) {
+				# Init per-column data
+				my $p = &MakeVar($HEADER) || "UNDEFINED";
+				$predicates[$COLUMN] = "table:$p";
+				$underscores[$COLUMN] = $tsv->[$ROW]->[$COLUMN];
+				}
+			no strict 'refs';
+			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
+			# TODO: make this not depend on having the metadata
+			# columns in the same order as the data columns:
+			$_ = $underscores[$COLUMN];
+			$P = $predicates[$COLUMN];
+			%DATA = map {($HEADERS[$_], $underscores[$_])} 0..$#HEADERS;
+			warn "Calling &$DIRECTIVE();\n" if $debug > 1;
+			&{$DIRECTIVE}();
+			warn "Done calling &$DIRECTIVE();\n" if $debug > 1;
+			$underscores[$COLUMN] = $_;
+			$predicates[$COLUMN] = $P;
+			}
+		$firstMeta = 0;
+		}
+	}
+}
 
 ################## Perl_Filter #################
 sub Perl_Filter
@@ -426,10 +486,10 @@ my $val      = $template->process( %varValMappings )->as_string;
 return($val, "");
 }
 
-################## EvalMetaCells #################
+################## ApplyToMetaCells #################
 # Run the given function on each of the cells in the current meta row,
 # setting and saving standard variables.
-sub EvalMetaCells
+sub ApplyToMetaCells
 {
 # Process $ARGS the same as any other field:
 my @fields = @_;
@@ -438,12 +498,13 @@ for (my $i=0; $i<@fields; $i++) {
 	my $f = $fields[$i];
 	next if $f !~ m/\S/;
 	$f = &Trim($f);
-	warn "  Running eval of EvalMetaCells {$f}\n" if $debug > 1;
+	warn "  Running eval of ApplyToMetaCells {$f}\n" if $debug > 1;
+	die "UNFINISHED! ";
 	my $warning;
 	(undef, $warning) = &EvalWarnings($f);
 	our $COLUMN = $i-1;
-	warn "[WARNING] EvalMetaCells: eval warning at meta row $ROW column $COLUMN: $warning\n" if $warning;
-	die "[ERROR] EvalMetaCells: eval error at meta row $ROW column $COLUMN: $@\n" if $@;
+	warn "[WARNING] ApplyToMetaCells: eval warning at meta row $ROW column $COLUMN: $warning\n" if $warning;
+	die "[ERROR] ApplyToMetaCells: eval error at meta row $ROW column $COLUMN: $@\n" if $@;
 	}
 # die "STOPPED!\n";
 }
