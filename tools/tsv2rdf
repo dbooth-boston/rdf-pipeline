@@ -82,7 +82,7 @@ my $tsv = &ReadTsv();
 # warn "==========================================================\n" if $debug;
 # warn "\n" if $debug;
 
-my $meta = &RemoveMetadataRows($tsv);
+our $meta = &RemoveMetadataRows($tsv);
 my $headersRef = shift @{$tsv};
 our @HEADERS = @{$headersRef};
 
@@ -255,7 +255,7 @@ exit 0;
 sub New_PerlRun
 {
 our ($MROW, $ROW, $NROWS, $COLUMN, $NCOLUMNS);
-our ($DIRECTIVE, $ARGS);
+our ($DIRECTIVE, $ARGS, $meta);
 our @METAS;
 ($DIRECTIVE, $ARGS, @METAS) = @{$meta->[$MROW]};
 $DIRECTIVE || die;
@@ -677,16 +677,27 @@ $s =~ s/[\s\n\r]+\Z//s;
 return $s;
 }
 
+########## Clean ###########
+# Trim leading and trailing whitespace, turn everything but [a-zA-Z0-9_]
+# into underscore ("_") and change any occurrences of multiple
+# underscores into a single underscore.
+sub Clean
+{
+my $v = shift @_ || die;
+$v = &Trim($v);
+$v =~ s/[^A-Za-z0-9_]/_/g;
+$v =~ s/_+/_/g;
+return $v;
+}
+
 ########## MakeVar ###########
 # Turn the given column name into a variable.
 sub MakeVar
 {
 my $v = shift @_ || die;
-# $v =~ m/^[a-zA-Z_]/ or warn "$0: [WARNING] Column name starts with a non-letter or underscore: \"$v\"\n";
-$v =~ s/[^A-Za-z0-9_]/_/g;
-$v =~ s/_+/_/g;
-$v =~ s/_$//;
-$v =~ s/^_//;
+$v = &Clean($v);
+# $v =~ s/_$//;
+# $v =~ s/^_//;
 $v = "" if $v !~ m/^[A-Za-z]/;	# Must start with a letter
 return $v;
 }
