@@ -36,6 +36,7 @@
 
 use warnings;
 use strict;
+use Carp;
 use URI::Template;
 
 ################# Usage ###################
@@ -218,11 +219,11 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	# for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 	foreach my $mr (@{$MTABLE}) {
 		my ($directive, $args, @metaFields) = @{$mr};
-		$directive || die;
+		$directive || confess;
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$directive};
-		@metaFields || die;
-		@HEADERS == @metaFields || die;
+		@metaFields || confess;
+		@HEADERS == @metaFields || confess;
 		$ARGS = $args;
 		my @r = @{$TABLE->[$ROW]};	# TODO: comment out
 		warn "ROW CONTAINS: @r\n" if $debug > 1;
@@ -266,9 +267,19 @@ exit 0;
 sub SetGlobalsForMetaRow
 {
 ($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
-$DIRECTIVE || die;
-@METAS || die;
-@HEADERS == @METAS || die;
+$DIRECTIVE || confess;
+@METAS || confess;
+@HEADERS == @METAS || confess;
+}
+
+################## ResetGlobalsForMetaRow #################
+# Reset globals that are relative to $MROW, which must already be set.
+sub ResetGlobalsForMetaRow
+{
+$DIRECTIVE || confess;
+@METAS || confess;
+@HEADERS == @METAS || confess;
+@{$MTABLE->[$MROW]} = ($DIRECTIVE, $ARGS, @METAS);
 }
 
 ################## New_PerlRun #################
@@ -282,9 +293,9 @@ $DIRECTIVE || die;
 sub New_PerlRun
 {
 ($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
-$DIRECTIVE || die;
-@METAS || die;
-@HEADERS == @METAS || die;
+$DIRECTIVE || confess;
+@METAS || confess;
+@HEADERS == @METAS || confess;
 
 # Process all data rows.
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
@@ -296,11 +307,11 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	my @predicates = map {""} @HEADERS;
 	my $mr = $MTABLE->[$MROW];
 	my ($DIRECTIVE, $args, @METAS) = @{$mr};
-	$DIRECTIVE || die;
+	$DIRECTIVE || confess;
 	# Preprocessing directives have already been handled, so skip:
 	next if $isPreProcessingDirective{$DIRECTIVE};
-	@METAS || die;
-	@HEADERS == @METAS || die;
+	@METAS || confess;
+	@HEADERS == @METAS || confess;
 	$ARGS = $args;
 	my @r = @{$TABLE->[$ROW]};	# TODO: comment out
 	warn "ROW CONTAINS: @r\n" if $debug > 1;
@@ -484,7 +495,7 @@ $debug = $oldDebug;
 # are defined in %varValMappings then $undefVar will be the empty string.
 sub ExpandUriTemplate
 {
-@_ >= 1 || die;
+@_ >= 1 || confess;
 my $expr = shift;
 my %varValMappings = @_;
 my $template = URI::Template->new( $expr );
@@ -586,7 +597,7 @@ warn "  Perl_Run Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn
 #   my ($result, $warnings) = &EvalWarnings($expr);
 sub EvalWarnings
 {
-@_ == 1 || die;
+@_ == 1 || confess;
 my $expr = shift @_;
 # my $ours = "";
 # $ours =  TODO
@@ -610,7 +621,7 @@ return($result, $warnings);
 # entirely from the data table.  
 sub RemoveMetadataRows
 {
-my $tsv = shift @_ || die;
+my $tsv = shift @_ || confess;
 my $meta = [];
 my $firstCellValue = $tsv->[0]->[0];
 defined($firstCellValue) || die "$0: [ERROR] Table has no header row!\n";
@@ -641,7 +652,7 @@ return $meta;
 ############### PrintTable ###############
 sub PrintTable
 {
-my $tsv = shift @_ || die;
+my $tsv = shift @_ || confess;
 foreach my $row (@{$tsv}) {
 	my $line = join("\t", @{$row});
 	print "$line\n";
@@ -656,7 +667,7 @@ foreach my $row (@{$tsv}) {
 # to have the same number of cells in each row.
 sub ReadTsv
 {
-@_ <= 1 or die;
+@_ <= 1 or confess;
 my $f = shift @_ || "";
 my $fh = \*STDIN;
 !$f || open($fh, "<$f") || die "$0: [ERROR] Cannot open $f\n";
@@ -695,7 +706,7 @@ return $s;
 # underscores into a single underscore.
 sub Clean
 {
-my $v = shift @_ || die;
+my $v = shift @_ || confess;
 $v = &Trim($v);
 $v =~ s/[^A-Za-z0-9_]/_/g;
 $v =~ s/_+/_/g;
@@ -707,7 +718,7 @@ return $v;
 # or return the empty string if failure.
 sub MakeVar
 {
-my $v = shift @_ || die;
+my $v = shift @_ || confess;
 $v = &Clean($v);
 # $v =~ s/_$//;
 # $v =~ s/^_//;
