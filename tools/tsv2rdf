@@ -184,6 +184,7 @@ for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 	no strict 'refs';
 	&{$DIRECTIVE}($ARGS, @METAS);
 	warn "END Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
+	&ResetGlobalsForMetaRow();
 	}
 
 # Output namespaces.
@@ -262,10 +263,43 @@ exit 0;
 ######################### END OF MAIN ###############################
 #####################################################################
 
+################## SetGlobalsForMetaColumn #################
+# Set globals that are relative to $COLUMN, which 
+# must already be set.  @METAS must already be set also,
+# as by calling SetGlobalsForMetaRow.
+sub SetGlobalsForMetaColumn
+{
+defined($COLUMN) || confess;
+@METAS || confess;
+@HEADERS || confess;
+$META = $METAS[$COLUMN];
+$HEADER = $HEADERS[$COLUMN];
+defined($META) || confess;
+defined($HEADER) || confess;
+undef $_;
+}
+
+################## ResetGlobalsForMetaColumn #################
+# Reset globals that are relative to $COLUMN, which 
+# must already be set.  $META (and @METAS) must already be set also,
+# as by calling SetGlobalsForMetaColumn.
+sub ResetGlobalsForMetaColumn
+{
+defined($COLUMN) || confess;
+@METAS || confess;
+@HEADERS || confess;
+defined($META) || confess;
+defined($HEADER) || confess;
+$METAS[$COLUMN] = $META;
+$HEADERS[$COLUMN] = $HEADER;
+undef $_;
+}
+
 ################## SetGlobalsForMetaRow #################
 # Set globals that are relative to $MROW, which must already be set.
 sub SetGlobalsForMetaRow
 {
+defined($MROW) || confess;
 ($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
 $DIRECTIVE || confess;
 @METAS || confess;
@@ -276,6 +310,7 @@ $DIRECTIVE || confess;
 # Reset globals that are relative to $MROW, which must already be set.
 sub ResetGlobalsForMetaRow
 {
+defined($MROW) || confess;
 $DIRECTIVE || confess;
 @METAS || confess;
 @HEADERS == @METAS || confess;
@@ -549,12 +584,14 @@ for (my $i=0; $i<@fields; $i++) {
 	my $f = $fields[$i];
 	next if $f !~ m/\S/;
 	$f = &Trim($f);
+	$COLUMN = $i-1;
+	&SetGlobalsForMetaColumn();
 	warn "  Running eval of Perl_BEGIN {$f}\n" if $debug > 1;
 	my $warning;
 	(undef, $warning) = &EvalWarnings($f);
-	$COLUMN = $i-1;
 	warn "[WARNING] Perl_BEGIN: eval warning at meta row $MROW column $COLUMN: $warning\n" if $warning;
 	die "[ERROR] Perl_BEGIN: eval error at meta row $MROW column $COLUMN: $@\n" if $@;
+	&ResetGlobalsForMetaColumn();
 	}
 # die "STOPPED!\n";
 }
