@@ -149,7 +149,6 @@ if ($metadataFile) {
 # print "\n" if $debug;
 # exit 0;
 
-%NAMESPACE;
 {
 no warnings qw(qw);
 %NAMESPACE = qw(
@@ -177,19 +176,13 @@ $NCOLUMNS = scalar(@HEADERS);
 
 # Pre-processing directives 
 for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
-	my $mr = $MTABLE->[$MROW];
-	# Set globals:
-	($DIRECTIVE, $ARGS, @METAS) = @{$mr};
+	# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
+	&SetGlobalsForMetaRow();
 	next if !$isPreProcessingDirective{$DIRECTIVE};
 	warn "BEGIN Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
-	# $MROW = ...
-	# $DIRECTIVE = ...
-	# $ARGS = ...
-	# $METAS = ...
 	no strict 'refs';
 	&{$DIRECTIVE}($ARGS, @METAS);
 	warn "END Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
-
 	}
 
 # Output namespaces.
@@ -267,6 +260,16 @@ exit 0;
 #####################################################################
 ######################### END OF MAIN ###############################
 #####################################################################
+
+################## SetGlobalsForMetaRow #################
+# Set globals that are relative to $MROW, which must already be set.
+sub SetGlobalsForMetaRow
+{
+($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
+$DIRECTIVE || die;
+@METAS || die;
+@HEADERS == @METAS || die;
+}
 
 ################## New_PerlRun #################
 # Process all data rows for the current meta row $MROW.
