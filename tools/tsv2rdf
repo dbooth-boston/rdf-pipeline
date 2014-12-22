@@ -57,7 +57,35 @@ Options:
 ";
 }
 
+##################################################################
 ################# Main ###################
+##################################################################
+
+########### Globals
+our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
+		#   ($DIRECTIVE, $ARGS, @METAS)
+our $TABLE;	# Ref to the entire data table
+our @HEADERS;	# Column headers (excluding any #META column header)
+our $HEADER;	# Current header: $HEADER[$COLUMN]
+our %NAMESPACE;	# Prefix->namespace mappings
+our $MROW;	# Index of current meta row
+our $ROW;	# Index of current data row
+our $COLUMN;	# Index of current meta/data/header column
+our $DIRECTIVE;	# Directive parsed from #META column of current $MROW
+our $ARGS;	# Args parsed from #META column of current $MROW
+our @METAS;	# Meta cell values for current $MROW
+our $META;	# Meta cell value for current $MROW and $COLUMN
+our $S;		# Turtle subject of current data $ROW
+our $P;		# Turtle predicate of current data $ROW and $COLUMN
+our %DATA;	# Maps column name to cell value in current row
+########### Other globals, probably not used by users
+our $NROWS;	# Number of data rows (excludes header row)
+our $NCOLUMNS;	# Number of data columns (and meta columns)
+########### To be made obsolete probably:
+our %HEADER_TO_COLUMN;	# Maps header to column index
+our %KEY_TO_ROW;	# Maps header to column hash to row number (0 based)
+our %PK_TO_ROW;		# Maps $PRIMARY_KEY column hash to row number (0 based)
+our $PRIMARY_KEY;	# Header name of primary key column
 
 my $baseUri = "http://example/";
 my $help = 0;
@@ -76,20 +104,20 @@ $baseUri || die &Usage();
 
 # print "\@prefix : <$baseUri>\n\n";
 
-my $tsv = &ReadTsv();
+$TABLE = &ReadTsv();
 # warn "======================= DATA table: ======================\n" if $debug;
-# &PrintTable($tsv) if $debug;
+# &PrintTable($TABLE) if $debug;
 # warn "==========================================================\n" if $debug;
 # warn "\n" if $debug;
 
-our $meta = &RemoveMetadataRows($tsv);
-my $headersRef = shift @{$tsv};
-our @HEADERS = @{$headersRef};
+$MTABLE = &RemoveMetadataRows($TABLE);
+my $headersRef = shift @{$TABLE};
+@HEADERS = @{$headersRef};
 
 if ($metadataFile) {
 	warn "Reading separate metadataFile: $metadataFile\n" if $debug;
 	my $rawMeta = &ReadTsv($metadataFile);
-	$meta = &RemoveMetadataRows($rawMeta);
+	$MTABLE = &RemoveMetadataRows($rawMeta);
 	# Make sure the metadata headers match the data headers.
 	my $metaHeadersRef = ${$rawMeta}[0];
 	$metaHeadersRef || die "$0: [ERROR] metadataFile has no header row: $metadataFile\n";
@@ -112,16 +140,16 @@ if ($metadataFile) {
 	}
 
 # print "======================= META table: ======================\n" if $debug;
-# &PrintTable($meta) if $debug;
+# &PrintTable($MTABLE) if $debug;
 # print "==========================================================\n" if $debug;
 # warn "\n" if $debug;
 # print "======================= DATA table: ======================\n" if $debug;
-# &PrintTable($tsv) if $debug;
+# &PrintTable($TABLE) if $debug;
 # print "==========================================================\n" if $debug;
 # print "\n" if $debug;
 # exit 0;
 
-our %NAMESPACE;
+%NAMESPACE;
 {
 no warnings qw(qw);
 %NAMESPACE = qw(
@@ -144,16 +172,24 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Object
 	);
 
+$NROWS = scalar(@$TABLE);
+$NCOLUMNS = scalar(@HEADERS);
+
 # Pre-processing directives 
-for (our $ROW=0; $ROW<@{$meta}; $ROW++) {
-	my $mr = $meta->[$ROW];
-	my ($directive, $args, @fields) = @{$mr};
-	next if !$isPreProcessingDirective{$directive};
-	warn "BEGIN Preprocessing directive: $directive args: $args ROW: $ROW fields: @fields\n" if $debug > 1;
-	our $ARGS = $args;
+for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
+	my $mr = $MTABLE->[$MROW];
+	# Set globals:
+	($DIRECTIVE, $ARGS, @METAS) = @{$mr};
+	next if !$isPreProcessingDirective{$DIRECTIVE};
+	warn "BEGIN Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
+	# $MROW = ...
+	# $DIRECTIVE = ...
+	# $ARGS = ...
+	# $METAS = ...
 	no strict 'refs';
-	&{$directive}($args, @fields);
-	warn "END Preprocessing directive: $directive args: $args ROW: $ROW fields: @fields\n" if $debug > 1;
+	&{$DIRECTIVE}($ARGS, @METAS);
+	warn "END Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
+
 	}
 
 # Output namespaces.
@@ -163,21 +199,6 @@ foreach my $prefix (sort keys %NAMESPACE) {
 print "\n";
 
 # Set up maps/indexes.
-our $TABLE = $tsv;
-our $ROW;
-our $COLUMN;
-our $HEADER;
-our %HEADER_TO_COLUMN;
-our $META;
-our $ARGS;
-our $S;
-our $P;
-our %KEY_TO_ROW;	# Maps header to column hash to row number (0 based)
-our %PK_TO_ROW;		# Maps $PRIMARY_KEY column hash to row number (0 based)
-our $PRIMARY_KEY;	# Header name of primary key column
-our %DATA;	# Maps column name to cell value in current row
-our $NROWS = scalar(@$tsv);
-our $NCOLUMNS = scalar(@HEADERS);
 warn "NCOLUMNS: $NCOLUMNS NROWS: $NROWS headers: @HEADERS\n" if $debug;
 for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 	$HEADER_TO_COLUMN{$HEADERS[$COLUMN]} = $COLUMN;
@@ -195,14 +216,14 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 # Process all data rows.
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	warn "================= DATA ROW ====================\n" if $debug;
-	warn " ROW $ROW: @{$tsv->[$ROW]}\n" if $debug;
+	warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
 	warn "===============================================\n" if $debug;
 	$S = "_:row$ROW";
 	my @underscores = map {""} @HEADERS;
 	my @predicates = map {""} @HEADERS;
 	my $firstMeta = 1;
 	# for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-	foreach my $mr (@{$meta}) {
+	foreach my $mr (@{$MTABLE}) {
 		my ($directive, $args, @metaFields) = @{$mr};
 		$directive || die;
 		# Preprocessing directives have already been handled, so skip:
@@ -210,7 +231,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		@metaFields || die;
 		@HEADERS == @metaFields || die;
 		$ARGS = $args;
-		my @r = @{$tsv->[$ROW]};	# TODO: comment out
+		my @r = @{$TABLE->[$ROW]};	# TODO: comment out
 		warn "ROW CONTAINS: @r\n" if $debug > 1;
 		warn "--------------- META --------------------\n" if $debug;
 		warn "Directive: $directive ARGS: $ARGS metaFields: @metaFields\n" if $debug;
@@ -222,7 +243,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 				# Init per-column data
 				my $p = &MakeVar($HEADER) || "UNDEFINED";
 				$predicates[$COLUMN] = "table:$p";
-				$underscores[$COLUMN] = $tsv->[$ROW]->[$COLUMN];
+				$underscores[$COLUMN] = $TABLE->[$ROW]->[$COLUMN];
 				}
 			no strict 'refs';
 			defined(&{$directive}) || die "$0: [ERROR] No function $directive defined for directive: #$directive\n";
@@ -251,59 +272,57 @@ exit 0;
 # Process all data rows for the current meta row $MROW.
 # Called as:
 #   $MROW = ...
+#   $DIRECTIVE = ...
+#   $ARGS = ...
+#   $METAS = ...
 #   &New_PerlRun(\&f)
 sub New_PerlRun
 {
-our ($MROW, $ROW, $NROWS, $COLUMN, $NCOLUMNS);
-our ($DIRECTIVE, $ARGS, $meta);
-our @METAS;
-($DIRECTIVE, $ARGS, @METAS) = @{$meta->[$MROW]};
+($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
 $DIRECTIVE || die;
-# Preprocessing directives have already been handled, so skip:
-next if $isPreProcessingDirective{$DIRECTIVE};
 @METAS || die;
 @HEADERS == @METAS || die;
 
+# Process all data rows.
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	warn "================= DATA ROW ====================\n" if $debug;
-	warn " ROW $ROW: @{$tsv->[$ROW]}\n" if $debug;
+	warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
 	warn "===============================================\n" if $debug;
 	$S = "_:row$ROW";
 	my @underscores = map {""} @HEADERS;
 	my @predicates = map {""} @HEADERS;
-	my $firstMeta = 1;
-	# for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-	foreach my $mr (@{$meta}) {
-
-		my @r = @{$tsv->[$ROW]};	# TODO: comment out
-		warn "ROW CONTAINS: @r\n" if $debug > 1;
-		warn "--------------- META --------------------\n" if $debug;
-		warn "Directive: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
-		warn "UNDERSCORE: $_\n" if $debug > 1;
-
-		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-			$HEADER = $HEADERS[$COLUMN];
-			$META = $METAS[$COLUMN];
-			if ($firstMeta) {
-				# Init per-column data
-				my $p = &MakeVar($HEADER) || "UNDEFINED";
-				$predicates[$COLUMN] = "table:$p";
-				$underscores[$COLUMN] = $tsv->[$ROW]->[$COLUMN];
-				}
-			no strict 'refs';
-			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
-			# TODO: make this not depend on having the metadata
-			# columns in the same order as the data columns:
-			$_ = $underscores[$COLUMN];
-			$P = $predicates[$COLUMN];
-			%DATA = map {($HEADERS[$_], $underscores[$_])} 0..$#HEADERS;
-			warn "Calling &$DIRECTIVE();\n" if $debug > 1;
-			&{$DIRECTIVE}();
-			warn "Done calling &$DIRECTIVE();\n" if $debug > 1;
-			$underscores[$COLUMN] = $_;
-			$predicates[$COLUMN] = $P;
-			}
-		$firstMeta = 0;
+	my $mr = $MTABLE->[$MROW];
+	my ($DIRECTIVE, $args, @METAS) = @{$mr};
+	$DIRECTIVE || die;
+	# Preprocessing directives have already been handled, so skip:
+	next if $isPreProcessingDirective{$DIRECTIVE};
+	@METAS || die;
+	@HEADERS == @METAS || die;
+	$ARGS = $args;
+	my @r = @{$TABLE->[$ROW]};	# TODO: comment out
+	warn "ROW CONTAINS: @r\n" if $debug > 1;
+	warn "--------------- META --------------------\n" if $debug;
+	warn "DIRECTIVE: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
+	warn "UNDERSCORE: $_\n" if $debug > 1;
+	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+		$HEADER = $HEADERS[$COLUMN];
+		$META = $METAS[$COLUMN];
+		# Init per-column data
+		my $p = &MakeVar($HEADER) || "UNDEFINED";
+		$predicates[$COLUMN] = "table:$p";
+		$underscores[$COLUMN] = $TABLE->[$ROW]->[$COLUMN];
+		no strict 'refs';
+		defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
+		# TODO: make this not depend on having the metadata
+		# columns in the same order as the data columns:
+		$_ = $underscores[$COLUMN];
+		$P = $predicates[$COLUMN];
+		%DATA = map {($HEADERS[$_], $underscores[$_])} 0..$#HEADERS;
+		warn "Calling &$DIRECTIVE();\n" if $debug > 1;
+		&{$DIRECTIVE}();
+		warn "Done calling &$DIRECTIVE();\n" if $debug > 1;
+		$underscores[$COLUMN] = $_;
+		$predicates[$COLUMN] = $P;
 		}
 	}
 }
@@ -311,9 +330,6 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 ################## Perl_Filter #################
 sub Perl_Filter
 {
-our $ARGS;
-our $META;
-our ($ROW, $COLUMN);
 warn "Called Perl_Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $debug > 1;
 my $warning;
 ($_, $warning) = &EvalWarnings($ARGS) if $ARGS ne "";
@@ -433,16 +449,16 @@ for (my $i=0; $i<@fields; $i++) {
 	next if $f !~ m/\S/;
 	$f = &Trim($f);
 	my @varVal = split(/\s+/, $f, -1);
-	our $COLUMN = $i-1;
-	die "[ERROR] SetUriTemplateVariable: Odd number of components at meta row $ROW column $COLUMN: $f\n" if (@varVal % 2) != 0;
+	$COLUMN = $i-1;
+	die "[ERROR] SetUriTemplateVariable: Odd number of components at meta row $MROW column $COLUMN: $f\n" if (@varVal % 2) != 0;
 	while(@varVal) {
 		my $var = shift @varVal;
 		my $rawVal = shift @varVal;
-		warn "[WARNING] SetUriTemplateVariable: Variable $var redeclared at meta row $ROW column $COLUMN: $f\n" if exists($uriTemplateValues{$var});
+		warn "[WARNING] SetUriTemplateVariable: Variable $var redeclared at meta row $MROW column $COLUMN: $f\n" if exists($uriTemplateValues{$var});
 		# The value itself may be a template that needs expansion:
 		# 	foo http://example/{bar}/baz
 		my ($val, $undefVar) = &ExpandUriTemplate($rawVal, %uriTemplateValues);
-		die "[ERROR] SetUriTemplateVariable: Undefined variable $undefVar found in URI template expression $rawVal at meta row $ROW column $COLUMN\n" if $undefVar;
+		die "[ERROR] SetUriTemplateVariable: Undefined variable $undefVar found in URI template expression $rawVal at meta row $MROW column $COLUMN\n" if $undefVar;
 		$uriTemplateValues{$var} = $val;
 		warn "SetUriTemplateVariable var: $var value: $val\n";
 		}
@@ -488,7 +504,7 @@ return($val, "");
 
 ################## ApplyToMetaCells #################
 # Run the given function on each of the cells in the current meta row,
-# setting and saving standard variables.
+# setting and saving global variables.
 sub ApplyToMetaCells
 {
 # Process $ARGS the same as any other field:
@@ -502,9 +518,9 @@ for (my $i=0; $i<@fields; $i++) {
 	die "UNFINISHED! ";
 	my $warning;
 	(undef, $warning) = &EvalWarnings($f);
-	our $COLUMN = $i-1;
-	warn "[WARNING] ApplyToMetaCells: eval warning at meta row $ROW column $COLUMN: $warning\n" if $warning;
-	die "[ERROR] ApplyToMetaCells: eval error at meta row $ROW column $COLUMN: $@\n" if $@;
+	$COLUMN = $i-1;
+	warn "[WARNING] ApplyToMetaCells: eval warning at meta row $MROW column $COLUMN: $warning\n" if $warning;
+	die "[ERROR] ApplyToMetaCells: eval error at meta row $MROW column $COLUMN: $@\n" if $@;
 	}
 # die "STOPPED!\n";
 }
@@ -522,9 +538,9 @@ for (my $i=0; $i<@fields; $i++) {
 	warn "  Running eval of Perl_BEGIN {$f}\n" if $debug > 1;
 	my $warning;
 	(undef, $warning) = &EvalWarnings($f);
-	our $COLUMN = $i-1;
-	warn "[WARNING] Perl_BEGIN: eval warning at meta row $ROW column $COLUMN: $warning\n" if $warning;
-	die "[ERROR] Perl_BEGIN: eval error at meta row $ROW column $COLUMN: $@\n" if $@;
+	$COLUMN = $i-1;
+	warn "[WARNING] Perl_BEGIN: eval warning at meta row $MROW column $COLUMN: $warning\n" if $warning;
+	die "[ERROR] Perl_BEGIN: eval error at meta row $MROW column $COLUMN: $@\n" if $@;
 	}
 # die "STOPPED!\n";
 }
@@ -539,9 +555,6 @@ warn "Called Perl_RunOnce(@_)\n" if $debug;
 ################## Perl_Run #################
 sub Perl_Run
 {
-our $ARGS;
-our $META;
-our ($ROW, $COLUMN);
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Perl_Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
@@ -574,10 +587,6 @@ sub EvalWarnings
 my $expr = shift @_;
 # my $ours = "";
 # $ours =  TODO
-our $ARGS;
-our $META;
-our $HEADER;
-our ($ROW, $COLUMN);
 my $result;
 my $warnings = "";
 local $SIG{__WARN__} = sub {
@@ -691,7 +700,8 @@ return $v;
 }
 
 ########## MakeVar ###########
-# Turn the given column name into a variable.
+# Turn the given column name into a variable,
+# or return the empty string if failure.
 sub MakeVar
 {
 my $v = shift @_ || die;
