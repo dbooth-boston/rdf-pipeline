@@ -185,7 +185,7 @@ for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 	next if !$isPreProcessingDirective{$DIRECTIVE};
 	warn "BEGIN Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
 	no strict 'refs';
-	&{$DIRECTIVE}($ARGS, @METAS);
+	&{$DIRECTIVE}();	# All args are passed as globals
 	warn "END Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
 	&ResetGlobalsForMetaRow();
 	}
@@ -305,6 +305,7 @@ $HEADERS[$COLUMN] = $HEADER;
 # They are relative to $MROW, which must already be set.
 sub SetGlobalsForMetaRow
 {
+defined($MTABLE) || confess;
 defined($MROW) || confess;
 ($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
 $DIRECTIVE || confess;
@@ -384,41 +385,40 @@ $TABLE->[$ROW]->[$COLUMN] = $_;
 }
 
 ################## Iterate #################
-# Iterates through the meta cells and potentially data cells.
+# Iterates through the meta cells if $fPerMetaCell is set,
+# and through data cells if $fPerDataCell is set.
 # $MROW must already be set. 
-# must already have been called.
 sub Iterate
 {
 my ($fPerMetaCell, $fPerDataCell) = @_;
-&SetGlobalsForMetaRow();
-# Looping through the data rows is optional, and depends on
-# whether $fPerDataCell is set.  But we still need to loop
-# through the meta columns.
-# Guarantee at least one iteration, even if no rows:
-for ($ROW=0; $ROW==0 || $ROW<$NROWS; $ROW++) {
-	$ROW = undef if !$NROWS;	# No data rows?
-	&SetGlobalsForDataRow() if $NROWS && $fPerDataCell;
+# &SetGlobalsForMetaRow();
+if ($fPerMetaCell) {
 	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 		&SetGlobalsForMetaColumn();
-		&SetGlobalsForDataColumn() if $NROWS && $fPerDataCell;
-		&{$fPerMetaCell}() if $fPerMetaCell && !$ROW;  # First row
-		&{$fPerDataCell}() if $fPerDataCell && defined($ROW);
-		&ResetGlobalsForDataColumn() if $NROWS && $fPerDataCell;
+		&{$fPerMetaCell}();
 		&ResetGlobalsForMetaColumn();
 		}
-	&ResetGlobalsForDataRow() if $NROWS && $fPerDataCell;
-	last if !$fPerDataCell;
 	}
-&ResetGlobalsForMetaRow();
+if ($fPerDataCell) {
+	for ($ROW=0; $ROW<$NROWS; $ROW++) {
+		&SetGlobalsForDataRow();
+		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+			&SetGlobalsForMetaColumn();
+			&SetGlobalsForDataColumn();
+			&{$fPerDataCell}();
+			&ResetGlobalsForDataColumn();
+			&ResetGlobalsForMetaColumn();
+			}
+		}
+		&ResetGlobalsForDataRow();
+	}
+# &ResetGlobalsForMetaRow();
 }
 
 ################## Perl_PreRun #################
 # Process all data rows for the current meta row $MROW.
 # Called as:
 #   $MROW = ...
-#   $DIRECTIVE = ...
-#   $ARGS = ...
-#   $METAS = ...
 #   &Perl_PreRun(\&f)
 sub Perl_PreRun
 {
