@@ -79,6 +79,8 @@ our $META;	# Meta cell value for current $MROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
 our $P;		# Turtle predicate of current data $ROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
+our %CLASS;	# Maps column name to class URI Template
+our %PREDICATE;	# maps column name to predicate URI Template
 ########### Other globals, probably not used by users
 our $NROWS;	# Number of data rows (excludes header row)
 our $NCOLUMNS;	# Number of data columns (and meta columns)
@@ -170,6 +172,7 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Class
 	Property
 	Object
+	New_PerlRun
 	);
 
 $NROWS = scalar(@$TABLE);
@@ -264,7 +267,9 @@ exit 0;
 #####################################################################
 
 ################## SetGlobalsForMetaColumn #################
-# Set globals that are relative to $COLUMN, which 
+# Set globals: $META and $HEADER.
+# from $METAS[$COLUMN] and $HEADERS[$COLUMN].
+# They are relative to $COLUMN, which 
 # must already be set.  @METAS must already be set also,
 # as by calling SetGlobalsForMetaRow.
 sub SetGlobalsForMetaColumn
@@ -276,11 +281,12 @@ $META = $METAS[$COLUMN];
 $HEADER = $HEADERS[$COLUMN];
 defined($META) || confess;
 defined($HEADER) || confess;
-undef $_;
 }
 
 ################## ResetGlobalsForMetaColumn #################
-# Reset globals that are relative to $COLUMN, which 
+# Reset globals: $METAS[$COLUMN], $HEADERS[$COLUMN]
+# from $META and $HEADER.
+# They are relative to $COLUMN, which 
 # must already be set.  $META (and @METAS) must already be set also,
 # as by calling SetGlobalsForMetaColumn.
 sub ResetGlobalsForMetaColumn
@@ -292,11 +298,11 @@ defined($META) || confess;
 defined($HEADER) || confess;
 $METAS[$COLUMN] = $META;
 $HEADERS[$COLUMN] = $HEADER;
-undef $_;
 }
 
 ################## SetGlobalsForMetaRow #################
-# Set globals that are relative to $MROW, which must already be set.
+# Set globals: @{$MTABLE->[$MROW]}
+# They are relative to $MROW, which must already be set.
 sub SetGlobalsForMetaRow
 {
 defined($MROW) || confess;
@@ -307,7 +313,8 @@ $DIRECTIVE || confess;
 }
 
 ################## ResetGlobalsForMetaRow #################
-# Reset globals that are relative to $MROW, which must already be set.
+# Reset globals: @{$MTABLE->[$MROW]}
+# They are relative to $MROW, which must already be set.
 sub ResetGlobalsForMetaRow
 {
 defined($MROW) || confess;
@@ -315,6 +322,92 @@ $DIRECTIVE || confess;
 @METAS || confess;
 @HEADERS == @METAS || confess;
 @{$MTABLE->[$MROW]} = ($DIRECTIVE, $ARGS, @METAS);
+}
+
+################## SetGlobalsForDataRow #################
+# Set globals: %DATA
+# They are relative to $ROW, which must already be set.
+sub SetGlobalsForDataRow
+{
+defined($ROW) || confess;
+defined($NCOLUMNS) || confess;
+@HEADERS || confess;
+for (my $i=0; $i<$NCOLUMNS; $i++) {
+	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
+	}
+}
+
+################## ResetGlobalsForDataRow #################
+# Reset globals that are relative to $ROW, which must already be set.
+sub ResetGlobalsForDataRow
+{
+defined($ROW) || confess;
+defined($NCOLUMNS) || confess;
+@HEADERS || confess;
+# Noop because %DATA is read only:
+return;
+for (my $i=0; $i<$NCOLUMNS; $i++) {
+	$TABLE->[$ROW]->[$i] = $DATA{$HEADERS[$i]};
+	}
+}
+
+################## SetGlobalsForDataColumn #################
+# Set globals: $HEADER, $_
+# They are relative to $COLUMN, which must already be set.
+# The $ROW must already be set also.
+sub SetGlobalsForDataColumn
+{
+defined($ROW) || confess;
+defined($COLUMN) || confess;
+defined($NCOLUMNS) || confess;
+@HEADERS || confess;
+$HEADER = $HEADERS[$COLUMN];
+defined($HEADER) || confess;
+$_ = $TABLE->[$ROW]->[$COLUMN];
+defined($_) || confess;
+}
+
+################## ResetGlobalsForDataColumn #################
+# Reset globals: $HEADER, $_
+# They are relative to $COLUMN, which must already be set.
+# The $ROW must already be set also.
+sub ResetGlobalsForDataColumn
+{
+defined($ROW) || confess;
+defined($COLUMN) || confess;
+defined($NCOLUMNS) || confess;
+@HEADERS || confess;
+defined($HEADER) || confess;
+$HEADERS[$COLUMN] = $HEADER;
+defined($_) || confess;
+$TABLE->[$ROW]->[$COLUMN] = $_;
+}
+
+################## Iterate #################
+# Iterates through the meta cells and potentially data cells.
+# $MROW must already be set. 
+# must already have been called.
+sub Iterate
+{
+my ($fPerMetaCell, $fPerDataCell) = @_;
+&SetGlobalsForMetaRow();
+# Looping through the data rows is optional, and depends on
+# whether $fPerDataCell is set.  But we still need to loop
+# through the meta columns.
+# Guarantee at least one iteration, even if no rows:
+for ($ROW=0; $ROW==0 || $ROW<$NROWS; $ROW++) {
+	$ROW = undef if !$NROWS;	# No data rows?
+	&SetGlobalsForDataRow() if $NROWS && $fPerDataCell;
+	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+		&SetGlobalsForDataColumn() if $NROWS && $fPerDataCell;
+		&{$fPerMetaCell}() if $fPerMetaCell && !$ROW;  # First row
+		&{$fPerDataCell}() if $fPerDataCell && defined($ROW);
+		&ResetGlobalsForDataColumn() if $NROWS && $fPerDataCell;
+		}
+	&ResetGlobalsForDataRow() if $NROWS && $fPerDataCell;
+	last if !$fPerDataCell;
+	}
+&ResetGlobalsForMetaRow();
 }
 
 ################## New_PerlRun #################
@@ -327,53 +420,27 @@ $DIRECTIVE || confess;
 #   &New_PerlRun(\&f)
 sub New_PerlRun
 {
-($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
-$DIRECTIVE || confess;
-@METAS || confess;
-@HEADERS == @METAS || confess;
-
-# Process all data rows.
-for ($ROW=0; $ROW<$NROWS; $ROW++) {
-	warn "================= DATA ROW ====================\n" if $debug;
-	warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
-	warn "===============================================\n" if $debug;
-	$S = "_:row$ROW";
-	my @underscores = map {""} @HEADERS;
-	my @predicates = map {""} @HEADERS;
-	my $mr = $MTABLE->[$MROW];
-	my ($DIRECTIVE, $args, @METAS) = @{$mr};
-	$DIRECTIVE || confess;
-	# Preprocessing directives have already been handled, so skip:
-	next if $isPreProcessingDirective{$DIRECTIVE};
-	@METAS || confess;
-	@HEADERS == @METAS || confess;
-	$ARGS = $args;
-	my @r = @{$TABLE->[$ROW]};	# TODO: comment out
-	warn "ROW CONTAINS: @r\n" if $debug > 1;
-	warn "--------------- META --------------------\n" if $debug;
-	warn "DIRECTIVE: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
-	warn "UNDERSCORE: $_\n" if $debug > 1;
-	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-		$HEADER = $HEADERS[$COLUMN];
-		$META = $METAS[$COLUMN];
-		# Init per-column data
-		my $p = &MakeVar($HEADER) || "UNDEFINED";
-		$predicates[$COLUMN] = "table:$p";
-		$underscores[$COLUMN] = $TABLE->[$ROW]->[$COLUMN];
-		no strict 'refs';
-		defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
-		# TODO: make this not depend on having the metadata
-		# columns in the same order as the data columns:
-		$_ = $underscores[$COLUMN];
-		$P = $predicates[$COLUMN];
-		%DATA = map {($HEADERS[$_], $underscores[$_])} 0..$#HEADERS;
-		warn "Calling &$DIRECTIVE();\n" if $debug > 1;
-		&{$DIRECTIVE}();
-		warn "Done calling &$DIRECTIVE();\n" if $debug > 1;
-		$underscores[$COLUMN] = $_;
-		$predicates[$COLUMN] = $P;
+# Nothing to be done per meta cell:
+my $fPerMetaCell = undef;
+my $fPerDataCell = sub {
+	# Run $ARGS on every cell
+	my $saveUnderscore = $_;	# Do not overwrite $_
+	if ($ARGS ne "") {
+		warn "NEW_RUNNING ARGS: $ARGS ROW: $ROW COLUMN: $COLUMN\n";
+		my (undef, $warning) = &EvalWarnings($ARGS);
+		warn "[WARNING] New_PerlRun: eval ARGS {$ARGS} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
+		die "[ERROR] New_PerlRun: eval ARGS {$ARGS} produced error at data row $ROW column $COLUMN: $@\n" if $@;
 		}
-	}
+	$_ = $saveUnderscore;		# Restore $_
+	if ($META ne "") {
+		warn "NEW_RUNNING META: $META ROW: $ROW COLUMN: $COLUMN\n";
+		my (undef, $warning) = &EvalWarnings($META);
+		warn "[WARNING] New_PerlRun: eval META {$META} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
+		die "[ERROR] New_PerlRun: eval META {$META} produced error at data row $ROW column $COLUMN: $@\n" if $@;
+		}
+	$_ = $saveUnderscore;		# Restore $_
+	};
+&Iterate($fPerMetaCell, $fPerDataCell);
 }
 
 ################## Perl_Filter #################
@@ -399,8 +466,6 @@ warn "  Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $debug > 1;
 sub Echo
 {
 warn "Called Echo(@_)\n" if $debug > 1;
-our $S;
-our $P;
 my $v = $_;
 return if !$S || !$P || !defined($v) || $v eq "";
 # Auto-quote strings:
