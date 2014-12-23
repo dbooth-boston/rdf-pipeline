@@ -169,7 +169,6 @@ my %uriTemplateValues;	# For #SetUriTemplateVariable
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
 	Prefix 
-	Perl_BEGIN 
 	SetUriTemplateVariable
 	Class
 	Property
@@ -185,7 +184,7 @@ for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 	# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
 	&SetGlobalsForMetaRow();
 	next if !$isPreProcessingDirective{$DIRECTIVE};
-	warn "BEGIN Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
+	warn "BEGIN Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 0;
 	no strict 'refs';
 	&{$DIRECTIVE}();	# All args are passed as globals
 	warn "END Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
@@ -425,7 +424,7 @@ if ($fPerDataCell) {
 sub Perl_PreRun
 {
 my $oldDebug = $debug;
-$debug = 2;
+# $debug = 2;
 warn "Perl_PreRun starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
 # Nothing to be done per meta cell:
 my $fPerMetaCell = undef;
@@ -614,25 +613,6 @@ if (0) {
 	}
 my $val      = $template->process( %varValMappings )->as_string;
 return($val, "");
-}
-
-################## Perl_BEGIN #################
-sub Perl_BEGIN
-{
-# Process $ARGS the same as any other field:
-my @fields = ($ARGS, @METAS);
-# $debug = 2;
-for (my $i=0; $i<@fields; $i++) {
-	my $f = $fields[$i];
-	next if $f !~ m/\S/;
-	$f = &Trim($f);
-	$COLUMN = $i-1;
-	&SetGlobalsForMetaColumn();
-	warn "  Running eval of Perl_BEGIN {$f}\n" if $debug > 1;
-	&EvalWarnings($f);
-	&ResetGlobalsForMetaColumn();
-	}
-# die "STOPPED!\n";
 }
 
 ################## Perl_Run #################
