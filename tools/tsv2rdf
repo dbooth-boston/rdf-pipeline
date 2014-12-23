@@ -491,8 +491,9 @@ return $_;
 # a preprocessing directive.
 sub Class
 {
+die "UNFINISHED ";
 # Process $ARGS the same as any other field:
-my @fields = @_;
+my @fields = ($ARGS, @METAS);
 my $oldDebug = $debug;
 $debug = 2;
 for (my $i=0; $i<@fields; $i++) {
@@ -526,7 +527,7 @@ $debug = $oldDebug;
 sub Prefix
 {
 # Process $ARGS the same as any other field:
-my @fields = @_;
+my @fields = ($ARGS, @METAS);
 my $oldDebug = $debug;
 $debug = 2;
 for (my $i=0; $i<@fields; $i++) {
@@ -557,7 +558,7 @@ $debug = $oldDebug;
 sub SetUriTemplateVariable
 {
 # Process $ARGS the same as any other field:
-my @fields = @_;
+my @fields = ($ARGS, @METAS);
 my $oldDebug = $debug;
 $debug = 2;
 for (my $i=0; $i<@fields; $i++) {
@@ -618,34 +619,11 @@ my $val      = $template->process( %varValMappings )->as_string;
 return($val, "");
 }
 
-################## ApplyToMetaCells #################
-# Run the given function on each of the cells in the current meta row,
-# setting and saving global variables.
-sub ApplyToMetaCells
-{
-# Process $ARGS the same as any other field:
-my @fields = @_;
-# $debug = 2;
-for (my $i=0; $i<@fields; $i++) {
-	my $f = $fields[$i];
-	next if $f !~ m/\S/;
-	$f = &Trim($f);
-	warn "  Running eval of ApplyToMetaCells {$f}\n" if $debug > 1;
-	die "UNFINISHED! ";
-	my $warning;
-	(undef, $warning) = &EvalWarnings($f);
-	$COLUMN = $i-1;
-	warn "[WARNING] ApplyToMetaCells: eval warning at meta row $MROW column $COLUMN: $warning\n" if $warning;
-	die "[ERROR] ApplyToMetaCells: eval error at meta row $MROW column $COLUMN: $@\n" if $@;
-	}
-# die "STOPPED!\n";
-}
-
 ################## Perl_BEGIN #################
 sub Perl_BEGIN
 {
 # Process $ARGS the same as any other field:
-my @fields = @_;
+my @fields = ($ARGS, @METAS);
 # $debug = 2;
 for (my $i=0; $i<@fields; $i++) {
 	my $f = $fields[$i];
@@ -661,13 +639,6 @@ for (my $i=0; $i<@fields; $i++) {
 	&ResetGlobalsForMetaColumn();
 	}
 # die "STOPPED!\n";
-}
-
-################## Perl_RunOnce #################
-sub Perl_RunOnce
-{
-warn "Called Perl_RunOnce(@_)\n" if $debug;
-&Perl_Run(@_) if $ROW == 0;
 }
 
 ################## Perl_Run #################
