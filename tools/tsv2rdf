@@ -421,26 +421,30 @@ if ($fPerDataCell) {
 # Process all data rows for the current meta row $MROW.
 # Called as:
 #   $MROW = ...
-#   &Perl_PreRun(\&f)
+#   &Perl_PreRun()
 sub Perl_PreRun
 {
+my $oldDebug = $debug;
+$debug = 2;
+warn "Perl_PreRun starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
 # Nothing to be done per meta cell:
 my $fPerMetaCell = undef;
 my $fPerDataCell = sub {
 	# Run $ARGS on every cell
 	my $saveUnderscore = $_;	# Do not overwrite $_
 	if ($ARGS ne "") {
-		# warn "NEW_RUNNING ARGS: $ARGS ROW: $ROW COLUMN: $COLUMN\n";
+		warn "Perl_PreRun ARGS: {$ARGS} ROW: $ROW COLUMN: $COLUMN\n" if $debug > 1;
 		&EvalWarnings($ARGS);
 		}
 	$_ = $saveUnderscore;		# Restore $_
 	if ($META ne "") {
-		# warn "NEW_RUNNING META: $META ROW: $ROW COLUMN: $COLUMN\n";
+		warn "Perl_PreRun META: {$META} ROW: $ROW COLUMN: $COLUMN\n" if $debug > 1;
 		&EvalWarnings($META);
 		}
 	$_ = $saveUnderscore;		# Restore $_
 	};
 &Iterate($fPerMetaCell, $fPerDataCell);
+$debug = $oldDebug;
 }
 
 ################## Perl_Filter #################
@@ -522,7 +526,7 @@ sub Prefix
 # Process $ARGS the same as any other field:
 my @fields = ($ARGS, @METAS);
 my $oldDebug = $debug;
-$debug = 2;
+# $debug = 2;
 for (my $i=0; $i<@fields; $i++) {
 	my $f = $fields[$i];
 	next if $f !~ m/\S/;
@@ -553,7 +557,7 @@ sub SetUriTemplateVariable
 # Process $ARGS the same as any other field:
 my @fields = ($ARGS, @METAS);
 my $oldDebug = $debug;
-$debug = 2;
+# $debug = 2;
 for (my $i=0; $i<@fields; $i++) {
 	my $f = $fields[$i];
 	next if $f !~ m/\S/;
@@ -570,7 +574,7 @@ for (my $i=0; $i<@fields; $i++) {
 		my ($val, $undefVar) = &ExpandUriTemplate($rawVal, %uriTemplateValues);
 		die "[ERROR] SetUriTemplateVariable: Undefined variable $undefVar found in URI template expression $rawVal at meta row $MROW column $COLUMN\n" if $undefVar;
 		$uriTemplateValues{$var} = $val;
-		warn "SetUriTemplateVariable var: $var value: $val\n";
+		warn "SetUriTemplateVariable var: $var value: $val\n" if $debug > 1;
 		}
 	}
 if ($debug > 1) {
@@ -659,17 +663,22 @@ sub EvalWarnings
 @_ == 1 || confess "Died";
 my $expr = shift @_;
 $expr || confess "Died";
-# my $ours = "";
-# $ours =  TODO
+# warn "EvalWarnings starting expr: {$expr}\n" if $debug > 1;
 my $result;
 my $warning = "";
-local $SIG{__WARN__} = sub {
-	$warning .= (shift || "");
-	};
 # Clear old errors prior to eval.  $@ does not need to be cleared.
 $! = 0;
 $? = 0;
-$result = eval $expr;
+#### Create a new scope for trapping warnings.
+#### DO NOT TRY TO CALL warn FROM THIS SCOPE!
+	{
+	local $SIG{__WARN__} = sub {
+		$warning .= (shift || "");
+		};
+	$result = eval $expr;
+	}
+my $error = $@ || "";
+# warn "EvalWarnings after eval, warning: {$warning} error: {$error}\n" if $debug > 1;
 if ($warning) {
 	my $directive = $DIRECTIVE || "INTERNAL";
 	my $args = $ARGS || "(undef)";
@@ -685,7 +694,7 @@ if ($warning) {
 	$msg .= " produced a warning: $warning\n";
 	warn $msg;
 	}
-if ($@) {
+if ($error) {
 	my $directive = $DIRECTIVE || "INTERNAL";
 	my $args = $ARGS || "(undef)";
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
@@ -697,7 +706,7 @@ if ($@) {
 	$msg .= " meta cell {$META}" if defined($META);
 	$msg .= " data row $ROW" if defined($ROW);
 	$msg .= " data cell {$cell}" if defined($cell);
-	$msg .= " produced an error: $@\n";
+	$msg .= " produced an error: $error\n";
 	die $msg;
 	}
 return $result;
