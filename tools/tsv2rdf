@@ -399,10 +399,12 @@ for ($ROW=0; $ROW==0 || $ROW<$NROWS; $ROW++) {
 	$ROW = undef if !$NROWS;	# No data rows?
 	&SetGlobalsForDataRow() if $NROWS && $fPerDataCell;
 	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+		&SetGlobalsForMetaColumn();
 		&SetGlobalsForDataColumn() if $NROWS && $fPerDataCell;
 		&{$fPerMetaCell}() if $fPerMetaCell && !$ROW;  # First row
 		&{$fPerDataCell}() if $fPerDataCell && defined($ROW);
 		&ResetGlobalsForDataColumn() if $NROWS && $fPerDataCell;
+		&ResetGlobalsForMetaColumn();
 		}
 	&ResetGlobalsForDataRow() if $NROWS && $fPerDataCell;
 	last if !$fPerDataCell;
