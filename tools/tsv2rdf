@@ -67,6 +67,7 @@ our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
 		#   ($DIRECTIVE, $ARGS, @METAS)
 our $TABLE;	# Ref to the entire data table
 our @HEADERS;	# Column headers (excluding any #META column header)
+our @ORIGINAL_HEADERS;	# Column headers before mods except &Trimming
 our $HEADER;	# Current header: $HEADER[$COLUMN]
 our %NAMESPACE;	# Prefix->namespace mappings
 our $MROW;	# Index of current meta row
@@ -115,7 +116,8 @@ $TABLE = &ReadTsv();
 
 $MTABLE = &RemoveMetadataRows($TABLE);
 my $headersRef = shift @{$TABLE};
-@HEADERS = @{$headersRef};
+@HEADERS = map {&Trim($_)} @{$headersRef};
+@ORIGINAL_HEADERS = @HEADERS;
 
 if ($metadataFile) {
 	warn "Reading separate metadataFile: $metadataFile\n" if $debug;
@@ -223,11 +225,11 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	# for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 	foreach my $mr (@{$MTABLE}) {
 		my ($directive, $args, @metaFields) = @{$mr};
-		$directive || confess;
+		$directive || confess "Died";
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$directive};
-		@metaFields || confess;
-		@HEADERS == @metaFields || confess;
+		@metaFields || confess "Died";
+		@HEADERS == @metaFields || confess "Died";
 		$ARGS = $args;
 		my @r = @{$TABLE->[$ROW]};	# TODO: comment out
 		warn "ROW CONTAINS: @r\n" if $debug > 1;
@@ -274,13 +276,13 @@ exit 0;
 # as by calling SetGlobalsForMetaRow.
 sub SetGlobalsForMetaColumn
 {
-defined($COLUMN) || confess;
-@METAS || confess;
-@HEADERS || confess;
+defined($COLUMN) || confess "Died";
+@METAS || confess "Died";
+@HEADERS || confess "Died";
 $META = $METAS[$COLUMN];
 $HEADER = $HEADERS[$COLUMN];
-defined($META) || confess;
-defined($HEADER) || confess;
+defined($META) || confess "Died";
+defined($HEADER) || confess "Died";
 }
 
 ################## ResetGlobalsForMetaColumn #################
@@ -291,11 +293,11 @@ defined($HEADER) || confess;
 # as by calling SetGlobalsForMetaColumn.
 sub ResetGlobalsForMetaColumn
 {
-defined($COLUMN) || confess;
-@METAS || confess;
-@HEADERS || confess;
-defined($META) || confess;
-defined($HEADER) || confess;
+defined($COLUMN) || confess "Died";
+@METAS || confess "Died";
+@HEADERS || confess "Died";
+defined($META) || confess "Died";
+defined($HEADER) || confess "Died";
 $METAS[$COLUMN] = $META;
 $HEADERS[$COLUMN] = $HEADER;
 }
@@ -305,12 +307,12 @@ $HEADERS[$COLUMN] = $HEADER;
 # They are relative to $MROW, which must already be set.
 sub SetGlobalsForMetaRow
 {
-defined($MTABLE) || confess;
-defined($MROW) || confess;
+defined($MTABLE) || confess "Died";
+defined($MROW) || confess "Died";
 ($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
-$DIRECTIVE || confess;
-@METAS || confess;
-@HEADERS == @METAS || confess;
+$DIRECTIVE || confess "Died";
+@METAS || confess "Died";
+@HEADERS == @METAS || confess "Died";
 }
 
 ################## ResetGlobalsForMetaRow #################
@@ -318,10 +320,10 @@ $DIRECTIVE || confess;
 # They are relative to $MROW, which must already be set.
 sub ResetGlobalsForMetaRow
 {
-defined($MROW) || confess;
-$DIRECTIVE || confess;
-@METAS || confess;
-@HEADERS == @METAS || confess;
+defined($MROW) || confess "Died";
+$DIRECTIVE || confess "Died";
+@METAS || confess "Died";
+@HEADERS == @METAS || confess "Died";
 @{$MTABLE->[$MROW]} = ($DIRECTIVE, $ARGS, @METAS);
 }
 
@@ -330,9 +332,9 @@ $DIRECTIVE || confess;
 # They are relative to $ROW, which must already be set.
 sub SetGlobalsForDataRow
 {
-defined($ROW) || confess;
-defined($NCOLUMNS) || confess;
-@HEADERS || confess;
+defined($ROW) || confess "Died";
+defined($NCOLUMNS) || confess "Died";
+@HEADERS || confess "Died";
 for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
 	}
@@ -342,9 +344,9 @@ for (my $i=0; $i<$NCOLUMNS; $i++) {
 # Reset globals that are relative to $ROW, which must already be set.
 sub ResetGlobalsForDataRow
 {
-defined($ROW) || confess;
-defined($NCOLUMNS) || confess;
-@HEADERS || confess;
+defined($ROW) || confess "Died";
+defined($NCOLUMNS) || confess "Died";
+@HEADERS || confess "Died";
 # Noop because %DATA is read only:
 return;
 for (my $i=0; $i<$NCOLUMNS; $i++) {
@@ -358,14 +360,14 @@ for (my $i=0; $i<$NCOLUMNS; $i++) {
 # The $ROW must already be set also.
 sub SetGlobalsForDataColumn
 {
-defined($ROW) || confess;
-defined($COLUMN) || confess;
-defined($NCOLUMNS) || confess;
-@HEADERS || confess;
+defined($ROW) || confess "Died";
+defined($COLUMN) || confess "Died";
+defined($NCOLUMNS) || confess "Died";
+@HEADERS || confess "Died";
 $HEADER = $HEADERS[$COLUMN];
-defined($HEADER) || confess;
+defined($HEADER) || confess "Died";
 $_ = $TABLE->[$ROW]->[$COLUMN];
-defined($_) || confess;
+defined($_) || confess "Died";
 }
 
 ################## ResetGlobalsForDataColumn #################
@@ -374,13 +376,13 @@ defined($_) || confess;
 # The $ROW must already be set also.
 sub ResetGlobalsForDataColumn
 {
-defined($ROW) || confess;
-defined($COLUMN) || confess;
-defined($NCOLUMNS) || confess;
-@HEADERS || confess;
-defined($HEADER) || confess;
+defined($ROW) || confess "Died";
+defined($COLUMN) || confess "Died";
+defined($NCOLUMNS) || confess "Died";
+@HEADERS || confess "Died";
+defined($HEADER) || confess "Died";
 $HEADERS[$COLUMN] = $HEADER;
-defined($_) || confess;
+defined($_) || confess "Died";
 $TABLE->[$ROW]->[$COLUMN] = $_;
 }
 
@@ -428,17 +430,13 @@ my $fPerDataCell = sub {
 	# Run $ARGS on every cell
 	my $saveUnderscore = $_;	# Do not overwrite $_
 	if ($ARGS ne "") {
-		warn "NEW_RUNNING ARGS: $ARGS ROW: $ROW COLUMN: $COLUMN\n";
-		my (undef, $warning) = &EvalWarnings($ARGS);
-		warn "[WARNING] Perl_PreRun: eval ARGS {$ARGS} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
-		die "[ERROR] Perl_PreRun: eval ARGS {$ARGS} produced error at data row $ROW column $COLUMN: $@\n" if $@;
+		# warn "NEW_RUNNING ARGS: $ARGS ROW: $ROW COLUMN: $COLUMN\n";
+		&EvalWarnings($ARGS);
 		}
 	$_ = $saveUnderscore;		# Restore $_
 	if ($META ne "") {
-		warn "NEW_RUNNING META: $META ROW: $ROW COLUMN: $COLUMN\n";
-		my (undef, $warning) = &EvalWarnings($META);
-		warn "[WARNING] Perl_PreRun: eval META {$META} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
-		die "[ERROR] Perl_PreRun: eval META {$META} produced error at data row $ROW column $COLUMN: $@\n" if $@;
+		# warn "NEW_RUNNING META: $META ROW: $ROW COLUMN: $COLUMN\n";
+		&EvalWarnings($META);
 		}
 	$_ = $saveUnderscore;		# Restore $_
 	};
@@ -449,15 +447,10 @@ my $fPerDataCell = sub {
 sub Perl_Filter
 {
 warn "Called Perl_Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $debug > 1;
-my $warning;
-($_, $warning) = &EvalWarnings($ARGS) if $ARGS ne "";
-warn "[WARNING] Perl_Filter: eval ARGS produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
-die "[ERROR] Perl_Filter: eval ARGS produced error at data row $ROW column $COLUMN: $@\n" if $@;
+$_ = &EvalWarnings($ARGS) if $ARGS ne "";
 defined($_) || die "$0: [ERROR] Eval of ARGS {$ARGS} failed: $?\n";
 warn "  After eval(ARGS) UNDERBAR: $_\n" if $debug > 1;
-($_, $warning) = &EvalWarnings($META) if $META ne "";
-warn "[WARNING] Perl_Filter: eval META produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
-die "[ERROR] Perl_Filter: eval META error at data row $ROW column $COLUMN: $@\n" if $@;
+$_ = &EvalWarnings($META) if $META ne "";
 defined($_) || die "$0: [ERROR] Eval of META {$META} failed: $?\n";
 warn "  Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $debug > 1;
 }
@@ -598,7 +591,7 @@ $debug = $oldDebug;
 # are defined in %varValMappings then $undefVar will be the empty string.
 sub ExpandUriTemplate
 {
-@_ >= 1 || confess;
+@_ >= 1 || confess "Died";
 my $expr = shift;
 my %varValMappings = @_;
 my $template = URI::Template->new( $expr );
@@ -632,10 +625,7 @@ for (my $i=0; $i<@fields; $i++) {
 	$COLUMN = $i-1;
 	&SetGlobalsForMetaColumn();
 	warn "  Running eval of Perl_BEGIN {$f}\n" if $debug > 1;
-	my $warning;
-	(undef, $warning) = &EvalWarnings($f);
-	warn "[WARNING] Perl_BEGIN: eval warning at meta row $MROW column $COLUMN: $warning\n" if $warning;
-	die "[ERROR] Perl_BEGIN: eval error at meta row $MROW column $COLUMN: $@\n" if $@;
+	&EvalWarnings($f);
 	&ResetGlobalsForMetaColumn();
 	}
 # die "STOPPED!\n";
@@ -648,44 +638,69 @@ my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Perl_Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
 my $result = "";
-my $warning;
-($result, $warning) = &EvalWarnings($ARGS) if $ARGS ne "";
-warn "$0: [WARNING] Perl_Run: eval of ARGS {$ARGS} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
+$result = &EvalWarnings($ARGS) if $ARGS ne "";
 my $e = $@ || $! || $?;
-die "$0: [ERROR] Perl_Run: eval of ARGS {$ARGS} failed while evaluating data row $ROW column $COLUMN: $e\n" if $e;
 warn "  Perl_Run After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
 $_ = $saveUnderbar;
 $e = $@ || $! || $?;
-($result, $warning) = &EvalWarnings($META) if $META ne "";
-warn "$0: [WARNING] Perl_Run: eval of META {$META} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
-die "$0: [ERROR] Perl_Run: eval of META {$META} failed while evaluating data row $ROW column $COLUMN: $e\n" if $e;
+$result = &EvalWarnings($META) if $META ne "";
 warn "  Perl_Run After eval(META) UNDERBAR: $_\n" if $shouldWarn;
 $_ = $saveUnderbar;
 warn "  Perl_Run Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 }
 
 ################# EvalWarnings ##################
-# Run eval while trapping warnings, and return the eval result and
-# any warnings.  Old eval errors are cleared first.
-# TODO: Also declare "our" variables in %vars.
+# Run eval while trapping warnings, and return the eval result.
+# Warnings and errors are reported.  Old eval errors are cleared first.
 # Usage:
-#   my ($result, $warnings) = &EvalWarnings($expr);
+#   my $result = &EvalWarnings($expr);
 sub EvalWarnings
 {
-@_ == 1 || confess;
+@_ == 1 || confess "Died";
 my $expr = shift @_;
+$expr || confess "Died";
 # my $ours = "";
 # $ours =  TODO
 my $result;
-my $warnings = "";
+my $warning = "";
 local $SIG{__WARN__} = sub {
-	$warnings .= (shift || "");
+	$warning .= (shift || "");
 	};
 # Clear old errors prior to eval.  $@ does not need to be cleared.
 $! = 0;
 $? = 0;
 $result = eval $expr;
-return($result, $warnings);
+if ($warning) {
+	my $directive = $DIRECTIVE || "INTERNAL";
+	my $args = $ARGS || "(undef)";
+	my $mrow = (defined($MROW) ? $MROW : "(undef)");
+	my $header = (defined($COLUMN) ? $ORIGINAL_HEADERS[$COLUMN] : undef);
+	my $cell = (defined($COLUMN) && defined($ROW) 
+		? $TABLE->[$ROW]->[$COLUMN] : undef);
+	my $msg = "[WARNING] $directive: eval of {$expr} at meta row $mrow";
+	$msg .= " column $COLUMN {$header}" if defined($COLUMN);
+	$msg .= " meta cell {$META}" if defined($META);
+	$msg .= " data row $ROW" if defined($ROW);
+	$msg .= " data cell {$cell}" if defined($cell);
+	$msg .= " produced a warning: $warning\n";
+	warn $msg;
+	}
+if ($@) {
+	my $directive = $DIRECTIVE || "INTERNAL";
+	my $args = $ARGS || "(undef)";
+	my $mrow = (defined($MROW) ? $MROW : "(undef)");
+	my $header = (defined($COLUMN) ? $ORIGINAL_HEADERS[$COLUMN] : undef);
+	my $cell = (defined($COLUMN) && defined($ROW) 
+		? $TABLE->[$ROW]->[$COLUMN] : undef);
+	my $msg = "[ERROR] $directive: eval of {$expr} at meta row $mrow";
+	$msg .= " column $COLUMN {$header}" if defined($COLUMN);
+	$msg .= " meta cell {$META}" if defined($META);
+	$msg .= " data row $ROW" if defined($ROW);
+	$msg .= " data cell {$cell}" if defined($cell);
+	$msg .= " produced an error: $@\n";
+	die $msg;
+	}
+return $result;
 }
 
 ################# RemoveMetadataRows ##################
@@ -696,7 +711,7 @@ return($result, $warnings);
 # entirely from the data table.  
 sub RemoveMetadataRows
 {
-my $tsv = shift @_ || confess;
+my $tsv = shift @_ || confess "Died";
 my $meta = [];
 my $firstCellValue = $tsv->[0]->[0];
 defined($firstCellValue) || die "$0: [ERROR] Table has no header row!\n";
@@ -727,7 +742,7 @@ return $meta;
 ############### PrintTable ###############
 sub PrintTable
 {
-my $tsv = shift @_ || confess;
+my $tsv = shift @_ || confess "Died";
 foreach my $row (@{$tsv}) {
 	my $line = join("\t", @{$row});
 	print "$line\n";
@@ -742,7 +757,7 @@ foreach my $row (@{$tsv}) {
 # to have the same number of cells in each row.
 sub ReadTsv
 {
-@_ <= 1 or confess;
+@_ <= 1 or confess "Died";
 my $f = shift @_ || "";
 my $fh = \*STDIN;
 !$f || open($fh, "<$f") || die "$0: [ERROR] Cannot open $f\n";
@@ -781,7 +796,7 @@ return $s;
 # underscores into a single underscore.
 sub Clean
 {
-my $v = shift @_ || confess;
+my $v = shift @_ || confess "Died";
 $v = &Trim($v);
 $v =~ s/[^A-Za-z0-9_]/_/g;
 $v =~ s/_+/_/g;
@@ -793,7 +808,7 @@ return $v;
 # or return the empty string if failure.
 sub MakeVar
 {
-my $v = shift @_ || confess;
+my $v = shift @_ || confess "Died";
 $v = &Clean($v);
 # $v =~ s/_$//;
 # $v =~ s/^_//;
