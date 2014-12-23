@@ -172,7 +172,7 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Class
 	Property
 	Object
-	New_PerlRun
+	Perl_PreRun
 	);
 
 $NROWS = scalar(@$TABLE);
@@ -412,15 +412,15 @@ for ($ROW=0; $ROW==0 || $ROW<$NROWS; $ROW++) {
 &ResetGlobalsForMetaRow();
 }
 
-################## New_PerlRun #################
+################## Perl_PreRun #################
 # Process all data rows for the current meta row $MROW.
 # Called as:
 #   $MROW = ...
 #   $DIRECTIVE = ...
 #   $ARGS = ...
 #   $METAS = ...
-#   &New_PerlRun(\&f)
-sub New_PerlRun
+#   &Perl_PreRun(\&f)
+sub Perl_PreRun
 {
 # Nothing to be done per meta cell:
 my $fPerMetaCell = undef;
@@ -430,15 +430,15 @@ my $fPerDataCell = sub {
 	if ($ARGS ne "") {
 		warn "NEW_RUNNING ARGS: $ARGS ROW: $ROW COLUMN: $COLUMN\n";
 		my (undef, $warning) = &EvalWarnings($ARGS);
-		warn "[WARNING] New_PerlRun: eval ARGS {$ARGS} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
-		die "[ERROR] New_PerlRun: eval ARGS {$ARGS} produced error at data row $ROW column $COLUMN: $@\n" if $@;
+		warn "[WARNING] Perl_PreRun: eval ARGS {$ARGS} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
+		die "[ERROR] Perl_PreRun: eval ARGS {$ARGS} produced error at data row $ROW column $COLUMN: $@\n" if $@;
 		}
 	$_ = $saveUnderscore;		# Restore $_
 	if ($META ne "") {
 		warn "NEW_RUNNING META: $META ROW: $ROW COLUMN: $COLUMN\n";
 		my (undef, $warning) = &EvalWarnings($META);
-		warn "[WARNING] New_PerlRun: eval META {$META} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
-		die "[ERROR] New_PerlRun: eval META {$META} produced error at data row $ROW column $COLUMN: $@\n" if $@;
+		warn "[WARNING] Perl_PreRun: eval META {$META} produced warning at data row $ROW column $COLUMN: $warning\n" if $warning;
+		die "[ERROR] Perl_PreRun: eval META {$META} produced error at data row $ROW column $COLUMN: $@\n" if $@;
 		}
 	$_ = $saveUnderscore;		# Restore $_
 	};
