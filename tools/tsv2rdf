@@ -77,11 +77,15 @@ our $DIRECTIVE;	# Directive parsed from #META column of current $MROW
 our $ARGS;	# Args parsed from #META column of current $MROW
 our @METAS;	# Meta cell values for current $MROW
 our $META;	# Meta cell value for current $MROW and $COLUMN
-our $S;		# Turtle subject of current data $ROW
-our $P;		# Turtle predicate of current data $ROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
 our %CLASS;	# Maps column name to class URI Template
 our %PREDICATE;	# maps column name to predicate URI Template
+our %OBJECT;	# Maps column name to object URI Template
+our $CLASS;	# Turtle class of current data $ROW and $COLUMN
+our $PREDICATE;	# Turtle predicate of current data $ROW and $COLUMN
+our $OBJECT;	# Turtle predicate of current data $ROW and $COLUMN
+our $S;		# Turtle subject of current data $ROW
+our $P;		# Turtle predicate of current data $ROW and $COLUMN
 ########### Other globals, probably not used by users
 our $NROWS;	# Number of data rows (excludes header row)
 our $NCOLUMNS;	# Number of data columns (and meta columns)
@@ -171,7 +175,7 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Prefix 
 	SetUriTemplateVariable
 	Class
-	Property
+	Predicate
 	Object
 	Perl_PreRun
 	);
@@ -367,6 +371,10 @@ $HEADER = $HEADERS[$COLUMN];
 defined($HEADER) || confess "Died";
 $_ = $TABLE->[$ROW]->[$COLUMN];
 defined($_) || confess "Died";
+$uriTemplateValues{THIS} = $_;
+$CLASS = &Expand(($CLASS{$HEADER} || ""), %uriTemplateValues);
+$PREDICATE = &Expand(($PREDICATE{$HEADER} || ""), %uriTemplateValues);
+$OBJECT = &Expand(($OBJECT{$HEADER} || ""), %uriTemplateValues);
 }
 
 ################## ResetGlobalsForDataColumn #################
@@ -480,39 +488,42 @@ return $_;
 }
 
 ################## Class #################
-# Sets $CLASS{$HEADER}
-# Called as:
-#   &Class($args, @fields);
-# where @fields are meta fields, not data fields, because #Class is
-# a preprocessing directive.
 sub Class
 {
-die "UNFINISHED ";
-# Process $ARGS the same as any other field:
-my @fields = ($ARGS, @METAS);
+&ClassOrPredicate("Class", \%CLASS);
+}
+
+################## Predicate #################
+sub Predicate
+{
+&ClassOrPredicate("Predicate", \%PREDICATE);
+}
+
+################## Object #################
+sub Object
+{
+&ClassOrPredicate("Object", \%OBJECT);
+}
+
+################## ClassOrPredicate #################
+# Remember the class or predicate of each column.
+sub ClassOrPredicate
+{
+@_ == 2 || confess "Died";
+my ($name, $hash) = @_;
 my $oldDebug = $debug;
 $debug = 2;
-for (my $i=0; $i<@fields; $i++) {
-	my $f = $fields[$i];
-	next if $f !~ m/\S/;
-	$f = &Trim($f);
-	# Ignore optional "@prefix" and trailing period:
-	$f =~ s/^\@//;
-	$f =~ s/^prefix\s+//i;
-	$f =~ s/\s*\.$//;
-	my ($prefix, $uri, @extra) = split(/\s+/, $f, -1);
-	die "$0: [ERROR] Class: Bad declaration: $fields[$i]\n"
-		if @extra || !$uri || $prefix !~ m/\:$/;
-	# Remove optional <..> around the URI template:
-	my $bareUri = $uri;
-	$bareUri =~ s/^\<(.*)\>$/$1/;
-	my ($eUri, $undefVar) = &ExpandUriTemplate($bareUri, %uriTemplateValues);
-	die "$0: [ERROR] Class: Undefined variable $undefVar in URI template: $bareUri\n" if $undefVar;
-	$NAMESPACE{$prefix} = "<$eUri>";
-	warn "  PREFIX: $prefix <$eUri>\n" if $debug > 1;
-	}
+# warn "$name starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
+# Nothing to be done per data cell:
+my $fPerDataCell = undef;
+my $fPerMetaCell = sub {
+	my $meta = &Trim($META);
+	return if !$meta;
+	$hash->{$HEADER} = $meta;
+	warn "$name: $name of column {$HEADER}: $meta\n" if $debug > 1;
+	};
+&Iterate($fPerMetaCell, $fPerDataCell);
 $debug = $oldDebug;
-# die "STOPPED!\n";
 }
 
 ################## Prefix #################
@@ -586,6 +597,20 @@ $debug = $oldDebug;
 # die "STOPPED!\n";
 }
 
+############### Expand ###############
+# Usage:
+#   my $value = &Expand($expr, %varValMappings);
+sub Expand
+{
+my ($val, $undefVar) = &ExpandUriTemplate(@_);
+if ($undefVar) {
+	my $mrow = (defined($MROW) ? $MROW : "(undef)");
+	my $column = (defined($COLUMN) ? $COLUMN : "(undef)");
+	die "[ERROR] Expand: Undefined variable $undefVar found in URI template expression $_[0] at meta row $mrow column $column\n";
+	}
+return $val;
+}
+
 ############### ExpandUriTemplate ###############
 # Usage:
 #   my ($value, $undefVar) = &ExpandUriTemplate($expr, %varValMappings);
@@ -597,6 +622,8 @@ sub ExpandUriTemplate
 @_ >= 1 || confess "Died";
 my $expr = shift;
 my %varValMappings = @_;
+defined($expr) || confess "Died";
+return("", "") if $expr eq "";
 my $template = URI::Template->new( $expr );
 my @variables = $template->variables();
 warn "ExpandUriTemplate EXPR: $expr VARIABLES: @variables\n" if $debug > 1;
