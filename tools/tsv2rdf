@@ -225,8 +225,8 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	my @underscores = map {""} @HEADERS;
 	my @predicates = map {""} @HEADERS;
 	my $firstMeta = 1;
-	# for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-	foreach my $mr (@{$MTABLE}) {
+	for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
+		my $mr = $MTABLE->[$MROW];
 		my ($directive, $args, @metaFields) = @{$mr};
 		$directive || confess "Died";
 		# Preprocessing directives have already been handled, so skip:
@@ -248,6 +248,10 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 				$predicates[$COLUMN] = "table:$p";
 				$underscores[$COLUMN] = $TABLE->[$ROW]->[$COLUMN];
 				}
+			# &SetGlobalsForMetaRow();
+			# &SetGlobalsForMetaColumn();
+			# &SetGlobalsForDataRow();
+			# &SetGlobalsForDataColumn();
 			no strict 'refs';
 			defined(&{$directive}) || die "$0: [ERROR] No function $directive defined for directive: #$directive\n";
 			# TODO: make this not depend on having the metadata
@@ -372,9 +376,9 @@ defined($HEADER) || confess "Died";
 $_ = $TABLE->[$ROW]->[$COLUMN];
 defined($_) || confess "Died";
 $uriTemplateValues{THIS} = $_;
-$CLASS = &Expand(($CLASS{$HEADER} || ""), %uriTemplateValues);
-$PREDICATE = &Expand(($PREDICATE{$HEADER} || ""), %uriTemplateValues);
-$OBJECT = &Expand(($OBJECT{$HEADER} || ""), %uriTemplateValues);
+$CLASS = &Expand($CLASS{$HEADER} || "");
+$PREDICATE = &Expand($PREDICATE{$HEADER} || "");
+$OBJECT = &Expand($OBJECT{$HEADER} || "");
 }
 
 ################## ResetGlobalsForDataColumn #################
@@ -599,10 +603,13 @@ $debug = $oldDebug;
 
 ############### Expand ###############
 # Usage:
-#   my $value = &Expand($expr, %varValMappings);
+#   my $value = &Expand($expr);
+# Variable mappings are accessed from global: %uriTemplateValues
 sub Expand
 {
-my ($val, $undefVar) = &ExpandUriTemplate(@_);
+my $expr = shift;
+defined($expr) || confess "Died";
+my ($val, $undefVar) = &ExpandUriTemplate($expr, %uriTemplateValues);
 if ($undefVar) {
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
 	my $column = (defined($COLUMN) ? $COLUMN : "(undef)");
