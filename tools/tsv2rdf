@@ -66,9 +66,11 @@ Options:
 our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
 		#   ($DIRECTIVE, $ARGS, @METAS)
 our $TABLE;	# Ref to the entire data table
+our $RTABLE;	# Ref to the entire raw data table
 our @HEADERS;	# Column headers (excluding any #META column header)
-our @ORIGINAL_HEADERS;	# Column headers before mods except &Trimming
+our @RHEADERS;	# Column headers before mods 
 our $HEADER;	# Current header: $HEADER[$COLUMN]
+our $RAW;	# Current cell value.  Corresponds to $_
 our %NAMESPACE;	# Prefix->namespace mappings
 our $MROW;	# Index of current meta row
 our $ROW;	# Index of current data row
@@ -112,16 +114,19 @@ $baseUri || die &Usage();
 
 # print "\@prefix : <$baseUri>\n\n";
 
-$TABLE = &ReadTsv();
+$RTABLE = &ReadTsv();
 # warn "======================= DATA table: ======================\n" if $debug;
-# &PrintTable($TABLE) if $debug;
+# &PrintTable($RTABLE) if $debug;
 # warn "==========================================================\n" if $debug;
 # warn "\n" if $debug;
 
-$MTABLE = &RemoveMetadataRows($TABLE);
-my $headersRef = shift @{$TABLE};
-@HEADERS = map {&Trim($_)} @{$headersRef};
-@ORIGINAL_HEADERS = @HEADERS;
+$MTABLE = &RemoveMetadataRows($RTABLE);
+my $headersRef = shift @{$RTABLE};
+@RHEADERS = @{$headersRef};
+@HEADERS = @RHEADERS;
+for (my $r=0; $r<@{$RTABLE}; $r++) {
+	@{$TABLE->[$r]} = @{$RTABLE->[$r]};
+	}
 
 if ($metadataFile) {
 	warn "Reading separate metadataFile: $metadataFile\n" if $debug;
@@ -178,6 +183,7 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Predicate
 	Object
 	Perl_PreRun
+	Perl_PreFilter
 	);
 
 $NROWS = scalar(@$TABLE);
@@ -248,20 +254,26 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 				$predicates[$COLUMN] = "table:$p";
 				$underscores[$COLUMN] = $TABLE->[$ROW]->[$COLUMN];
 				}
-			# &SetGlobalsForMetaRow();
-			# &SetGlobalsForMetaColumn();
-			# &SetGlobalsForDataRow();
-			# &SetGlobalsForDataColumn();
+			&SetGlobalsForMetaRow();
+			&SetGlobalsForMetaColumn();
+			&SetGlobalsForDataRow();
+			&SetGlobalsForDataColumn();
 			no strict 'refs';
 			defined(&{$directive}) || die "$0: [ERROR] No function $directive defined for directive: #$directive\n";
 			# TODO: make this not depend on having the metadata
 			# columns in the same order as the data columns:
 			$_ = $underscores[$COLUMN];
 			$P = $predicates[$COLUMN];
+			next if $_ eq "";
 			%DATA = map {($HEADERS[$_], $underscores[$_])} 0..$#HEADERS;
 			warn "Calling &$directive();\n" if $debug > 1;
 			&{$directive}();
 			warn "Done calling &$directive();\n" if $debug > 1;
+			#### TODO: Resetting is not yet working right
+			# &ResetGlobalsForDataColumn();
+			# &ResetGlobalsForDataRow();
+			# &ResetGlobalsForMetaColumn();
+			# &ResetGlobalsForMetaRow();
 			$underscores[$COLUMN] = $_;
 			$predicates[$COLUMN] = $P;
 			}
@@ -354,15 +366,13 @@ sub ResetGlobalsForDataRow
 defined($ROW) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
-# Noop because %DATA is read only:
-return;
 for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$TABLE->[$ROW]->[$i] = $DATA{$HEADERS[$i]};
 	}
 }
 
 ################## SetGlobalsForDataColumn #################
-# Set globals: $HEADER, $_
+# Set globals: $HEADER $_ $RAW
 # They are relative to $COLUMN, which must already be set.
 # The $ROW must already be set also.
 sub SetGlobalsForDataColumn
@@ -373,6 +383,7 @@ defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 $HEADER = $HEADERS[$COLUMN];
 defined($HEADER) || confess "Died";
+$RAW = $RTABLE->[$ROW]->[$COLUMN];
 $_ = $TABLE->[$ROW]->[$COLUMN];
 defined($_) || confess "Died";
 $uriTemplateValues{THIS} = $_;
@@ -394,6 +405,7 @@ defined($NCOLUMNS) || confess "Died";
 defined($HEADER) || confess "Died";
 $HEADERS[$COLUMN] = $HEADER;
 defined($_) || confess "Died";
+warn "      ResetGlobalsForDataColum UNDERSCORE: $_\n" if $debug > 1;
 $TABLE->[$ROW]->[$COLUMN] = $_;
 }
 
@@ -418,7 +430,9 @@ if ($fPerDataCell) {
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 			&SetGlobalsForMetaColumn();
 			&SetGlobalsForDataColumn();
+			warn "  Iterate before fPerDataCell, UNDERSCORE: $_\n" if $debug > 1;
 			&{$fPerDataCell}();
+			warn "  Iterate after  fPerDataCell, UNDERSCORE: $_\n" if $debug > 1;
 			&ResetGlobalsForDataColumn();
 			&ResetGlobalsForMetaColumn();
 			}
@@ -426,6 +440,35 @@ if ($fPerDataCell) {
 		&ResetGlobalsForDataRow();
 	}
 # &ResetGlobalsForMetaRow();
+}
+
+################## Perl_PreFilter #################
+# Process all data rows for the current meta row $MROW.
+# Called as:
+#   $MROW = ...
+#   &Perl_PreFilter()
+sub Perl_PreFilter
+{
+my $oldDebug = $debug;
+# $debug = 2;
+warn "Perl_PreFilter starting:  ARGS: $ARGS MROW: $MROW UNDERSCORE: $_\n" if $debug > 1;
+# Nothing to be done per meta cell:
+my $fPerMetaCell = undef;
+my $fPerDataCell = sub {
+	# Run $ARGS on every cell
+	if ($ARGS ne "") {
+		warn "    Perl_PreFilter before EvalWarnings ARGS: {$ARGS} ROW: $ROW COLUMN: $COLUMN UNDERSCORE: $_\n" if $debug > 1;
+		$_  =&EvalWarnings($ARGS);
+		warn "    Perl_PreFilter after  EvalWarnings ARGS: {$ARGS} ROW: $ROW COLUMN: $COLUMN UNDERSCORE: $_\n" if $debug > 1;
+		}
+	if ($META ne "") {
+		warn "    Perl_PreFilter before EvalWarnings META: {$META} ROW: $ROW COLUMN: $COLUMN UNDERSCORE: $_\n" if $debug > 1;
+		$_ = &EvalWarnings($META);
+		warn "    Perl_PreFilter after  EvalWarnings META: {$META} ROW: $ROW COLUMN: $COLUMN UNDERSCORE: $_\n" if $debug > 1;
+		}
+	};
+&Iterate($fPerMetaCell, $fPerDataCell);
+$debug = $oldDebug;
 }
 
 ################## Perl_PreRun #################
@@ -471,24 +514,25 @@ warn "  Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $debug > 1;
 }
 
 ################## Echo #################
-# Print a triple for each cell in the table, using the current 
+# Print a triple for each non-empty cell in the table, using the current 
 # subject $S, the current predicate $P and the current cell value $_ .
 sub Echo
 {
 warn "Called Echo(@_)\n" if $debug > 1;
 my $v = $_;
 return if !$S || !$P || !defined($v) || $v eq "";
-# Auto-quote strings:
+# Auto-quote strings that are not already quoted:
 # TODO: Fix.  Not right for numbers.
-if ($v !~ m/^"/) {
+if ($v !~ m/^\"/) {
 	my $oldv = $v;
-	if ($v =~ s/\"/ /g) {
-		warn "$0: [WARNING] Embedded quotes changed to spaces: \"$oldv\"\n";
+	$v = &QuoteSafe($v);
+	if ($v ne $oldv) {
+		warn "$0: [WARNING] Prohibited character(s) changed to underscores in string: \"$oldv\"\n";
 		}
 	$v = "\"$v\"";
 	}
 print "$S $P $v .\n";
-return $_;
+return;
 }
 
 ################## Class #################
@@ -582,7 +626,7 @@ for (my $i=0; $i<@fields; $i++) {
 	while(@varVal) {
 		my $var = shift @varVal;
 		my $rawVal = shift @varVal;
-		warn "[WARNING] SetUriTemplateVariable: Variable $var redeclared at meta row $MROW column $COLUMN: $f\n" if exists($uriTemplateValues{$var});
+		warn "$0: [WARNING] SetUriTemplateVariable: Variable $var redeclared at meta row $MROW column $COLUMN: $f\n" if exists($uriTemplateValues{$var});
 		# The value itself may be a template that needs expansion:
 		# 	foo http://example/{bar}/baz
 		my ($val, $undefVar) = &ExpandUriTemplate($rawVal, %uriTemplateValues);
@@ -652,6 +696,8 @@ return($val, "");
 ################## Perl_Run #################
 sub Perl_Run
 {
+my $oldDebug = $debug;
+# $debug = 2;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Perl_Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
@@ -665,6 +711,7 @@ $result = &EvalWarnings($META) if $META ne "";
 warn "  Perl_Run After eval(META) UNDERBAR: $_\n" if $shouldWarn;
 $_ = $saveUnderbar;
 warn "  Perl_Run Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+$debug = $oldDebug;
 }
 
 ################# EvalWarnings ##################
@@ -677,7 +724,9 @@ sub EvalWarnings
 @_ == 1 || confess "Died";
 my $expr = shift @_;
 $expr || confess "Died";
-# warn "EvalWarnings starting expr: {$expr}\n" if $debug > 1;
+my $underscore = $_;
+$underscore = "(undef)" if !defined($underscore);
+warn "      EvalWarnings starting expr: {$expr} UNDERSCORE: $underscore\n" if $debug > 1;
 my $result;
 my $warning = "";
 # Clear old errors prior to eval.  $@ does not need to be cleared.
@@ -692,15 +741,17 @@ $? = 0;
 	$result = eval $expr;
 	}
 my $error = $@ || "";
-# warn "EvalWarnings after eval, warning: {$warning} error: {$error}\n" if $debug > 1;
+$underscore = $_;
+$underscore = "(undef)" if !defined($underscore);
+warn "      EvalWarnings after eval, expr: {$expr} UNDERSCORE: $underscore result: $result\n" if $debug > 1;
 if ($warning) {
 	my $directive = $DIRECTIVE || "INTERNAL";
 	my $args = $ARGS || "(undef)";
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
-	my $header = (defined($COLUMN) ? $ORIGINAL_HEADERS[$COLUMN] : undef);
+	my $header = (defined($COLUMN) ? $RHEADERS[$COLUMN] : undef);
 	my $cell = (defined($COLUMN) && defined($ROW) 
 		? $TABLE->[$ROW]->[$COLUMN] : undef);
-	my $msg = "[WARNING] $directive: eval of {$expr} at meta row $mrow";
+	my $msg = "$0: [WARNING] $directive: eval of {$expr} at meta row $mrow";
 	$msg .= " column $COLUMN {$header}" if defined($COLUMN);
 	$msg .= " meta cell {$META}" if defined($META);
 	$msg .= " data row $ROW" if defined($ROW);
@@ -712,7 +763,7 @@ if ($error) {
 	my $directive = $DIRECTIVE || "INTERNAL";
 	my $args = $ARGS || "(undef)";
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
-	my $header = (defined($COLUMN) ? $ORIGINAL_HEADERS[$COLUMN] : undef);
+	my $header = (defined($COLUMN) ? $RHEADERS[$COLUMN] : undef);
 	my $cell = (defined($COLUMN) && defined($ROW) 
 		? $TABLE->[$ROW]->[$COLUMN] : undef);
 	my $msg = "[ERROR] $directive: eval of {$expr} at meta row $mrow";
@@ -819,11 +870,22 @@ return $s;
 # underscores into a single underscore.
 sub Clean
 {
-my $v = shift @_ || confess "Died";
+my $v = shift @_;
+defined($v) || confess "Died";
 $v = &Trim($v);
 $v =~ s/[^A-Za-z0-9_]/_/g;
 $v =~ s/_+/_/g;
 return $v;
+}
+
+########## QuoteSafe ############
+# Make a string safe to write as a Turtle "string".  Prohibited
+# characters [\"\r\n\\] are silently changed to underscores.
+sub QuoteSafe
+{
+my $s = shift @_;
+$s =~ s/[\"\r\n\\]/_/gms;
+return $s;
 }
 
 ########## MakeVar ###########
@@ -831,7 +893,7 @@ return $v;
 # or return the empty string if failure.
 sub MakeVar
 {
-my $v = shift @_ || confess "Died";
+my $v = shift @_;
 $v = &Clean($v);
 # $v =~ s/_$//;
 # $v =~ s/^_//;
