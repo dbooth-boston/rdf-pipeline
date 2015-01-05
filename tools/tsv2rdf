@@ -525,11 +525,11 @@ return if !$S || !$P || !defined($v) || $v eq "";
 # TODO: Fix.  Not right for numbers.
 if ($v !~ m/^\"/) {
 	my $oldv = $v;
-	$v = &QuoteSafe($v);
+	$v = &TripleQuoteSafe($v);
 	if ($v ne $oldv) {
-		warn "$0: [WARNING] Prohibited character(s) changed to underscores in string: \"$oldv\"\n";
+		warn "$0: [WARNING] Prohibited character(s) escaped in string: \"$oldv\"\n";
 		}
-	$v = "\"$v\"";
+	$v = "\"\"\"$v\"\"\"";
 	}
 print "$S $P $v .\n";
 return;
@@ -878,13 +878,24 @@ $v =~ s/_+/_/g;
 return $v;
 }
 
+########## TripleQuoteSafe ############
+# Make a string safe to write as a Turtle """string""".  
+# Backslashes and """ are escaped.  Nothing else is.
+sub TripleQuoteSafe
+{
+my $s = shift @_;
+$s =~ s/[\\]/\\\\/gms;			# \   --> \\
+$s =~ s|\"\"\"|\\\"\\\"\\\"|gms;	# """ --> \"\"\"
+return $s;
+}
+
 ########## QuoteSafe ############
 # Make a string safe to write as a Turtle "string".  Prohibited
-# characters [\"\r\n\\] are silently changed to underscores.
+# characters [\"\r\n\\] are silently changed to spaces.
 sub QuoteSafe
 {
 my $s = shift @_;
-$s =~ s/[\"\r\n\\]/_/gms;
+$s =~ s/[\"\r\n\\]/ /gms;
 return $s;
 }
 
