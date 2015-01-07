@@ -6,7 +6,7 @@
 # http://www.apache.org/licenses/LICENSE-2.0.html
 # Code home: https://github.com/dbooth-boston/rdf-pipeline/
 
-# Convert TSV to RDF.  Whitespace is trimmed from cells.
+# Convert TSV to RDF.  
 # Empty cells are skipped -- they do not generate triples.
 # Reads stdin, writes stdout.
 #
@@ -72,6 +72,11 @@ Options:
   -F, --metaFormat=fmt
 	Metadata file has format fmt, where the acceptable formats
 	are the same as for the -f option.
+
+  -t, --trim  
+	Trim leading and trailing whitespace from all cells when 
+	reading tables.  DEFAULT
+	Opposite: --no-trim
 
   -d, --debug
 	Print debugging info.  Intended for developers only.
@@ -141,6 +146,7 @@ my $metaWorksheet = "";
 my $format = "";
 my $metaFormat = "";
 my $infile = "";
+my $trim = 1;
 use Getopt::Long qw(:config no_ignore_case bundling);
 GetOptions(
                 "debug|d+" => \$debug,
@@ -151,6 +157,7 @@ GetOptions(
                 "meta|m=s" => \$metadataFile,
                 "format|f=s" => \$format,
                 "metaFormat|F=s" => \$metaFormat,
+                "trim|t!" => \$trim,
                 ) or die "$0: Error reading options.  " . &Usage();
 
 die &Usage() if $help;
@@ -331,6 +338,18 @@ exit 0;
 #####################################################################
 ######################### END OF MAIN ###############################
 #####################################################################
+
+################## CellFilter ###################
+# Filter all cells through this function, using global options.
+sub CellFilter
+{
+@_ == 1 || confess "Died";
+my ($v) = @_;
+if ($trim) {
+	$v = &Trim($v);
+	}
+return $v;
+}
 
 ################## SetGlobalsForMetaColumn #################
 # Set globals: $META and $HEADER.
@@ -892,7 +911,9 @@ Please use the '-f fmt' option (for a data file) or '-F fmt' option
 my $reader = $readerForFormat{$format} || die "$0: [ERROR] Unimplemented spreadsheet file type: $format\n";
 # Disable reference warnings:
 no strict 'refs';
-my $rTable = &{$reader}($infile, $worksheet); 
+# &CellFilter is passed in explicitly to help ensure that new readers
+# do not forget to call it.
+my $rTable = &{$reader}($infile, $worksheet, \&CellFilter); 
 $rTable || die "$0: [ERROR] Failed to read data file '$infile' worksheet '$worksheet' as $format\n";
 return $rTable;
 }
@@ -905,9 +926,9 @@ return $rTable;
 # to have the same number of cells in each row.
 sub ReadTsv
 {
-@_ == 2 or confess "Died";
-my $f = shift @_ || "";
-my $worksheet = shift @_;
+@_ == 3 or confess "Died";
+my ($f, $worksheet, $cellFilter) = @_;
+$f ||= "";
 defined($worksheet) || confess "Died";
 $f = "" if $f eq "-";
 my $fh = \*STDIN;
@@ -917,8 +938,8 @@ my $nColumns = 0;
 my $row = 0;
 while (my $line = <$fh>) {
 	chomp $line;
-	# my @fields = map {&Trim($_)} split(/\t/, $line, -1);
-	my @fields = split(/\t/, $line, -1);
+	no strict 'refs';
+	my @fields = map {&{$cellFilter}($_)} split(/\t/, $line, -1);
 	@fields || die "$0: [ERROR] No data fields found in " . ($f ? "STDIN" : $f) . "\n";
 	my $nf = scalar(@fields);
 	$nColumns = $nf if !$nColumns;
@@ -943,9 +964,9 @@ return $result;
 # to have the same number of cells in each row.
 sub ReadXlsx
 {
-@_ == 2 or confess "Died";
-my $f = shift @_ || "";
-my $worksheet = shift @_;
+@_ == 3 or confess "Died";
+my ($f, $worksheet, $cellFilter) = @_;
+$f ||= "";
 defined($worksheet) || confess "Died";
 $worksheet ||= 0;	# Change "" to 0 if necessary.
 $f = "" if $f eq "-";
@@ -979,7 +1000,8 @@ for my $row ( $row_min .. $row_max ) {
 			# warn "Unformatted = ", $cell->unformatted(), "\n" if $debug > 1;
 			# warn "\n" if $debug > 1;
 			}
-		push(@{$nextRow}, $v);
+		no strict 'refs';
+		push(@{$nextRow}, &{$cellFilter}($v));
 		$c++;
 		}
 	$table->[$r] = $nextRow;
