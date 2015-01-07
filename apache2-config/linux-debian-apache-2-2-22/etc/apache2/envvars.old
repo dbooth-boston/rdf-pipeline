@@ -13,14 +13,8 @@ fi
 # Since there is no sane way to get the parsed apache2 config in scripts, some
 # settings are defined via environment variables and then used in apache2ctl,
 # /etc/init.d/apache2, /etc/logrotate.d/apache2, etc.
-#### dbooth 4/11/13: Changed to run as user dbooth.  IMPORTANT: 
-#### For security, be sure that access is also restricted to 
-#### localhost 127.0.0.1 in /etc/apache2/ports.conf as described in 
-#### https://help.ubuntu.com/10.04/serverguide/C/httpd.html
-# export APACHE_RUN_USER=www-data
-# export APACHE_RUN_GROUP=www-data
-export APACHE_RUN_USER=dbooth
-export APACHE_RUN_GROUP=dbooth
+export APACHE_RUN_USER=www-data
+export APACHE_RUN_GROUP=www-data
 export APACHE_PID_FILE=/var/run/apache2$SUFFIX.pid
 export APACHE_RUN_DIR=/var/run/apache2$SUFFIX
 export APACHE_LOCK_DIR=/var/lock/apache2$SUFFIX
@@ -41,3 +35,8 @@ export LANG
 ## If you need a higher file descriptor limit, uncomment and adjust the
 ## following line (default is 8192):
 #APACHE_ULIMIT_MAX_FILES='ulimit -n 65536'
+
+
+## If you would like to pass arguments to the web server, add them below
+## to the APACHE_ARGUMENTS environment.
+#export APACHE_ARGUMENTS=''

@@ -1,44 +1,169 @@
-1a2,19
-> 
-> # ----------------------------------
-> # Per guidance in http://perl.apache.org/docs/2.0/user/intro/start_fast.html
-> # added by dbooth 2/12/11:
-> PerlRequire /home/dbooth/rdf-pipeline/trunk/startup.pl
-> # 1/3/12: If the above fails, then try "a2enmod perl" as suggested at:
-> # http://list.georgialibraries.org/pipermail/open-ils-general/2009-May/001581.html
-> # ----------------------------------
-> 
-> # ----------------------------------
-> #### dbooth added 3/11/13:
-> <Location /node/>
->       SetHandler perl-script
->       PerlSetEnv RDF_PIPELINE_DEBUG $DEBUG_CHANGES
->       PerlResponseHandler  RDF::Pipeline
-> </Location>
-> # ----------------------------------
-> 
-4c22,29
-< 	DocumentRoot /var/www
----
->         # 12/16/13: DBooth changed DocumentRoot and Directory
->         # to be under trunk/Private, which is a symlink to an
->         # encrypted dir, so that confidential pipelines can
->         # be tested.
->         # 2/10/11: DBooth changed DocumentRoot and Directory.
->         # Previous value was: /var/www
->         DocumentRoot /home/dbooth/rdf-pipeline/Private/www
-> 
-9c34,36
-< 	<Directory /var/www/>
----
->         # 2/10/11: DBooth changed /var/www 
->         # Previous value was: /var/www
->         <Directory "/home/dbooth/rdf-pipeline/Private/www">
-13a41,47
->                 # 1/31/12: dbooth: Enable CGI:
->                 Options +ExecCGI
->                 AddHandler cgi-script .cgi .pl
->                 # 1/31/12: dbooth: Prevent ETags from including inode info, 
->                 # as explained in issue #13: 
->                 # http://code.google.com/p/rdf-pipeline/issues/detail?id=13
->                 FileETag MTime Size
+*** 000-default.old	2013-12-16 12:46:38.280490200 -0500
+--- 000-default	2014-04-27 20:15:45.585043516 -0400
+***************
+*** 6,78 ****
+  PerlRequire /home/dbooth/rdf-pipeline/trunk/startup.pl
+  # 1/3/12: If the above fails, then try "a2enmod perl" as suggested at:
+  # http://list.georgialibraries.org/pipermail/open-ils-general/2009-May/001581.html
+  
+! ### Test:
+! # <Location /rocks>
+!       # SetHandler perl-script
+!       # PerlResponseHandler  RDF::Rocks
+! # </Location>
+! # 
+! # <Location /chain>
+!       # SetHandler perl-script
+!       # PerlResponseHandler  RDF::Pipeline
+! # </Location>
+! 
+! # <Location /hello>
+!       # SetHandler perl-script
+!       # PerlResponseHandler  RDF::Pipeline
+! # </Location>
+! 
+! # This is to match single-word locations composed only of letters.
+! # It will not match something like "hello-stdout".  This is a totally
+! # kludgey way to distinguish between requests that should be
+! # intercepted and processed by the PerlResponseHandler and
+! # other requests (such as regular file requests).
+! # A better way to handle this would be to use separate subdirectories
+! # for nodes and caches.
+! #
+! # For some unknown reason, "f" does not work as the first character:
+! #### 9/2/11: Disabled this in order to run pangenx cytoscope:
+! # <LocationMatch "/[a-eg-zA-Z][a-zA-Z]*$">
+!       # SetHandler perl-script
+!       # PerlResponseHandler  RDF::Pipeline
+! # </LocationMatch>
+! #### 1/14/12: Trying this:
+  <Location /node/>
+        SetHandler perl-script
+-       PerlSetEnv RDF_PIPELINE_DEBUG $DEBUG_CHANGES
+        PerlResponseHandler  RDF::Pipeline
+  </Location>
+- 
+- 
+  # ----------------------------------
+  
+- 
+- 
+  	ServerAdmin webmaster@localhost
+  
+! 	# 12/16/13: DBooth changed DocumentRoot and Directory
+! 	# to be under trunk/Private, which is a symlink to an
+! 	# encrypted dir, so that confidential pipelines can
+! 	# be tested.
+! 	# 2/10/11: DBooth changed DocumentRoot and Directory.
+! 	# Previous value was: /var/www
+! 	DocumentRoot /home/dbooth/rdf-pipeline/trunk/Private/www
+  	<Directory />
+  		Options FollowSymLinks
+  		AllowOverride None
+  	</Directory>
+! 	<Directory "/home/dbooth/rdf-pipeline/trunk/Private/www">
+  		Options Indexes FollowSymLinks MultiViews
+! 		AllowOverride All
+  		Order allow,deny
+  		allow from all
+! 		Options +ExecCGI
+! 		AddHandler cgi-script .cgi .pl
+! 		# 1/31/12: dbooth: Prevent ETags from including inode info, 
+! 		# as explained in issue #13: 
+! 		# http://code.google.com/p/rdf-pipeline/issues/detail?id=13
+! 		FileETag MTime Size
+  	</Directory>
+  
+  	ScriptAlias /cgi-bin/ /usr/lib/cgi-bin/
+--- 6,67 ----
+  PerlRequire /home/dbooth/rdf-pipeline/trunk/startup.pl
+  # 1/3/12: If the above fails, then try "a2enmod perl" as suggested at:
+  # http://list.georgialibraries.org/pipermail/open-ils-general/2009-May/001581.html
++ # ----------------------------------
+  
+! # ----------------------------------
+! #### dbooth added 3/11/13:
+  <Location /node/>
+        SetHandler perl-script
+        PerlResponseHandler  RDF::Pipeline
++       #
++       # Control the amount of debugging output that will go
++       # to the apache error log:
++       PerlSetEnv RDF_PIPELINE_DEBUG $DEBUG_CHANGES
++       #
++       # PerlSetEnv RDF_PIPELINE_DEBUG $DEBUG_DETAILS
++       # WARNING: If RDF_PIPELINE_MASTER_URI is set to a URI
++       # that is hosted by this server, and the RDF Pipeline Framework
++       # is unable to detect that it is on this server, then it
++       # will cause an infinite HTTP request loop as soon as
++       # this server receives an HTTP request for any node on
++       # this server.  If any node requests on this server work,
++       # then there is no loop.
++       # PerlSetEnv RDF_PIPELINE_MASTER_URI http://localhost/node/master.ttl
++       #
++       # If desired, limit the frequence of getting
++       # from $RDF_PIPELINE_MASTER_URI :
++       # PerlSetEnv RDF_PIPELINE_MASTER_DOWNLOAD_THROTTLE_SECONDS 5
+  </Location>
+  # ----------------------------------
+  
+  	ServerAdmin webmaster@localhost
+  
+!         # 12/16/13: DBooth changed DocumentRoot and Directory
+!         # to be under trunk/Private, which is a symlink to an
+!         # encrypted dir, so that confidential pipelines can
+!         # be tested.
+!         # 2/10/11: DBooth changed DocumentRoot and Directory.
+!         # Previous value was: /var/www
+!         DocumentRoot /home/dbooth/rdf-pipeline/Private/www
+! 
+  	<Directory />
+  		Options FollowSymLinks
+  		AllowOverride None
+  	</Directory>
+!         # 2/10/11: DBooth changed /var/www 
+!         # Previous value was: /var/www
+!         <Directory "/home/dbooth/rdf-pipeline/Private/www">
+  		Options Indexes FollowSymLinks MultiViews
+! 		AllowOverride None
+  		Order allow,deny
+  		allow from all
+!                 # 1/31/12: dbooth: Enable CGI:
+!                 Options +ExecCGI
+!                 AddHandler cgi-script .cgi .pl
+!                 # 1/31/12: dbooth: Prevent ETags from including inode info, 
+!                 # as explained in issue #13: 
+!                 # http://code.google.com/p/rdf-pipeline/issues/detail?id=13
+!                 FileETag MTime Size
+  	</Directory>
+  
+  	ScriptAlias /cgi-bin/ /usr/lib/cgi-bin/
+***************
+*** 83,95 ****
+  		Allow from all
+  	</Directory>
+  
+! 	ErrorLog /var/log/apache2/error.log
+  
+  	# Possible values include: debug, info, notice, warn, error, crit,
+  	# alert, emerg.
+  	LogLevel warn
+  
+! 	CustomLog /var/log/apache2/access.log combined
+  
+      Alias /doc/ "/usr/share/doc/"
+      <Directory "/usr/share/doc/">
+--- 72,84 ----
+  		Allow from all
+  	</Directory>
+  
+! 	ErrorLog ${APACHE_LOG_DIR}/error.log
+  
+  	# Possible values include: debug, info, notice, warn, error, crit,
+  	# alert, emerg.
+  	LogLevel warn
+  
+! 	CustomLog ${APACHE_LOG_DIR}/access.log combined
+  
+      Alias /doc/ "/usr/share/doc/"
+      <Directory "/usr/share/doc/">

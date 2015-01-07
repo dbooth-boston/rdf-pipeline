@@ -1,0 +1,21 @@
+# RDF Pipeline definition.
+
+# The RDF Pipeline ontology:
+@prefix p: <http://purl.org/pipeline/ont#> .
+
+# Prefix for nodes in your pipeline:
+@prefix : <http://127.0.0.1/node/> .
+
+##### Pipeline definition starts here #####
+
+:max a p:FileNode ;
+  p:inputs ( <max.txt> ) . 
+
+:odds a p:FileNode ;
+  p:inputs ( :max ) ;
+  p:updater "odds-updater" .
+
+:addone a p:FileNode ;
+  p:inputs ( :odds ) ;
+  p:updater "addone-updater" .
+

@@ -12,8 +12,25 @@ PerlRequire /home/dbooth/rdf-pipeline/trunk/startup.pl
 #### dbooth added 3/11/13:
 <Location /node/>
       SetHandler perl-script
-      PerlSetEnv RDF_PIPELINE_DEBUG $DEBUG_CHANGES
       PerlResponseHandler  RDF::Pipeline
+      #
+      # Control the amount of debugging output that will go
+      # to the apache error log:
+      PerlSetEnv RDF_PIPELINE_DEBUG $DEBUG_CHANGES
+      #
+      # PerlSetEnv RDF_PIPELINE_DEBUG $DEBUG_DETAILS
+      # WARNING: If RDF_PIPELINE_MASTER_URI is set to a URI
+      # that is hosted by this server, and the RDF Pipeline Framework
+      # is unable to detect that it is on this server, then it
+      # will cause an infinite HTTP request loop as soon as
+      # this server receives an HTTP request for any node on
+      # this server.  If any node requests on this server work,
+      # then there is no loop.
+      # PerlSetEnv RDF_PIPELINE_MASTER_URI http://localhost/node/master.ttl
+      #
+      # If desired, limit the frequence of getting
+      # from $RDF_PIPELINE_MASTER_URI :
+      # PerlSetEnv RDF_PIPELINE_MASTER_DOWNLOAD_THROTTLE_SECONDS 5
 </Location>
 # ----------------------------------
 

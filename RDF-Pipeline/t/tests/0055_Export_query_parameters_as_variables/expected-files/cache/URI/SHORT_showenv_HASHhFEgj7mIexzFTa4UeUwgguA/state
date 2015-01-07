@@ -1,0 +1,7 @@
+Testing the conversion of query parameters to environment variables.
+When this is invoked as:
+  curl 'http://localhost/node/showenv?foo=fooValue&bar=barValue&BAD=badValue'
+
+$foo should be fooValue: fooValue
+$bar should be barValue: barValue
+$BAD should be empty: 

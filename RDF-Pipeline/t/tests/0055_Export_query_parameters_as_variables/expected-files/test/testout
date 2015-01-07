@@ -1,0 +1,18 @@
+HTTP/1.1 200 OK
+Date: Sat, 03 Mar 2012 03:03:03 GMT
+Server: Apache/2.2.22 (Ubuntu)
+Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
+ETag: "LM1326111111.111111000001"
+Content-Length: 264
+Content-Location: http://localhost/cache/URI/SHORT_showenv_HASHhFEgj7mIexzFTa4UeUwgguA/state
+Vary: Accept-Encoding
+Content-Type: text/plain
+
+Testing the conversion of query parameters to environment variables.
+When this is invoked as:
+  curl 'http://localhost/node/showenv?foo=fooValue&bar=barValue&BAD=badValue'
+
+$foo should be fooValue: fooValue
+$bar should be barValue: barValue
+$BAD should be empty: 
+----------------------------------------------------------------------

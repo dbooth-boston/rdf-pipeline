@@ -1,0 +1,297 @@
+# Commands extracted from pipeline-installation-125.txt
+pwd
+mkdir rdf-pipeline
+cd !$
+curl -I http://localhost/
+curl -I http://localhost:/p://192.168.1.125/
+apt-get install apache2
+whereis apache
+whereis apache2
+curl -I http://192.168.1.125/
+perl --version
+apt-get install libapache2-mod-perl2
+perl -Mmod_perl2\ 999
+ls
+cd rdf-pipeline/
+ls
+exit
+cd rdf-pipeline/
+git checkout https://github.com/dbooth-boston/rdf-pi 
+git clone https://github.com/dbooth-boston/rdf-pipel 
+ls
+ls -a
+ls -a redf-pipeline/
+mv rdf-pipeline/ ../rd
+cd ..
+rmdir rdf-pipeline/
+mv rd r!$
+ls
+cd rdf-pipeline/
+ls
+more startup.pl 
+mkdir -p /home/dbooth/rdf-pipeline/trunk
+ls -a
+rmdir /home/dbooth/rdf-pipeline/trunk
+cd ..
+mv rdf-pipeline/ /home/dbooth/rdf-pipeline/trunk
+ls -ld /etc/tomcat7apache2/
+pushd !$
+ls
+ls sites-enabled/
+ls /var/
+ls /var/log/ap
+ls /var/log/ap
+ls /var/log/apache2/
+ls -l !$
+l ls mods-enabled/
+# Since apache2 seems to be running as root, and the r 
+# or the user or group of apache2
+more /etc/apache2/conf.d/servername.conf
+ls
+cd cols conf.d/
+service apache2 restart
+cd /home/dbooth/rdf-pipeline/trunk/
+ls
+. set_env.sh 
+pushd
+cd /etc/apache2/
+cd sites-available/
+ls
+
+diff /home/dbooth/rdf-pipeline/trunk/apache 
+diff /home/dbooth/rdf-pipeline/trunk/apache2
+diff /home/dbooth/rdf-pipeline/trunk/apache22-config/000-default default |mor> /tmp/loc
+diff /home/dbooth/rdf-pipeline/trunk/apache2
+diff /home/dbooth/rdf-pipeline/trunk/apacd/home/dbooth/rdf-pipeline/trunk/apache[1@2[A[01;33mroot@sesame [01;34mapache2/sites-available[00m# diff de/home/dbooth/rdf-pipeline/trunk/apach[1@e[A[01;33mroot@sesame [01;34mapache2/sites-available[00m# diff def/home/dbooth/rdf-pipeline/trunk/apac[1@h[A[01;33mroot@sesame [01;34mapache2/sites-available[00m# diff defa/home/dbooth/rdf-pipeline/trunk/apa[1@c[A[01;33mroot@sesame [01;34mapache2/sites-available[00m# diff defau/home/dbooth/rdf-pipeline/trunk/ap[1@a[A[01;33mroot@sesame [01;34mapache2/sites-available[00m# diff defaul/home/dbooth/rdf-pipeline/trunk/a[1@p[A[01;33mroot@sesame [01;34mapache2/sites-available[00m# diff default/home/dbooth/rdf-pipeline/trunk/[1@a[A[01;33mroot@sesame [01;34mapache2/sites-available[00m# diff default /home/dbooth/rdf-pipeline/trunk[1@/[A[01;33mroot@sesame [01;34mapache2/sites-available[00m# diff default 
+diff /home/dbooth/rdf-pipeline/trunk/apache 
+diff /tmp/loc /tmp/rep
+diff /tmp/loc /tmp/rep |more
+ # That isn't what I meant to do
+# I meant to compare the old files
+# I meant to compare the old file[6Pdiff /tmp/loc /tmp/rep |mor[home/dbooth/rdf-pipeline/trunk/apache2
+diff default /home/dbooth/rdf-pipeline/trunk[41P/apache2-config/000-default > /tmp/loc
+more /tmp/old
+cd /home/
+cd /home/dbooth/rdf-pipeline/trunk/
+ls
+git pull
+ls
+ls doc
+curl -I http://192.168.0.0.1/
+curl -I http://192.168.0.0.1[1[1[1P[1[1[1P[1@1[1@[1[1P[1@2[1@7
+cd /etc/apache2/
+ls
+uname -a
+ls
+cd sites-available/
+ls
+cp default default.old
+vi default
+echo /etc/red*
+ls
+cd ..
+ls
+cp ports.conf ports.conf.old
+cp envvars envvars.old
+ls conf.d
+service apache2 restart
+cd /var/www
+ls
+ls -ld /var/www
+ls -l /var/www
+pushd
+pushd /detc/apache2
+ls
+ls sites-available
+vi ports.conf
+grep -i user *
+echo $APACHE_RUN_USER
+grep /etc/apache2/envvars APACHE_RUN_USER
+grep /etc/apache2/envvars APACHE_RUN_USEp [1@[1@A[1@P[1@A[1@C[1@H[1@E[1@_[1@R[1@U[1@N[1@_[1@[1P[1@U[1@S[1@E[1@R
+vi !$
+. !$
+!echo
+echo $DOCUMENT_ROOT
+pushd
+lsls -ld .
+curl -I http://localhost/
+curl -I http://localhost/NODnode
+curl -I http://localhost/node/
+ls
+pushd
+pushd
+pushd /home/dbooth/rdf-pipeline/trunk/
+ls /var/log/apache2/
+exit
+grep git pipeline-installation.txt 
+[01;31m[Kgit[m[K checkout https://[01;31m[Kgit[m[Khub.com/dbooth-boston/rdf-pi 
+[01;31m[Kgit[m[K clone https://[01;31m[Kgit[m[Khub.com/dbooth-boston/rdf-pipel 
+[01;31m[Kgit[m[K pull
+cd /home/dbooth/rdf-pipeline/trunk/
+git pull
+cd /etc/apache2/
+ls
+vi ports.conf
+vi sites-available/default
+exit
+ls -l /etc/http*
+ls -l /usr/pkg/etc/httpd.conf
+exit
+apt-get -s install apache2
+apt-get -s install apachelibapache2-mod-perl2
+apt-get -s install libapache2-mod-perlall perl-debug
+apt-get -s install perl-debu[1[1P
+apt-get install libapache2-mod-perl2-dev
+apt-get install  libapache2-request-perl libdatetime-perl
+vi /etc/apache2/sites-available/default
+service apache2 restart
+curl http://localhost/node/both
+
+cd /home/dbooth/rdf-pipeline/trunk/RDF-Pipeline/lib/RDF
+
+cat Pipeline.pm Pipeline/* |grep -P '^(use|require) ' | per 
+cpan `cat Pipeline.pm Pipeline/* |grep -P '^(use|require) ' 
+!serivi
+!curl
+cat Pipeline.pm Pipeline/* |grep -P '^(use|require) ' | per 
+cat Pipeline.pm Pipeline/* |grep -P '^(use|require) ' | per 
+cpan Digest::MD4
+apt-get install cc
+apt-get install c[1@g
+which cc
+which c[11@apt-get install gc[1Pc[2Pcpan Digest::MD4
+^C
+
+
+sudo apt-get install build-essential
+sudo apt-get install build-essential[1[1[1[1[1[1[1P[1@r[1@e[1@m[1@o[1@v[1@e
+apt-get remove gcc
+apt-get remove gcsudo apt-get remove build-essentia[1@install build-essential
+cpan Digest::MD4
+cpan `cat Pipeline.pm Pipeline/* |grep -P '^(use|require) ' 
+mkdir /opt/cwm
+cd /opt/cwm
+
+wget http://www.w3.org/2000/10/swap/cwm.tar.gz
+tar xvzf cwm.tar.gz
+
+ls
+cd cwm-1.2.1
+ls
+cp cwm /usr/local/bin
+cwm < /dev/null
+ls
+rm /usr/local/bin/cwm
+python setup.py install
+python setup.py instal[2Prm /usr/local/bin/cwls[cwm < /dev/null
+!service
+service apache2 restart
+!curl
+
+cd /home/dbooth/rdf-pipeline/trunk/
+git pull
+which load-pipeline
+. set_env.sh 
+. set_env.shwhich load-pipeline
+cd doc/sample-pipeline-GraphNode/
+load-pipeline 
+load-pipeline .
+echo $DOCUMENT_ROOT
+pushd ../..
+git pull
+pushd
+load-pipeline
+ls
+cd www/
+ls
+cd node/
+ls
+!load
+echo $DOCUMENT_ROOT
+echo $RDF_PIPELINE_WWW_DIR
+unset $RDF_PIPELINE_WWW_DIet [1P
+unexport !$
+
+pushd ../../../..
+.. se. set_env.sh 
+cd /home/dbooth/rdf-pipeline/trunk/
+git pull
+./set_env.sh 
+. set_env.sh 
+pushd doc/sample-pipeline-GraphNode/www/node/
+load-pipeline 
+curl http://localhost/node/willies
+
+curl http://localhost/node/willies
+curl http://localhost/node/willies
+curl http://localhost/node/willies
+!servi
+!cur
+ls
+vi pipeline.ttl 
+!cir
+!cir
+!cur
+fg
+sparql-export http://example/foo
+cd /home/dbooth/rdf-pipeline/trunk/
+TOOLS=`find tools -type f -print | perl -n -e 'c 
+echo $TOOLS
+find tools -type f -print
+TOOLS=`find tools -type f -print | perl -n -e 'c 
+echo $TOOLS
+echo $TOOLTOOLS=`find tools -type f -print | perl -n -e 'ch
+find tools -type f -print > /tmp/j
+find tools -type f -print > /tmp/echo $TOOLS[TOOLS=`find tools -type f -print | perl -n -e 'ch
+TOOLS=`find tools -type f -print | perl -n -e ' p[1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOOLS=`find tools -type f -print | perl -n -e  pr[1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOOLS=`find tools -type f -print | perl -n -e ' p[1@r[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOOLS=`find tools -type f -print | perl -n -e  -e ' pr[1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOOLS=`find tools -type f -print | perl -p -e ' p[1@r[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOOLS=`find tools -type f -print | perl -p -e '
+TOOLS=`find tools -type f -print | perl -p -e ' p
+TOOLS=`find tools -type f -print | perl -p -e find tools -type f -print | perl -p -e ' pr[1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOOLSfind tools -type f -print | perl -p -e ' pri[1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOOLfind tools -type f -print | perl -p -e ' prin[1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOOfind tools -type f -print | perl -p -e ' print[1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOfind tools -type f -print | perl -p -e ' print [1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# Tfind tools -type f -print | perl -p -e ' print `[1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# find tools -type f -print | perl -p -e ' print `f[1P[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# 
+
+TOOLS=`find tools -type f -print | perl -n -e 'c 
+echo $TOOLS
+MODULES=`cat RDF-Pipeline/lib/RDF/Pipeline.pm RD 
+echo $MODULES
+cpan $MODULES
+cpan $MODULEecho $MODULEMODULES=`cat RDF-Pipeline/lib/RDF/Pipeline.pm RDF
+echo $TOOLS[K
+echo $TOOLTOOLS=`find tools -type f -print | perl -n -e 'chhomp; print "$_\n" if !system("file $_ | grep -q -i perl")'`[find tools -type f -print | perl -p -e ' print `file $_`' [K[A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# TOOLS=`find tools -type f -print | perl -p -e ' p[7@rint `file $_`' [A[01;33mroot@sesame [01;34mrdf-pipeline/trunk[00m# [14Pfind tools -type f -print > /tmp/j
+find tools -type f -print > /tmp/echo $TOOLS[TOOLS=`find tools -type f -print | perl -n -e 'chhomp; print "$_\n" if !system("file $_ | grep -q perl")'`[[23Pfind tools -type f -print
+find tools -type f -prin[14Pecho $TOOLTOOLS=`find tools -type f -print | perl -n -e 'chhomp; print "$_\n" if !system("file $_ | grep -q perl")'
+[13Pcd /home/dbooth/rdf-pipeline/trunk/
+cd /home/dbooth/rdf-pipeline/trunk[3Psparql-export http://example/fofg[sparql-export http://example/foo
+export SPARQL_SERVER=http://localhost:8080/openr 
+export SPARQL_SERVER=http://localhost:8080/openrd
+sparql-export http://example/foo
+!curl
+
+service tomcat7 restart
+!curl
+
+flush-caches
+flush-cache[22@curl http://localhost/node/willies
+
+curl http://localhost/node/bill-presidents.ttl
+curl http://localhost/node/williams
+!service
+service tomcat7 restarcurl http://localhost/node/williams
+curl http://localhost/node/william[12Pservice tomcat7 restarcurl http://localhost/node/william[12Pservice tomcat7 restarcurl http://localhost/node/william[Kservice apache2 restart
+service apache2 restarcurl http://localhost/node/williams
+pushd RDF-Pipeline/lib/RDF/Pipeline/
+ls
+cp GraphNode.pm GraphNode.pm.ol[1@-[1@p[1@ 
+vi GraphNode.pm
+vi GraphNode.pcp -p GraphNode.pm GraphNode.pm.olls[pushd RDF-Pipeline/lib/RDF/Pipeline[1Pcurl http://localhost/node/william[12Pservice apache2 restart
+flush-caches 
+vi `which !! `
+j
+jobs
+fg
+ls
+mv FGraphNode.pmv GraphNode.pm.old GraphNode.pm
+pushd
+git pull
+git pul[3Ppushmv GraphNode.pm.old GraphNode.pls[fjob[vi `which flush-caches  [12Pflush-cachesservice apache2 restart
+service apache2 restar[15Pgit pul[3Ppushmv GraphNode.pm.old GraphNode.pls[fjob[vi `which flush-caches  [12Pflush-caches 
+flush-cachesservice apache2 restar[15Pgit pul[3Ppushmv GraphNode.pm.old GraphNode.pls[fjob[vi `which flush-caches  [12Pflush-cachesservice apache2 restar[8Pvi GraphNode.pcp -p GraphNode.pm GraphNode.pm.olls[pushd RDF-Pipeline/lib/RDF/Pipeline[1Pcurl http://localhost/node/williams
+!flush
+!curl

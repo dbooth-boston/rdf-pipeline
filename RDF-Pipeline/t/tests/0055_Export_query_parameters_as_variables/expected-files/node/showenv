@@ -1,0 +1,10 @@
+#! /bin/sh
+
+echo "Testing the conversion of query parameters to environment variables."
+echo "When this is invoked as:"
+echo "  curl 'http://localhost/node/showenv?foo=fooValue&bar=barValue&BAD=badValue'"
+echo
+echo "\$foo should be fooValue:" "$foo"
+echo "\$bar should be barValue:" "$bar"
+echo "\$BAD should be empty:" "$BAD"
+

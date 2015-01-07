@@ -1,0 +1,11 @@
+Linux sesame 2.6.32-22-pve #1 SMP Mon Jul 15 08:36:46 CEST 2013 x86_64
+Welcome to Sesame, TurnKey Linux 13.0 / Debian 7.4 Wheezy
+
+# curl -I http://127.0.0.1/
+HTTP/1.1 200 OK
+Date: Thu, 24 Apr 2014 02:30:04 GMT
+Server: Apache/2.2.22 (Debian)
+
+# uname -a
+Linux sesame 2.6.32-22-pve #1 SMP Mon Jul 15 08:36:46 CEST 2013 x86_64 GNU/Linux
+
