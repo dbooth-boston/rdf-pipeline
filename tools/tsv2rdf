@@ -166,11 +166,11 @@ die &Usage() if @ARGV > 1;
 $infile = $ARGV[0] if @ARGV;
 $RTABLE = &ReadTable($infile, $worksheet, $format); 
 
-warn "======================= DATA table: ======================\n" if $debug;
-&PrintTable($RTABLE) if $debug;
-warn "==========================================================\n" if $debug;
-warn "\n" if $debug;
-die "Done\n";
+# warn "======================= DATA table: ======================\n" if $debug;
+# &PrintTable($RTABLE) if $debug;
+# warn "==========================================================\n" if $debug;
+# warn "\n" if $debug;
+# die "Done\n";
 
 $MTABLE = &RemoveMetadataRows($RTABLE);
 my $headersRef = shift @{$RTABLE};
