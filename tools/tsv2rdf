@@ -42,19 +42,48 @@ use URI::Template;
 ################# Usage ###################
 sub Usage
 {
-return "Usage: $0 [ options ] [ file.ttl ... ]
+return "Usage: $0 [ options ] [ file.ext ... ]
 Options:
   -b, --base=baseUri
 	Use baseUri as the base in generating URIs.
 
   -m, --meta=metadataFile.tsv
-	Use metadata from metadataFile.tsv instead of input file.
+	Use metadata from metadataFile.tsv instead of metadata
+	embedded in input file.  If this option is used, any metadata
+	extracted from input file is discarded.
+
+  -w, --worksheet=W
+	Extract data table from worksheet W, which may either be the
+	name of a worksheet or a 0-based worksheet index.  Default: 0
+
+  -W, --metaWorksheet=W
+	Extract metadata table from worksheet W.
+
+  -f, --format=fmt
+	Data file has format fmt, which is case insensitive 
+	and must be one of:
+		tsv	(Tab Separated Values)
+		csv	(Comma Separated Values)
+		xlsx	(Excel xlsx format)
+		xls	(Excel xls format)
+	If this argument is not specified the data file's extension
+	is used to guess the data format.
+
+  -F, --metaFormat=fmt
+	Metadata file has format fmt, where the acceptable formats
+	are the same as for the -f option.
 
   -d, --debug
-	Print this usage message.
+	Print debugging info.  Intended for developers only.
 
   -h, --help
 	Print this usage message.
+
+where infile.ext contains the input data table and (optionally) embedded
+metadata.  Embedded metadata is removed from the data table prior
+to processing.  If infile.ext is not specified, STDIN will be read.
+Normally the file extension indicates file format, but the -w or -W
+options can be used to override file extensions.
 ";
 }
 
@@ -97,28 +126,44 @@ our %KEY_TO_ROW;	# Maps header to column hash to row number (0 based)
 our %PK_TO_ROW;		# Maps $PRIMARY_KEY column hash to row number (0 based)
 our $PRIMARY_KEY;	# Header name of primary key column
 
+# Map file extensions (lower case) to readers:
+my %readerForFormat = qw(
+	tsv	ReadTsv
+	xlsx	ReadXlsx
+	);
+
 my $baseUri = "http://example/";
 my $help = 0;
 my $debug = 0;
 my $metadataFile = "";
-use Getopt::Long; # Perl
+my $worksheet = "";
+my $metaWorksheet = "";
+my $format = "";
+my $metaFormat = "";
+my $infile = "";
+use Getopt::Long qw(:config no_ignore_case bundling);
 GetOptions(
-                "debug|d" => \$debug,
+                "debug|d+" => \$debug,
                 "help|h" => \$help,
                 "base|b=s" => \$baseUri,
+                "worksheet|w=s" => \$worksheet,
+                "metaWorksheet|W=s" => \$metaWorksheet,
                 "meta|m=s" => \$metadataFile,
+                "format|f=s" => \$format,
+                "metaFormat|F=s" => \$metaFormat,
                 ) or die "$0: Error reading options.  " . &Usage();
 
 die &Usage() if $help;
 $baseUri || die &Usage();
+die &Usage() if @ARGV > 1;
+$infile = $ARGV[0] if @ARGV;
+$RTABLE = &ReadTable($infile, $worksheet, $format); 
 
-# print "\@prefix : <$baseUri>\n\n";
-
-$RTABLE = &ReadTsv();
-# warn "======================= DATA table: ======================\n" if $debug;
-# &PrintTable($RTABLE) if $debug;
-# warn "==========================================================\n" if $debug;
-# warn "\n" if $debug;
+warn "======================= DATA table: ======================\n" if $debug;
+&PrintTable($RTABLE) if $debug;
+warn "==========================================================\n" if $debug;
+warn "\n" if $debug;
+die "Done\n";
 
 $MTABLE = &RemoveMetadataRows($RTABLE);
 my $headersRef = shift @{$RTABLE};
@@ -130,7 +175,7 @@ for (my $r=0; $r<@{$RTABLE}; $r++) {
 
 if ($metadataFile) {
 	warn "Reading separate metadataFile: $metadataFile\n" if $debug;
-	my $rawMeta = &ReadTsv($metadataFile);
+	my $rawMeta = &ReadTable($metadataFile, $metaWorksheet, $metaFormat);
 	$MTABLE = &RemoveMetadataRows($rawMeta);
 	# Make sure the metadata headers match the data headers.
 	my $metaHeadersRef = ${$rawMeta}[0];
@@ -823,6 +868,35 @@ foreach my $row (@{$tsv}) {
 	}
 }
 
+################# ReadTable #####################
+# Determine the file type from the file extension or $format,
+# and invoke the appropriate %readerForFormat to read the
+# specified worksheet from the specified file.  Returns
+# a ref to an array (the rows) of array refs (the cells).
+# The first row will be the header row.   Usage:
+#   my $table = &ReadTable("foo.xlsx", "Worksheet1", $format);
+# Uses global %readerForFormat.
+sub ReadTable
+{
+@_ == 3 || confess "Died";
+my ($infile, $worksheet, $format) = @_;
+# Grrr.  Ridiculous that perl doesn't have a standard function to
+# parse the file extension.
+my ($ext) = ($infile =~ m/\.([^\.]*)$/);
+$ext = "" if !defined $ext;
+$format = lc($format || $ext);
+# die "infile: $infile format: $format ext: $ext\n";
+$format || die "$0: [ERROR] Unable to determine file format from filename '$infile'.  
+Please use the '-f fmt' option (for a data file) or '-F fmt' option
+(for a metadata file) to specify the file type.\n";
+my $reader = $readerForFormat{$format} || die "$0: [ERROR] Unimplemented spreadsheet file type: $format\n";
+# Disable reference warnings:
+no strict 'refs';
+my $rTable = &{$reader}($infile, $worksheet); 
+$rTable || die "$0: [ERROR] Failed to read data file '$infile' worksheet '$worksheet' as $format\n";
+return $rTable;
+}
+
 ########## ReadTsv ###########
 # Read a TSV file from a filename (if given) or stdin,
 # trimming leading and trailing whitespace from all cells.
@@ -831,8 +905,11 @@ foreach my $row (@{$tsv}) {
 # to have the same number of cells in each row.
 sub ReadTsv
 {
-@_ <= 1 or confess "Died";
+@_ == 2 or confess "Died";
 my $f = shift @_ || "";
+my $worksheet = shift @_;
+defined($worksheet) || confess "Died";
+$f = "" if $f eq "-";
 my $fh = \*STDIN;
 !$f || open($fh, "<$f") || die "$0: [ERROR] Cannot open $f\n";
 my $result = [];
@@ -840,7 +917,8 @@ my $nColumns = 0;
 my $row = 0;
 while (my $line = <$fh>) {
 	chomp $line;
-	my @fields = map {&Trim($_)} split(/\t/, $line, -1);
+	# my @fields = map {&Trim($_)} split(/\t/, $line, -1);
+	my @fields = split(/\t/, $line, -1);
 	@fields || die "$0: [ERROR] No data fields found in " . ($f ? "STDIN" : $f) . "\n";
 	my $nf = scalar(@fields);
 	$nColumns = $nf if !$nColumns;
@@ -852,6 +930,63 @@ while (my $line = <$fh>) {
 !$f || close($fh);
 # warn "Read $row rows\n";
 return $result;
+}
+
+########## ReadXlsx ###########
+# Read a .xlsx file from a filename (if given) or stdin,
+# trimming leading and trailing whitespace from all cells.
+# Optionally the worksheet may be specified:
+#       my $table = &ReadXlsx("myFile.xlsx", "Worksheet1");
+# Otherwise, the first is used.
+# Returns a reference to an array (the rows) of array 
+# references (the column values).  The result is guaranteed
+# to have the same number of cells in each row.
+sub ReadXlsx
+{
+@_ == 2 or confess "Died";
+my $f = shift @_ || "";
+my $worksheet = shift @_;
+defined($worksheet) || confess "Died";
+$worksheet ||= 0;	# Change "" to 0 if necessary.
+$f = "" if $f eq "-";
+my $fh = \*STDIN;
+!$f || open($fh, "<$f") || die "$0: [ERROR] Cannot open $f\n";
+my $result = [];
+my $nColumns = 0;
+my $row = 0;
+use Spreadsheet::ParseXLSX;
+my $excel = Spreadsheet::ParseXLSX->new()->parse($fh);
+my @worksheets = $excel->worksheets();
+# my $nWorksheets = scalar(@worksheets);
+my $nWorksheets = $excel->worksheet_count();
+warn "nWorksheets: $nWorksheets\n" if $debug > 1;
+my $worksheetObject = $excel->worksheet($worksheet);
+$worksheetObject || return undef;
+my $table = [];
+my ( $row_min, $row_max ) = $worksheetObject->row_range();
+my ( $col_min, $col_max ) = $worksheetObject->col_range();
+my $r=0;
+for my $row ( $row_min .. $row_max ) {
+	my $nextRow = [];
+	my $c=0;
+	for my $col ( $col_min .. $col_max ) {
+		my $v = "";	# Default to empty string
+		my $cell = $worksheetObject->get_cell( $row, $col );
+		if ($cell) {
+			$v = $cell->value();
+			# warn "Row, Col    = ($row, $col)\n" if $debug > 1;
+			# warn "Value       = ", $cell->value(),       "\n" if $debug > 1;
+			# warn "Unformatted = ", $cell->unformatted(), "\n" if $debug > 1;
+			# warn "\n" if $debug > 1;
+			}
+		push(@{$nextRow}, $v);
+		$c++;
+		}
+	$table->[$r] = $nextRow;
+	$r++;
+	}
+warn "Read $r rows\n" if $debug;
+return $table;
 }
 
 ########## Trim ############
@@ -881,6 +1016,7 @@ return $v;
 ########## TripleQuoteSafe ############
 # Make a string safe to write as a Turtle """string""".  
 # Backslashes and """ are escaped.  Nothing else is.
+# http://www.w3.org/TR/turtle/#string
 sub TripleQuoteSafe
 {
 my $s = shift @_;
@@ -910,5 +1046,30 @@ $v = &Clean($v);
 # $v =~ s/^_//;
 $v = "" if $v !~ m/^[A-Za-z]/;	# Must start with a letter
 return $v;
+}
+
+################# MimeTypeOfFile #####################
+# UNUSED CODE.  This was for testing the possibility of
+# determining a file's MIME type from its name or contents,
+# but it did not work well.  A simple foo.csv file showed
+# as having different MIME types based on the filename (correct: text/csv)
+# versus the content (wrong: application/octet-stream).
+# Thus, that technique was abandoned.  But I am keeping the
+# code here in case someone wants to pursue it again some day.
+sub MimeTypeOfFile
+{
+my $f = shift || die;
+use MIME::Types;
+use File::Type;
+my $ft = File::Type->new();
+my $types = MIME::Types->new( only_complete => 1 );
+my $mime = $types->mimeTypeOf($f);
+$mime = "UNDEFINED" if !defined $mime;
+print "mime from filename: $mime\n";
+# alternatively, check file from disk
+$mime = $ft->checktype_filename($f);
+$mime = "UNDEFINED" if !defined $mime;
+print "mime from contents: $mime\n";
+return $mime;
 }
 
