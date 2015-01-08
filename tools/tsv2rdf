@@ -75,8 +75,14 @@ Options:
 
   -t, --trim  
 	Trim leading and trailing whitespace from all cells when 
-	reading tables.  DEFAULT
+	reading data and metadata tables.  Leading and trailing
+	whitespace is always trimmed from the header row, so this
+	option only affects non-header rows.  DEFAULT
 	Opposite: --no-trim
+
+  --keepEmptyTrailingColumns
+	Keep trailing (rightmost) columns whose header and cells contain 
+	only whitespace.  By default they are ignored.
 
   -d, --debug
 	Print debugging info.  Intended for developers only.
@@ -147,6 +153,7 @@ my $format = "";
 my $metaFormat = "";
 my $infile = "";
 my $trim = 1;
+my $keepEmptyTrailingColumns = 0;
 use Getopt::Long qw(:config no_ignore_case bundling);
 GetOptions(
                 "debug|d+" => \$debug,
@@ -158,6 +165,7 @@ GetOptions(
                 "format|f=s" => \$format,
                 "metaFormat|F=s" => \$metaFormat,
                 "trim|t!" => \$trim,
+		"keepEmptyTrailingColumns!" => \$keepEmptyTrailingColumns,
                 ) or die "$0: Error reading options.  " . &Usage();
 
 die &Usage() if $help;
@@ -174,7 +182,7 @@ $RTABLE = &ReadTable($infile, $worksheet, $format);
 
 $MTABLE = &RemoveMetadataRows($RTABLE);
 my $headersRef = shift @{$RTABLE};
-@RHEADERS = @{$headersRef};
+@RHEADERS = map {&Trim($_)} @{$headersRef};
 @HEADERS = @RHEADERS;
 for (my $r=0; $r<@{$RTABLE}; $r++) {
 	@{$TABLE->[$r]} = @{$RTABLE->[$r]};
@@ -699,7 +707,7 @@ for (my $i=0; $i<@fields; $i++) {
 		warn "SetUriTemplateVariable var: $var value: $val\n" if $debug > 1;
 		}
 	}
-if ($debug > 1) {
+if (0 && $debug > 1) {
 	use Data::Dumper;
 	warn "uriTemplateValues = \n";
 	my $d = &Dumper(\%uriTemplateValues);
@@ -888,14 +896,46 @@ foreach my $row (@{$tsv}) {
 }
 
 ################# ReadTable #####################
+sub ReadTable
+{
+@_ == 3 || confess "Died";
+my ($infile, $worksheet, $format) = @_;
+my $rTable = &ReadRawTable($infile, $worksheet, $format);
+return $rTable if !$rTable or !@{$rTable};
+# Always trim the header row.
+@{$rTable->[0]} = map {&Trim($_)} @{$rTable->[0]};
+# Remove empty trailing columns?
+my $continueRemoving = !$keepEmptyTrailingColumns;
+while($continueRemoving) {
+	warn "Checking for empty trailing column in '$infile' ...\n" if $debug;
+	my $c = scalar(@{$rTable->[0]}) - 1;
+	my $allEmpty = 1;
+	for (my $r=0; $r<@{$rTable}; $r++) {
+		if ($rTable->[$r]->[$c] =~ m/\S/) {
+			$allEmpty = 0;
+			last;
+			}
+		}
+	if ($allEmpty) {
+		warn "Removing empty trailing column from '$infile'\n" if $debug;
+		for (my $r=0; $r<@{$rTable}; $r++) {
+			pop @{$rTable->[$r]};
+			}
+		}
+	else { $continueRemoving = 0; }
+	}
+return $rTable;
+}
+
+################# ReadRawTable #####################
 # Determine the file type from the file extension or $format,
 # and invoke the appropriate %readerForFormat to read the
 # specified worksheet from the specified file.  Returns
 # a ref to an array (the rows) of array refs (the cells).
 # The first row will be the header row.   Usage:
-#   my $table = &ReadTable("foo.xlsx", "Worksheet1", $format);
+#   my $table = &ReadRawTable("foo.xlsx", "Worksheet1", $format);
 # Uses global %readerForFormat.
-sub ReadTable
+sub ReadRawTable
 {
 @_ == 3 || confess "Died";
 my ($infile, $worksheet, $format) = @_;
