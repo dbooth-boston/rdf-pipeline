@@ -816,35 +816,31 @@ my $error = $@ || "";
 $underscore = $_;
 $underscore = "(undef)" if !defined($underscore);
 warn "      EvalWarnings after eval, expr: {$expr} UNDERSCORE: $underscore result: $result\n" if $debug > 1;
-if ($warning) {
+if ($warning || $error) {
 	my $directive = $DIRECTIVE || "INTERNAL";
 	my $args = $ARGS || "(undef)";
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
 	my $header = (defined($COLUMN) ? $RHEADERS[$COLUMN] : undef);
 	my $cell = (defined($COLUMN) && defined($ROW) 
 		? $TABLE->[$ROW]->[$COLUMN] : undef);
-	my $msg = "$0: [WARNING] $directive: eval of {$expr} at meta row $mrow";
+	my $max = 20;
+	my $shortExpr = (defined($expr) ? $expr : "");
+	$shortExpr = substr($shortExpr, 0, $max-3) . "..." if length($shortExpr) > $max;
+	my $shortCell = (defined($cell) ? $cell : "");
+	$shortCell = substr($shortCell, 0, $max-3) . "..." if length($shortCell) > $max;
+	my $shortMeta = (defined($META) ? $META : "");
+	$shortMeta = substr($shortMeta, 0, $max-3) . "..." if length($shortMeta) > $max;
+	my $WE = ($warning ? "WARNING" : "ERROR");
+	my $we = ($warning ? "a warning" : "an error");
+	my $weText = ($warning ? $warning : $error);
+	my $msg = "$0: [$WE] $directive: eval of {$shortExpr} at meta row $mrow";
 	$msg .= " column $COLUMN {$header}" if defined($COLUMN);
-	$msg .= " meta cell {$META}" if defined($META);
+	$msg .= " meta cell {$shortMeta}" if defined($META);
 	$msg .= " data row $ROW" if defined($ROW);
-	$msg .= " data cell {$cell}" if defined($cell);
-	$msg .= " produced a warning: $warning\n";
-	warn $msg;
-	}
-if ($error) {
-	my $directive = $DIRECTIVE || "INTERNAL";
-	my $args = $ARGS || "(undef)";
-	my $mrow = (defined($MROW) ? $MROW : "(undef)");
-	my $header = (defined($COLUMN) ? $RHEADERS[$COLUMN] : undef);
-	my $cell = (defined($COLUMN) && defined($ROW) 
-		? $TABLE->[$ROW]->[$COLUMN] : undef);
-	my $msg = "[ERROR] $directive: eval of {$expr} at meta row $mrow";
-	$msg .= " column $COLUMN {$header}" if defined($COLUMN);
-	$msg .= " meta cell {$META}" if defined($META);
-	$msg .= " data row $ROW" if defined($ROW);
-	$msg .= " data cell {$cell}" if defined($cell);
-	$msg .= " produced an error: $error\n";
-	die $msg;
+	$msg .= " data cell {$shortCell}" if defined($cell);
+	$msg .= " produced $we: $weText\n";
+	if ($warning) { warn $msg; }
+	else { die $msg; }
 	}
 return $result;
 }
