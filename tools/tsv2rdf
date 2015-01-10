@@ -685,6 +685,9 @@ my $fPerDataCell = undef;
 my $fPerMetaCell = sub {
 	my $meta = &Trim($META);
 	return if !$meta;
+	# Auto-quote if it does not already start with a quote,
+	# because later it will be eval'ed as an expression:
+	$meta = '"' . $meta . '"' if $meta !~ m/^[\'\"]/;
 	$hash->{$HEADER} = $meta;
 	warn "$name expr of column $COLUMN {$HEADER}: $meta\n" if $debug > 1;
 	};
