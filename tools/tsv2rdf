@@ -234,7 +234,7 @@ no warnings qw(qw);
 	);
 }
 
-my %uriTemplateValues;	# For #SetUriTemplateVariable
+my %VAR;	# For #SetUriTemplateVariable
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
 	Prefix 
@@ -458,10 +458,56 @@ defined($HEADER) || confess "Died";
 $RAW = $RTABLE->[$ROW]->[$COLUMN];
 $_ = $TABLE->[$ROW]->[$COLUMN];
 defined($_) || confess "Died";
-$uriTemplateValues{THIS} = $_;
-$CLASS = &Expand($CLASS{$HEADER} || "");
-$PREDICATE = &Expand($PREDICATE{$HEADER} || "");
-$OBJECT = &Expand($OBJECT{$HEADER} || "");
+$CLASS = &EvalWarnings($CLASS{$HEADER} || "");
+our $classWarned;
+!$CLASS || &MatchesUriTerm($CLASS) || $classWarned++ || warn "$0: [WARNING] Unusual class name in column $COLUMN {$HEADER} row $ROW: $CLASS\n";
+$PREDICATE = &EvalWarnings($PREDICATE{$HEADER} || "");
+our $predicateWarned;
+!$PREDICATE || &MatchesUriTerm($PREDICATE) || $predicateWarned++ || warn "$0: [WARNING] Unusual predicate name in column $COLUMN {$HEADER} row $ROW: $PREDICATE\n";
+$OBJECT = &EvalWarnings($OBJECT{$HEADER} || "");
+our $objectWarned;
+!$OBJECT || &MatchesUriTerm($OBJECT) || &MatchesLiteral($OBJECT) || $objectWarned++ || warn "$0: [WARNING] Unusual RDF object term in column $COLUMN {$HEADER} row $ROW: $OBJECT\n";
+}
+
+################## MatchesLiteral ##################
+# Does $term seem to be a Turtle literal?
+# This is not a precise check.
+sub MatchesLiteral
+{
+my $term = shift;
+# "foo" 'foo' """foo""" "foo"@en "foo"^^xsd:string
+return 1 if $term =~ m/^[\"\']/;
+# Number:
+return 1 if $term =~ m/^[\+\-]?(\.?)[0-9][0-9E\-\+]*$/;
+return 0;
+}
+
+################## MatchesUriTerm ##################
+# Does $term seem to be a Turtle term like <uri> or p:foo?
+sub MatchesUriTerm
+{
+my $term = shift;
+return 1 if &MatchesUri($term);
+return 1 if &MatchesPname($term);
+return 0;
+}
+
+################## MatchesUri ##################
+# Does $term seem to be a Turtle <uri> ?
+sub MatchesUri
+{
+my $term = shift;
+return 1 if $term =~ m/^\<[\~\!\#\$\%\&\(\)\*\+\,\-\.\/0-9\:\;\=\?\@A-Z_a-z]*\>$/i;
+return 0;
+}
+
+################## MatchesPname ##################
+# Does $term seem to be a pname like p:foo?
+sub MatchesPname
+{
+my $term = shift;
+return 1 if $term =~ m/^([a-z]([a-z0-9_\-\.]*[a-z0-9_\-])?)\:/i;
+return 0;
 }
 
 ################## ResetGlobalsForDataColumn #################
@@ -640,92 +686,83 @@ my $fPerMetaCell = sub {
 	my $meta = &Trim($META);
 	return if !$meta;
 	$hash->{$HEADER} = $meta;
-	warn "$name: $name of column {$HEADER}: $meta\n" if $debug > 1;
+	warn "$name expr of column $COLUMN {$HEADER}: $meta\n" if $debug > 1;
 	};
 &Iterate($fPerMetaCell, $fPerDataCell);
 $debug = $oldDebug;
 }
 
 ################## Prefix #################
-# Called as:
-#   &Prefix($args, @fields);
-# where @fields are meta fields, not data fields, because #Prefix is
-# a preprocessing directive.
+# Prefix is a preprocessing directive.
 sub Prefix
 {
-# Process $ARGS the same as any other field:
-my @fields = ($ARGS, @METAS);
+die "$0: [ERROR] Unknown ARGS in Prefix directive on metadata row $MROW: $ARGS\n" if $ARGS;
 my $oldDebug = $debug;
 # $debug = 2;
-for (my $i=0; $i<@fields; $i++) {
-	my $f = $fields[$i];
-	next if $f !~ m/\S/;
-	$f = &Trim($f);
+for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
+	&SetGlobalsForMetaColumn();
+	next if $META !~ m/\S/;
+	$META = &Trim($META);
+	my $originalMeta = $META;
 	# Ignore optional "@prefix" and trailing period:
-	$f =~ s/^\@//;
-	$f =~ s/^prefix\s+//i;
-	$f =~ s/\s*\.$//;
-	my ($prefix, $uri, @extra) = split(/\s+/, $f, -1);
-	die "$0: [ERROR] Prefix: Bad declaration: $fields[$i]\n"
-		if @extra || !$uri || $prefix !~ m/\:$/;
-	# Remove optional <..> around the URI template:
-	my $bareUri = $uri;
-	$bareUri =~ s/^\<(.*)\>$/$1/;
-	my ($eUri, $undefVar) = &ExpandUriTemplate($bareUri, %uriTemplateValues);
-	die "$0: [ERROR] Prefix: Undefined variable $undefVar in URI template: $bareUri\n" if $undefVar;
-	$NAMESPACE{$prefix} = "<$eUri>";
-	warn "  PREFIX: $prefix <$eUri>\n" if $debug > 1;
+	$META =~ s/^\@//;
+	$META =~ s/^prefix\s+//i;
+	$META =~ s/\s*\.$//;
+	my ($prefix, $uri) = ($META =~ m/^([^\:]*\:)\s*(.+)$/);
+	die "$0: [ERROR] Bad prefix declaration in column $COLUMN {$HEADER} row $ROW: $originalMeta\n"
+		if !defined($uri);
+	# Perl convenience: Auto-quote if it contains $
+	$uri = '"' . $uri . '"' if $uri =~ m/\$/;
+	# Eval as a perl expression if it starts with quote:
+	$uri = &EvalWarnings($uri) if $uri =~ m/^[\'\"]/;
+	# Auto-wrap in <..> if needed:
+	$uri = "<$uri>" if $uri !~ m/^\</;
+	&MatchesUri($uri) || warn "$0: [WARNING] Unusual prefix URI '$uri' in column $COLUMN {$HEADER} row $ROW from declaration: $originalMeta\n";
+	$NAMESPACE{$prefix} = $uri;
+	warn "  PREFIX: $prefix $uri\n" if $debug;
 	}
 $debug = $oldDebug;
 # die "STOPPED!\n";
 }
 
 ################## SetUriTemplateVariable #################
-# Set %uriTemplateValues, for use in URI Templates.
+# Set %VAR, for use in URI Templates.
 sub SetUriTemplateVariable
 {
-# Process $ARGS the same as any other field:
-my @fields = ($ARGS, @METAS);
+die "$0: [ERROR] Unknown ARGS in Prefix directive on metadata row $MROW: $ARGS\n" if $ARGS;
 my $oldDebug = $debug;
 # $debug = 2;
-for (my $i=0; $i<@fields; $i++) {
-	my $f = $fields[$i];
-	next if $f !~ m/\S/;
-	$f = &Trim($f);
-	my @varVal = split(/\s+/, $f, -1);
-	$COLUMN = $i-1;
-	die "[ERROR] SetUriTemplateVariable: Odd number of components at meta row $MROW column $COLUMN: $f\n" if (@varVal % 2) != 0;
-	while(@varVal) {
-		my $var = shift @varVal;
-		my $rawVal = shift @varVal;
-		warn "$0: [WARNING] SetUriTemplateVariable: Variable $var redeclared at meta row $MROW column $COLUMN: $f\n" if exists($uriTemplateValues{$var});
-		# The value itself may be a template that needs expansion:
-		# 	foo http://example/{bar}/baz
-		my ($val, $undefVar) = &ExpandUriTemplate($rawVal, %uriTemplateValues);
-		die "[ERROR] SetUriTemplateVariable: Undefined variable $undefVar found in URI template expression $rawVal at meta row $MROW column $COLUMN\n" if $undefVar;
-		$uriTemplateValues{$var} = $val;
-		warn "SetUriTemplateVariable var: $var value: $val\n" if $debug > 1;
-		}
+for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
+	&SetGlobalsForMetaColumn();
+	next if $META !~ m/\S/;
+	$META = &Trim($META);
+	my $originalMeta = $META;
+	my ($var, $expr) = split(/\s+/, $META, 2);
+	die "[ERROR] SetUriTemplateVariable: Bad variable declaration at meta row $MROW column $COLUMN: $originalMeta\n" if !defined($expr);
+	warn "$0: [WARNING] SetUriTemplateVariable: Variable $var redeclared at meta row $MROW column $COLUMN: $META\n" if exists($VAR{$var});
+	my $val = &EvalWarnings($expr);
+	$VAR{$var} = $val;
+	warn "SetUriTemplateVariable var: $var value: $val\n" if $debug;
 	}
 if (0 && $debug > 1) {
 	use Data::Dumper;
-	warn "uriTemplateValues = \n";
-	my $d = &Dumper(\%uriTemplateValues);
+	warn "VAR = \n";
+	my $d = &Dumper(\%VAR);
 	warn "$d\n";
 	}
 $debug = $oldDebug;
 # die "STOPPED!\n";
 }
 
-############### Expand ###############
+############### OLD_Expand ###############
 # Usage:
 #   my $value = &Expand($expr);
-# Variable mappings are accessed from global: %uriTemplateValues
-sub Expand
+# Variable mappings are accessed from global: %VAR
+sub OLD_Expand
 {
 my $expr = shift;
 defined($expr) || confess "Died";
-my ($val, $undefVar) = &ExpandUriTemplate($expr, %uriTemplateValues);
+my ($val, $undefVar) = &ExpandUriTemplate($expr, %VAR);
 if ($undefVar) {
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
 	my $column = (defined($COLUMN) ? $COLUMN : "(undef)");
@@ -734,13 +771,13 @@ if ($undefVar) {
 return $val;
 }
 
-############### ExpandUriTemplate ###############
+############### OLD_ExpandUriTemplate ###############
 # Usage:
 #   my ($value, $undefVar) = &ExpandUriTemplate($expr, %varValMappings);
 # Where $undefVar will be the name of an undefined variable in $expr
 # if it has any that are undefined.   If all variables in $expr
 # are defined in %varValMappings then $undefVar will be the empty string.
-sub ExpandUriTemplate
+sub OLD_ExpandUriTemplate
 {
 @_ >= 1 || confess "Died";
 my $expr = shift;
@@ -795,7 +832,9 @@ sub EvalWarnings
 {
 @_ == 1 || confess "Died";
 my $expr = shift @_;
-$expr || confess "Died";
+defined($expr) || confess "Died";
+$expr = &Trim($expr);
+return "" if $expr eq "";
 my $underscore = $_;
 $underscore = "(undef)" if !defined($underscore);
 warn "      EvalWarnings starting expr: {$expr} UNDERSCORE: $underscore\n" if $debug > 1;
@@ -1060,7 +1099,8 @@ return $s;
 ########## Clean ###########
 # Trim leading and trailing whitespace, turn everything but [a-zA-Z0-9_]
 # into underscore ("_") and change any occurrences of multiple
-# underscores into a single underscore.
+# underscores into a single underscore (in order to treat multiple
+# blanks as a single blank).
 sub Clean
 {
 my $v = shift @_;
@@ -1073,7 +1113,7 @@ return $v;
 
 ########## TripleQuoteSafe ############
 # Make a string safe to write as a Turtle """string""".  
-# Backslashes and """ are escaped.  Nothing else is.
+# Backslashes and triple quotes """ are escaped.  Nothing else is.
 # http://www.w3.org/TR/turtle/#string
 sub TripleQuoteSafe
 {
@@ -1086,6 +1126,7 @@ return $s;
 ########## QuoteSafe ############
 # Make a string safe to write as a Turtle "string".  Prohibited
 # characters [\"\r\n\\] are silently changed to spaces.
+# http://www.w3.org/TR/turtle/#string
 sub QuoteSafe
 {
 my $s = shift @_;
