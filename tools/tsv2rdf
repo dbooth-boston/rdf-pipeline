@@ -1116,13 +1116,12 @@ return $v;
 
 ########## TripleQuoteSafe ############
 # Make a string safe to write as a Turtle """string""".  
-# Backslashes and triple quotes """ are escaped.  Nothing else is.
+# Backslashes and quotes " are escaped.  Nothing else is.
 # http://www.w3.org/TR/turtle/#string
 sub TripleQuoteSafe
 {
 my $s = shift @_;
-$s =~ s/[\\]/\\\\/gms;			# \   --> \\
-$s =~ s|\"\"\"|\\\"\\\"\\\"|gms;	# """ --> \"\"\"
+$s =~ s/([\"\\])/\\$1/gms;			# \   --> \\
 return $s;
 }
 
