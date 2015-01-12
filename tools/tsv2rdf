@@ -123,9 +123,11 @@ our %DATA;	# Maps column name to cell value in current row
 our %CLASS;	# Maps column name to class URI Template
 our %PREDICATE;	# maps column name to predicate URI Template
 our %OBJECT;	# Maps column name to object URI Template
+our %LABEL;	# Maps column name to object URI rdfs:label
 our $CLASS;	# Turtle class of current data $ROW and $COLUMN
 our $PREDICATE;	# Turtle predicate of current data $ROW and $COLUMN
-our $OBJECT;	# Turtle predicate of current data $ROW and $COLUMN
+our $OBJECT;	# Turtle object of current data $ROW and $COLUMN
+our $LABEL;	# Turtle label of current data $ROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
 our $P;		# Turtle predicate of current data $ROW and $COLUMN
 ########### Other globals, probably not used by users
@@ -242,6 +244,7 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Class
 	Predicate
 	Object
+	Label
 	Perl_PreRun
 	Perl_PreFilter
 	);
@@ -455,6 +458,8 @@ defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 $HEADER = $HEADERS[$COLUMN];
 defined($HEADER) || confess "Died";
+# Important to set $RAW and $_ before setting $CLASS, etc., because
+# those will evaluate expressions that may involve $RAW and $_.
 $RAW = $RTABLE->[$ROW]->[$COLUMN];
 $_ = $TABLE->[$ROW]->[$COLUMN];
 defined($_) || confess "Died";
@@ -467,6 +472,7 @@ our $predicateWarned;
 $OBJECT = &EvalWarnings($OBJECT{$HEADER} || "");
 our $objectWarned;
 !$OBJECT || &MatchesUriTerm($OBJECT) || &MatchesLiteral($OBJECT) || $objectWarned++ || warn "$0: [WARNING] Unusual RDF object term in column $COLUMN {$HEADER} row $ROW: $OBJECT\n";
+$LABEL = &EvalWarnings($LABEL{$HEADER} || "");
 }
 
 ################## MatchesLiteral ##################
@@ -669,6 +675,12 @@ sub Predicate
 sub Object
 {
 &ClassOrPredicate("Object", \%OBJECT);
+}
+
+################## Label #################
+sub Label
+{
+&ClassOrPredicate("Label", \%LABEL);
 }
 
 ################## ClassOrPredicate #################
