@@ -84,8 +84,13 @@ Options:
 	Keep trailing (rightmost) columns whose header and cells contain 
 	only whitespace.  By default they are ignored.
 
+  --requireVersion v
+	Require at least version v.
+	NOT YET IMPLEMENTED.
+
   -d, --debug
 	Print debugging info.  Intended for developers only.
+	This option may be repeated for more verbose debugging output.
 
   -h, --help
 	Print this usage message.
@@ -110,7 +115,7 @@ our $RTABLE;	# Ref to the entire raw data table
 our @HEADERS;	# Column headers (excluding any #META column header)
 our @RHEADERS;	# Column headers before mods 
 our $HEADER;	# Current header: $HEADER[$COLUMN]
-our $RAW;	# Current cell value.  Corresponds to $_
+our $RAW;	# Current original cell value.  Corresponds to $_
 our %NAMESPACE;	# Prefix->namespace mappings
 our $MROW;	# Index of current meta row
 our $ROW;	# Index of current data row
@@ -156,6 +161,7 @@ my $metaFormat = "";
 my $infile = "";
 my $trim = 1;
 my $keepEmptyTrailingColumns = 0;
+my $requireVersion = "";
 use Getopt::Long qw(:config no_ignore_case bundling);
 GetOptions(
                 "debug|d+" => \$debug,
@@ -168,8 +174,11 @@ GetOptions(
                 "metaFormat|F=s" => \$metaFormat,
                 "trim|t!" => \$trim,
 		"keepEmptyTrailingColumns!" => \$keepEmptyTrailingColumns,
+                "requireVersion=s" => \$requireVersion,
                 ) or die "$0: Error reading options.  " . &Usage();
 
+warn "$0: [WARNING] Option not yet implemented: --requireVersion\n"
+	if $requireVersion;
 die &Usage() if $help;
 $baseUri || die &Usage();
 die &Usage() if @ARGV > 1;
@@ -351,7 +360,7 @@ exit 0;
 #####################################################################
 
 ################## CellFilter ###################
-# Filter all cells through this function, using global options.
+# Filter all cells through this function, applying global options.
 sub CellFilter
 {
 @_ == 1 || confess "Died";
@@ -508,11 +517,11 @@ return 0;
 }
 
 ################## MatchesPname ##################
-# Does $term seem to be a pname like p:foo?
+# Does $term seem to be a pname like p:foo p.1: :foo : ?
 sub MatchesPname
 {
 my $term = shift;
-return 1 if $term =~ m/^([a-z]([a-z0-9_\-\.]*[a-z0-9_\-])?)\:/i;
+return 1 if $term =~ m/^([a-z]([a-z0-9_\-\.]*[a-z0-9_\-])?)?\:/i;
 return 0;
 }
 
@@ -717,7 +726,8 @@ my $oldDebug = $debug;
 for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
 	&SetGlobalsForMetaColumn();
 	next if $META !~ m/\S/;
-	$META = &Trim($META);
+	# TODO: Are meta cells already &Trim()ed anyway?
+	$META = &Trim($META);	
 	my $originalMeta = $META;
 	# Ignore optional "@prefix" and trailing period:
 	$META =~ s/^\@//;
@@ -1124,6 +1134,15 @@ $v = &Trim($v);
 $v =~ s/[^A-Za-z0-9_]/_/g;
 $v =~ s/_+/_/g;
 return $v;
+}
+
+########## Quote ############
+# Escape the given string as necessary, and wrap it in
+# """triple quotes""" for output as an RDF literal.
+sub Quote
+{
+my $s = shift @_;
+return '"""' . &TripleQuoteSafe($s) . '"""';
 }
 
 ########## TripleQuoteSafe ############
