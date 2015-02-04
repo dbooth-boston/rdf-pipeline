@@ -11,7 +11,7 @@ use strict;
 # Summary of schema implied by RDF instance data -- classes and predicates.
 # Files are read from command line or stdin, in Turtle format.
 #
-# Runtime: ~30 minutes / 600k triples on a laptop
+# Runtime: ~30 minutes / 600k triples on a 2012 laptop (quad processor)
 #
 # EXAMPLE INPUT:
 #    1. @prefix p: <http://purl.org/pipeline/ont#> .
