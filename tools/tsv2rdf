@@ -1,6 +1,6 @@
 #! /usr/bin/env perl
 
-# Copyright 2014 by David Booth
+# Copyright 2015 by David Booth
 # This software is available as free and open source under
 # the Apache 2.0 software license, which may be viewed at
 # http://www.apache.org/licenses/LICENSE-2.0.html
@@ -472,10 +472,10 @@ defined($HEADER) || confess "Died";
 $RAW = $RTABLE->[$ROW]->[$COLUMN];
 $_ = $TABLE->[$ROW]->[$COLUMN];
 defined($_) || confess "Died";
-$CLASS = &EvalWarnings($CLASS{$HEADER} || "");
+$CLASS = ($CLASS{$HEADER} || "");
 our $classWarned;
 !$CLASS || &MatchesUriTerm($CLASS) || $classWarned++ || warn "$0: [WARNING] Unusual class name in column $COLUMN {$HEADER} row $ROW: $CLASS\n";
-$PREDICATE = &EvalWarnings($PREDICATE{$HEADER} || "");
+$PREDICATE = ($PREDICATE{$HEADER} || "");
 our $predicateWarned;
 !$PREDICATE || &MatchesUriTerm($PREDICATE) || $predicateWarned++ || warn "$0: [WARNING] Unusual predicate name in column $COLUMN {$HEADER} row $ROW: $PREDICATE\n";
 $OBJECT = &EvalWarnings($OBJECT{$HEADER} || "");
@@ -683,18 +683,46 @@ sub Predicate
 ################## Object #################
 sub Object
 {
-&ClassOrPredicate("Object", \%OBJECT);
+&ObjectOrLabel("Object", \%OBJECT);
 }
 
 ################## Label #################
 sub Label
 {
-&ClassOrPredicate("Label", \%LABEL);
+&ObjectOrLabel("Label", \%LABEL);
 }
 
 ################## ClassOrPredicate #################
-# Remember the class or predicate of each column.
+# Eval and remember the class or predicate of each column.
+# These are evaluated *once*, during directive processing -- not
+# on every cell.
 sub ClassOrPredicate
+{
+@_ == 2 || confess "Died";
+my ($name, $hash) = @_;
+my $oldDebug = $debug;
+$debug = 2;
+# warn "$name starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
+# Nothing to be done per data cell:
+my $fPerDataCell = undef;
+my $fPerMetaCell = sub {
+	my $meta = &Trim($META);
+	return if !$meta;
+	# Auto-quote if it does not already start with a quote,
+	# because it will be eval'ed as an expression:
+	$meta = '"' . $meta . '"' if $meta !~ m/^[\'\"]/;
+	my $result = &EvalWarnings($meta) if $meta ne "";
+	$hash->{$HEADER} = $result;
+	warn "$name expr of column $COLUMN {$HEADER}: $result\n" if $debug > 1;
+	};
+&Iterate($fPerMetaCell, $fPerDataCell);
+$debug = $oldDebug;
+}
+
+################## ObjectOrLabel #################
+# Remember the object or label expression of each column.
+# They will be eval'ed later for each cell.
+sub ObjectOrLabel
 {
 @_ == 2 || confess "Died";
 my ($name, $hash) = @_;
