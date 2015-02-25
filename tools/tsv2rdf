@@ -127,14 +127,14 @@ our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
 our %CLASS;	# Maps column name to class URI Template
 our %PROPERTY;	# maps column name to property URI Template
-our %PROPERTY_CLASS;	# maps column name to property class URI Template
+our %PROPERTY_TYPE;	# maps column name to property class URI Template
 our %PROPERTY_DOMAIN;	# maps column name to property domain URI Template
 our %PROPERTY_RANGE;	# maps column name to property range URI Template
 our %OBJECT;	# Maps column name to object URI Template
 our %LABEL;	# Maps column name to object URI rdfs:label
 our $CLASS;	# Turtle class of current data $ROW and $COLUMN
 our $PROPERTY;	# Turtle property of current data $ROW and $COLUMN
-our $PROPERTY_CLASS;	# Turtle property class of current data $ROW and $COLUMN
+our $PROPERTY_TYPE;	# Turtle property class of current data $ROW and $COLUMN
 our $PROPERTY_DOMAIN;	# Turtle property domain of current data $ROW and $COLUMN
 our $PROPERTY_RANGE;	# Turtle property range of current data $ROW and $COLUMN
 our $OBJECT;	# Turtle object of current data $ROW and $COLUMN
@@ -258,7 +258,7 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	SetUriTemplateVariable
 	Class
 	Property
-	PropertyClass
+	PropertyType
 	PropertyDomain
 	PropertyRange
 	Object
@@ -485,13 +485,13 @@ $CLASS = ($CLASS{$HEADER} || "");
 our $classWarned;
 !$CLASS || &MatchesUriTerm($CLASS) || $classWarned++ || warn "$0: [WARNING] Unusual class name in column $COLUMN {$HEADER} row $ROW: $CLASS\n";
 $PROPERTY = ($PROPERTY{$HEADER} || "");
-$PROPERTY_CLASS = ($PROPERTY_CLASS{$HEADER} || "");
+$PROPERTY_TYPE = ($PROPERTY_TYPE{$HEADER} || "");
 $PROPERTY_DOMAIN = ($PROPERTY_DOMAIN{$HEADER} || "");
 $PROPERTY_RANGE = ($PROPERTY_RANGE{$HEADER} || "");
 our $propertyWarned;
 !$PROPERTY || &MatchesUriTerm($PROPERTY) || $propertyWarned++ || warn "$0: [WARNING] Unusual property name in column $COLUMN {$HEADER} row $ROW: $PROPERTY\n";
 our $propertyClassWarned;
-!$PROPERTY_CLASS || &MatchesUriTerm($PROPERTY_CLASS) || $propertyClassWarned++ || warn "$0: [WARNING] Unusual property class name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_CLASS\n";
+!$PROPERTY_TYPE || &MatchesUriTerm($PROPERTY_TYPE) || $propertyClassWarned++ || warn "$0: [WARNING] Unusual property class name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_TYPE\n";
 our $propertyDomainWarned;
 !$PROPERTY_DOMAIN || &MatchesUriTerm($PROPERTY_DOMAIN) || $propertyDomainWarned++ || warn "$0: [WARNING] Unusual property domain name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_DOMAIN\n";
 our $propertyRangeWarned;
@@ -698,10 +698,10 @@ sub Property
 &ClassOrProperty("Property", \%PROPERTY);
 }
 
-################## PropertyClass #################
-sub PropertyClass
+################## PropertyType #################
+sub PropertyType
 {
-&ClassOrProperty("PropertyClass", \%PROPERTY_CLASS);
+&ClassOrProperty("PropertyType", \%PROPERTY_TYPE);
 }
 
 ################## PropertyDomain #################
@@ -737,7 +737,7 @@ sub ClassOrProperty
 @_ == 2 || confess "Died";
 my ($name, $hash) = @_;
 my $oldDebug = $debug;
-$debug = 2;
+# $debug = 2;
 # warn "$name starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
 # Nothing to be done per data cell:
 my $fPerDataCell = undef;
