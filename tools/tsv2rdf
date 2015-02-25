@@ -127,10 +127,14 @@ our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
 our %CLASS;	# Maps column name to class URI Template
 our %PREDICATE;	# maps column name to predicate URI Template
+our %PREDICATE_DOMAIN;	# maps column name to predicate domain URI Template
+our %PREDICATE_RANGE;	# maps column name to predicate range URI Template
 our %OBJECT;	# Maps column name to object URI Template
 our %LABEL;	# Maps column name to object URI rdfs:label
 our $CLASS;	# Turtle class of current data $ROW and $COLUMN
 our $PREDICATE;	# Turtle predicate of current data $ROW and $COLUMN
+our $PREDICATE_DOMAIN;	# Turtle predicate domain of current data $ROW and $COLUMN
+our $PREDICATE_RANGE;	# Turtle predicate range of current data $ROW and $COLUMN
 our $OBJECT;	# Turtle object of current data $ROW and $COLUMN
 our $LABEL;	# Turtle label of current data $ROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
@@ -252,6 +256,8 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	SetUriTemplateVariable
 	Class
 	Predicate
+	PredicateDomain
+	PredicateRange
 	Object
 	Label
 	Perl_PreRun
@@ -476,8 +482,14 @@ $CLASS = ($CLASS{$HEADER} || "");
 our $classWarned;
 !$CLASS || &MatchesUriTerm($CLASS) || $classWarned++ || warn "$0: [WARNING] Unusual class name in column $COLUMN {$HEADER} row $ROW: $CLASS\n";
 $PREDICATE = ($PREDICATE{$HEADER} || "");
+$PREDICATE_DOMAIN = ($PREDICATE_DOMAIN{$HEADER} || "");
+$PREDICATE_RANGE = ($PREDICATE_RANGE{$HEADER} || "");
 our $predicateWarned;
 !$PREDICATE || &MatchesUriTerm($PREDICATE) || $predicateWarned++ || warn "$0: [WARNING] Unusual predicate name in column $COLUMN {$HEADER} row $ROW: $PREDICATE\n";
+our $predicateDomainWarned;
+!$PREDICATE_DOMAIN || &MatchesUriTerm($PREDICATE_DOMAIN) || $predicateDomainWarned++ || warn "$0: [WARNING] Unusual predicate domain name in column $COLUMN {$HEADER} row $ROW: $PREDICATE_DOMAIN\n";
+our $predicateRangeWarned;
+!$PREDICATE_RANGE || &MatchesUriTerm($PREDICATE_RANGE) || $predicateRangeWarned++ || warn "$0: [WARNING] Unusual predicate domain name in column $COLUMN {$HEADER} row $ROW: $PREDICATE_RANGE\n";
 $OBJECT = &EvalWarnings($OBJECT{$HEADER} || "");
 our $objectWarned;
 !$OBJECT || &MatchesUriTerm($OBJECT) || &MatchesLiteral($OBJECT) || $objectWarned++ || warn "$0: [WARNING] Unusual RDF object term in column $COLUMN {$HEADER} row $ROW: $OBJECT\n";
@@ -678,6 +690,18 @@ sub Class
 sub Predicate
 {
 &ClassOrPredicate("Predicate", \%PREDICATE);
+}
+
+################## PredicateDomain #################
+sub PredicateDomain
+{
+&ClassOrPredicate("PredicateDomain", \%PREDICATE_DOMAIN);
+}
+
+################## PredicateRange #################
+sub PredicateRange
+{
+&ClassOrPredicate("PredicateRange", \%PREDICATE_RANGE);
 }
 
 ################## Object #################
