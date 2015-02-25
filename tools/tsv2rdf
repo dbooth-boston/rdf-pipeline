@@ -126,19 +126,19 @@ our @METAS;	# Meta cell values for current $MROW
 our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
 our %CLASS;	# Maps column name to class URI Template
-our %PREDICATE;	# maps column name to predicate URI Template
-our %PREDICATE_DOMAIN;	# maps column name to predicate domain URI Template
-our %PREDICATE_RANGE;	# maps column name to predicate range URI Template
+our %PROPERTY;	# maps column name to property URI Template
+our %PROPERTY_DOMAIN;	# maps column name to property domain URI Template
+our %PROPERTY_RANGE;	# maps column name to property range URI Template
 our %OBJECT;	# Maps column name to object URI Template
 our %LABEL;	# Maps column name to object URI rdfs:label
 our $CLASS;	# Turtle class of current data $ROW and $COLUMN
-our $PREDICATE;	# Turtle predicate of current data $ROW and $COLUMN
-our $PREDICATE_DOMAIN;	# Turtle predicate domain of current data $ROW and $COLUMN
-our $PREDICATE_RANGE;	# Turtle predicate range of current data $ROW and $COLUMN
+our $PROPERTY;	# Turtle property of current data $ROW and $COLUMN
+our $PROPERTY_DOMAIN;	# Turtle property domain of current data $ROW and $COLUMN
+our $PROPERTY_RANGE;	# Turtle property range of current data $ROW and $COLUMN
 our $OBJECT;	# Turtle object of current data $ROW and $COLUMN
 our $LABEL;	# Turtle label of current data $ROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
-our $P;		# Turtle predicate of current data $ROW and $COLUMN
+our $P;		# Turtle property of current data $ROW and $COLUMN
 ########### Other globals, probably not used by users
 our $NROWS;	# Number of data rows (excludes header row)
 our $NCOLUMNS;	# Number of data columns (and meta columns)
@@ -255,9 +255,9 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Prefix 
 	SetUriTemplateVariable
 	Class
-	Predicate
-	PredicateDomain
-	PredicateRange
+	Property
+	PropertyDomain
+	PropertyRange
 	Object
 	Label
 	Perl_PreRun
@@ -307,7 +307,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	warn "===============================================\n" if $debug;
 	$S = "_:row$ROW";
 	my @underscores = map {""} @HEADERS;
-	my @predicates = map {""} @HEADERS;
+	my @properties = map {""} @HEADERS;
 	my $firstMeta = 1;
 	for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 		my $mr = $MTABLE->[$MROW];
@@ -329,7 +329,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 			if ($firstMeta) {
 				# Init per-column data
 				my $p = &MakeVar($HEADER) || "UNDEFINED";
-				$predicates[$COLUMN] = "table:$p";
+				$properties[$COLUMN] = "table:$p";
 				$underscores[$COLUMN] = $TABLE->[$ROW]->[$COLUMN];
 				}
 			&SetGlobalsForMetaRow();
@@ -341,7 +341,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 			# TODO: make this not depend on having the metadata
 			# columns in the same order as the data columns:
 			$_ = $underscores[$COLUMN];
-			$P = $predicates[$COLUMN];
+			$P = $properties[$COLUMN];
 			next if $_ eq "";
 			%DATA = map {($HEADERS[$_], $underscores[$_])} 0..$#HEADERS;
 			warn "Calling &$directive();\n" if $debug > 1;
@@ -353,7 +353,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 			# &ResetGlobalsForMetaColumn();
 			# &ResetGlobalsForMetaRow();
 			$underscores[$COLUMN] = $_;
-			$predicates[$COLUMN] = $P;
+			$properties[$COLUMN] = $P;
 			}
 		$firstMeta = 0;
 		}
@@ -481,15 +481,15 @@ defined($_) || confess "Died";
 $CLASS = ($CLASS{$HEADER} || "");
 our $classWarned;
 !$CLASS || &MatchesUriTerm($CLASS) || $classWarned++ || warn "$0: [WARNING] Unusual class name in column $COLUMN {$HEADER} row $ROW: $CLASS\n";
-$PREDICATE = ($PREDICATE{$HEADER} || "");
-$PREDICATE_DOMAIN = ($PREDICATE_DOMAIN{$HEADER} || "");
-$PREDICATE_RANGE = ($PREDICATE_RANGE{$HEADER} || "");
-our $predicateWarned;
-!$PREDICATE || &MatchesUriTerm($PREDICATE) || $predicateWarned++ || warn "$0: [WARNING] Unusual predicate name in column $COLUMN {$HEADER} row $ROW: $PREDICATE\n";
-our $predicateDomainWarned;
-!$PREDICATE_DOMAIN || &MatchesUriTerm($PREDICATE_DOMAIN) || $predicateDomainWarned++ || warn "$0: [WARNING] Unusual predicate domain name in column $COLUMN {$HEADER} row $ROW: $PREDICATE_DOMAIN\n";
-our $predicateRangeWarned;
-!$PREDICATE_RANGE || &MatchesUriTerm($PREDICATE_RANGE) || $predicateRangeWarned++ || warn "$0: [WARNING] Unusual predicate domain name in column $COLUMN {$HEADER} row $ROW: $PREDICATE_RANGE\n";
+$PROPERTY = ($PROPERTY{$HEADER} || "");
+$PROPERTY_DOMAIN = ($PROPERTY_DOMAIN{$HEADER} || "");
+$PROPERTY_RANGE = ($PROPERTY_RANGE{$HEADER} || "");
+our $propertyWarned;
+!$PROPERTY || &MatchesUriTerm($PROPERTY) || $propertyWarned++ || warn "$0: [WARNING] Unusual property name in column $COLUMN {$HEADER} row $ROW: $PROPERTY\n";
+our $propertyDomainWarned;
+!$PROPERTY_DOMAIN || &MatchesUriTerm($PROPERTY_DOMAIN) || $propertyDomainWarned++ || warn "$0: [WARNING] Unusual property domain name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_DOMAIN\n";
+our $propertyRangeWarned;
+!$PROPERTY_RANGE || &MatchesUriTerm($PROPERTY_RANGE) || $propertyRangeWarned++ || warn "$0: [WARNING] Unusual property domain name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_RANGE\n";
 $OBJECT = &EvalWarnings($OBJECT{$HEADER} || "");
 our $objectWarned;
 !$OBJECT || &MatchesUriTerm($OBJECT) || &MatchesLiteral($OBJECT) || $objectWarned++ || warn "$0: [WARNING] Unusual RDF object term in column $COLUMN {$HEADER} row $ROW: $OBJECT\n";
@@ -660,7 +660,7 @@ warn "  Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $debug > 1;
 
 ################## Echo #################
 # Print a triple for each non-empty cell in the table, using the current 
-# subject $S, the current predicate $P and the current cell value $_ .
+# subject $S, the current property $P and the current cell value $_ .
 sub Echo
 {
 warn "Called Echo(@_)\n" if $debug > 1;
@@ -683,25 +683,25 @@ return;
 ################## Class #################
 sub Class
 {
-&ClassOrPredicate("Class", \%CLASS);
+&ClassOrProperty("Class", \%CLASS);
 }
 
-################## Predicate #################
-sub Predicate
+################## Property #################
+sub Property
 {
-&ClassOrPredicate("Predicate", \%PREDICATE);
+&ClassOrProperty("Property", \%PROPERTY);
 }
 
-################## PredicateDomain #################
-sub PredicateDomain
+################## PropertyDomain #################
+sub PropertyDomain
 {
-&ClassOrPredicate("PredicateDomain", \%PREDICATE_DOMAIN);
+&ClassOrProperty("PropertyDomain", \%PROPERTY_DOMAIN);
 }
 
-################## PredicateRange #################
-sub PredicateRange
+################## PropertyRange #################
+sub PropertyRange
 {
-&ClassOrPredicate("PredicateRange", \%PREDICATE_RANGE);
+&ClassOrProperty("PropertyRange", \%PROPERTY_RANGE);
 }
 
 ################## Object #################
@@ -716,11 +716,11 @@ sub Label
 &ObjectOrLabel("Label", \%LABEL);
 }
 
-################## ClassOrPredicate #################
-# Eval and remember the class or predicate of each column.
+################## ClassOrProperty #################
+# Eval and remember the class or property of each column.
 # These are evaluated *once*, during directive processing -- not
 # on every cell.
-sub ClassOrPredicate
+sub ClassOrProperty
 {
 @_ == 2 || confess "Died";
 my ($name, $hash) = @_;
