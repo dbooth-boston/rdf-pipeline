@@ -38,6 +38,7 @@ use warnings;
 use strict;
 use Carp;
 use URI::Template;
+use Encode qw( decode encode );
 
 ################# Usage ###################
 sub Usage
@@ -67,7 +68,7 @@ Options:
 		xlsx	(Excel xlsx format)
 		xls	(Excel xls format)
 	If this argument is not specified the data file's extension
-	is used to guess the data format.
+	is used to guess the data format.  
 
   -F, --metaFormat=fmt
 	Metadata file has format fmt, where the acceptable formats
@@ -374,6 +375,7 @@ sub CellFilter
 {
 @_ == 1 || confess "Died";
 my ($v) = @_;
+$v = encode( 'utf-8', $v );
 if ($trim) {
 	$v = &Trim($v);
 	}
@@ -1067,6 +1069,8 @@ my ($infile, $worksheet, $format) = @_;
 # parse the file extension.
 my ($ext) = ($infile =~ m/\.([^\.]*)$/);
 $ext = "" if !defined $ext;
+my $encoding = "";
+$encoding = $1 if $format =~ s/\:(.*)$//;
 $format = lc($format || $ext);
 # die "infile: $infile format: $format ext: $ext\n";
 $format || die "$0: [ERROR] Unable to determine file format from filename '$infile'.  
