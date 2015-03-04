@@ -668,22 +668,17 @@ warn "  Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $debug > 1;
 
 ################## Echo #################
 # Print a triple for each non-empty cell in the table, using the current 
-# subject $S, the current property $P and the current cell value $_ .
+# subject $S, the current property $P and the expression given in $META .
+# The resulting value will be quoted as a string.
 sub Echo
 {
 warn "Called Echo(@_)\n" if $debug > 1;
-my $v = $_;
-return if !$S || !$P || !defined($v) || $v eq "";
-# Auto-quote strings that are not already quoted:
-# TODO: Fix.  Not right for numbers.
-if ($v !~ m/^\"/) {
-	my $oldv = $v;
-	$v = &TripleQuoteSafe($v);
-	if ($v ne $oldv) {
-		warn "$0: [WARNING] Prohibited character(s) escaped in string: \"$oldv\"\n";
-		}
-	$v = "\"\"\"$v\"\"\"";
-	}
+return if !$S || !$P || !defined($META) || $META eq "";
+return if !defined($_) || $_ eq "";
+my $v = &EvalWarnings($META);
+defined($v) || die "$0: [ERROR] Echo: Eval of META {$META} failed: $?\n";
+# Always quote as strings:
+$v = &Quote($v);
 print "$S $P $v .\n";
 return;
 }
