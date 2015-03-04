@@ -126,16 +126,16 @@ our $ARGS;	# Args parsed from #META column of current $MROW
 our @METAS;	# Meta cell values for current $MROW
 our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
-our %CLASS;	# Maps column name to class URI Template
+our %TYPE;	# Maps column name to type URI Template
 our %PROPERTY;	# maps column name to property URI Template
-our %PROPERTY_TYPE;	# maps column name to property class URI Template
+our %PROPERTY_TYPE;	# maps column name to property type URI Template
 our %PROPERTY_DOMAIN;	# maps column name to property domain URI Template
 our %PROPERTY_RANGE;	# maps column name to property range URI Template
 our %OBJECT;	# Maps column name to object URI Template
 our %LABEL;	# Maps column name to object URI rdfs:label
-our $CLASS;	# Turtle class of current data $ROW and $COLUMN
+our $TYPE;	# Turtle type of current data $ROW and $COLUMN
 our $PROPERTY;	# Turtle property of current data $ROW and $COLUMN
-our $PROPERTY_TYPE;	# Turtle property class of current data $ROW and $COLUMN
+our $PROPERTY_TYPE;	# Turtle property type of current data $ROW and $COLUMN
 our $PROPERTY_DOMAIN;	# Turtle property domain of current data $ROW and $COLUMN
 our $PROPERTY_RANGE;	# Turtle property range of current data $ROW and $COLUMN
 our $OBJECT;	# Turtle object of current data $ROW and $COLUMN
@@ -257,7 +257,7 @@ my %VAR;	# For #SetUriTemplateVariable
 my %isPreProcessingDirective = map {($_,1)} qw( 
 	Prefix 
 	SetUriTemplateVariable
-	Class
+	Type
 	Property
 	PropertyType
 	PropertyDomain
@@ -478,22 +478,22 @@ defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 $HEADER = $HEADERS[$COLUMN];
 defined($HEADER) || confess "Died";
-# Important to set $RAW and $_ before setting $CLASS, etc., because
+# Important to set $RAW and $_ before setting $TYPE, etc., because
 # those will evaluate expressions that may involve $RAW and $_.
 $RAW = $RTABLE->[$ROW]->[$COLUMN];
 $_ = $TABLE->[$ROW]->[$COLUMN];
 defined($_) || confess "Died";
-$CLASS = ($CLASS{$HEADER} || "");
-our $classWarned;
-!$CLASS || &MatchesUriTerm($CLASS) || $classWarned++ || warn "$0: [WARNING] Unusual class name in column $COLUMN {$HEADER} row $ROW: $CLASS\n";
+$TYPE = ($TYPE{$HEADER} || "");
+our $typeWarned;
+!$TYPE || &MatchesUriTerm($TYPE) || $typeWarned++ || warn "$0: [WARNING] Unusual type name in column $COLUMN {$HEADER} row $ROW: $TYPE\n";
 $PROPERTY = ($PROPERTY{$HEADER} || "");
 $PROPERTY_TYPE = ($PROPERTY_TYPE{$HEADER} || "");
 $PROPERTY_DOMAIN = ($PROPERTY_DOMAIN{$HEADER} || "");
 $PROPERTY_RANGE = ($PROPERTY_RANGE{$HEADER} || "");
 our $propertyWarned;
 !$PROPERTY || &MatchesUriTerm($PROPERTY) || $propertyWarned++ || warn "$0: [WARNING] Unusual property name in column $COLUMN {$HEADER} row $ROW: $PROPERTY\n";
-our $propertyClassWarned;
-!$PROPERTY_TYPE || &MatchesUriTerm($PROPERTY_TYPE) || $propertyClassWarned++ || warn "$0: [WARNING] Unusual property class name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_TYPE\n";
+our $propertyTypeWarned;
+!$PROPERTY_TYPE || &MatchesUriTerm($PROPERTY_TYPE) || $propertyTypeWarned++ || warn "$0: [WARNING] Unusual property type name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_TYPE\n";
 our $propertyDomainWarned;
 !$PROPERTY_DOMAIN || &MatchesUriTerm($PROPERTY_DOMAIN) || $propertyDomainWarned++ || warn "$0: [WARNING] Unusual property domain name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_DOMAIN\n";
 our $propertyRangeWarned;
@@ -688,34 +688,34 @@ print "$S $P $v .\n";
 return;
 }
 
-################## Class #################
-sub Class
+################## Type #################
+sub Type
 {
-&ClassOrProperty("Class", \%CLASS);
+&TypeOrProperty("Type", \%TYPE);
 }
 
 ################## Property #################
 sub Property
 {
-&ClassOrProperty("Property", \%PROPERTY);
+&TypeOrProperty("Property", \%PROPERTY);
 }
 
 ################## PropertyType #################
 sub PropertyType
 {
-&ClassOrProperty("PropertyType", \%PROPERTY_TYPE);
+&TypeOrProperty("PropertyType", \%PROPERTY_TYPE);
 }
 
 ################## PropertyDomain #################
 sub PropertyDomain
 {
-&ClassOrProperty("PropertyDomain", \%PROPERTY_DOMAIN);
+&TypeOrProperty("PropertyDomain", \%PROPERTY_DOMAIN);
 }
 
 ################## PropertyRange #################
 sub PropertyRange
 {
-&ClassOrProperty("PropertyRange", \%PROPERTY_RANGE);
+&TypeOrProperty("PropertyRange", \%PROPERTY_RANGE);
 }
 
 ################## Object #################
@@ -730,11 +730,11 @@ sub Label
 &ObjectOrLabel("Label", \%LABEL);
 }
 
-################## ClassOrProperty #################
-# Eval and remember the class or property of each column.
+################## TypeOrProperty #################
+# Eval and remember the type or property of each column.
 # These are evaluated *once*, during directive processing -- not
 # on every cell.
-sub ClassOrProperty
+sub TypeOrProperty
 {
 @_ == 2 || confess "Died";
 my ($name, $hash) = @_;
