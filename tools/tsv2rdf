@@ -37,6 +37,23 @@
 use warnings;
 use strict;
 use Carp;
+
+# Devel::NYTProf can be used for performance profiling.
+# To use it:
+#    export NYTPROF='sigexit=1'
+#    perl -d:NYTProf -- `which tsv2rdf` -m metadata-consolidated.xlsx -F xlsx junk100.xlsx > demo.ttl
+# For a 3600 row spreadsheet, profiling everything, 
+# it increased the runtime (up through
+# reading the metadata and data files, but not processing them)
+# from 15 seconds to 65 seconds.  Since we cannot control the module
+# that reads xlsx spreadsheets, the $fasterProfiling variable below controls
+# the disabling of profiling during xlsx spreadsheet parsing, and
+# reduced the above time to 20 seconds.
+our $fasterProfiling = 1;
+
+$fasterProfiling = 0 if !defined(&DB::enable_profiling);
+DB::enable_profile() if $fasterProfiling;
+
 use URI::Template;
 use Encode qw( decode encode );
 
@@ -82,7 +99,11 @@ Options:
 	Opposite: --no-trim
 
   --keepEmptyTrailingColumns
-	Keep trailing (rightmost) columns whose header and cells contain 
+	Keep trailing (right-most) columns whose header and cells contain 
+	only whitespace.  By default they are ignored.
+
+  --keepEmptyTrailingRows
+	Keep trailing (bottom-most) rows whose cells contain 
 	only whitespace.  By default they are ignored.
 
   --requireVersion v
@@ -168,6 +189,7 @@ my $metaFormat = "";
 my $infile = "";
 my $trim = 1;
 my $keepEmptyTrailingColumns = 0;
+my $keepEmptyTrailingRows = 0;
 my $requireVersion = "";
 use Getopt::Long qw(:config no_ignore_case bundling);
 GetOptions(
@@ -181,6 +203,7 @@ GetOptions(
                 "metaFormat|F=s" => \$metaFormat,
                 "trim|t!" => \$trim,
 		"keepEmptyTrailingColumns!" => \$keepEmptyTrailingColumns,
+		"keepEmptyTrailingRows!" => \$keepEmptyTrailingRows,
                 "requireVersion=s" => \$requireVersion,
                 ) or die "$0: Error reading options.  " . &Usage();
 
@@ -190,6 +213,8 @@ die &Usage() if $help;
 $baseUri || die &Usage();
 die &Usage() if @ARGV > 1;
 $infile = $ARGV[0] if @ARGV;
+
+
 $RTABLE = &ReadTable($infile, $worksheet, $format); 
 
 # warn "======================= DATA table: ======================\n" if $debug;
@@ -199,6 +224,8 @@ $RTABLE = &ReadTable($infile, $worksheet, $format);
 # die "Done\n";
 
 $MTABLE = &RemoveMetadataRows($RTABLE);
+
+
 my $headersRef = shift @{$RTABLE};
 @RHEADERS = map {&Trim($_)} @{$headersRef};
 @HEADERS = @RHEADERS;
@@ -268,6 +295,10 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Perl_PreFilter
 	);
 
+my %isPostProcessingDirective = map {($_,1)} qw( 
+	End
+	);
+
 $NROWS = scalar(@$TABLE);
 $NCOLUMNS = scalar(@HEADERS);
 
@@ -319,6 +350,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		$directive || confess "Died";
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$directive};
+		next if $isPostProcessingDirective{$directive};
 		@metaFields || confess "Died";
 		@HEADERS == @metaFields || confess "Died";
 		$ARGS = $args;
@@ -362,6 +394,19 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		$firstMeta = 0;
 		}
 	}
+
+# Post-processing directives 
+for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
+	# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
+	&SetGlobalsForMetaRow();
+	next if !$isPostProcessingDirective{$DIRECTIVE};
+	warn "BEGIN Postprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 0;
+	no strict 'refs';
+	&{$DIRECTIVE}();	# All args are passed as globals
+	warn "END Postprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
+	&ResetGlobalsForMetaRow();
+	}
+
 exit 0;
 
 
@@ -725,10 +770,27 @@ sub Label
 &ObjectOrLabel("Label", \%LABEL);
 }
 
+################## End #################
+# Eval the expressions after everything else is done.
+sub End
+{
+@_ == 0 || confess "Died";
+my $oldDebug = $debug;
+# $debug = 2;
+warn "#End starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
+# Nothing to be done per data cell:
+my $fPerDataCell = undef;
+my $fPerMetaCell = sub {
+	&EvalWarnings($META) if $META ne "";
+	};
+&Iterate($fPerMetaCell, $fPerDataCell);
+$debug = $oldDebug;
+}
+
 ################## TypeOrProperty #################
 # Eval and remember the type or property of each column.
 # These are evaluated *once*, during directive processing -- not
-# on every cell.
+# on every data cell.
 sub TypeOrProperty
 {
 @_ == 2 || confess "Died";
@@ -754,7 +816,7 @@ $debug = $oldDebug;
 
 ################## ObjectOrLabel #################
 # Remember the object or label expression of each column.
-# They will be eval'ed later for each cell.
+# They will be eval'ed later for each data cell.
 sub ObjectOrLabel
 {
 @_ == 2 || confess "Died";
@@ -1027,9 +1089,11 @@ return $rTable if !$rTable or !@{$rTable};
 @{$rTable->[0]} = map {&Trim($_)} @{$rTable->[0]};
 # Remove empty trailing columns?
 my $continueRemoving = !$keepEmptyTrailingColumns;
+my $nRemoved = 0;
 while($continueRemoving) {
-	warn "Checking for empty trailing column in '$infile' ...\n" if $debug;
-	my $c = scalar(@{$rTable->[0]}) - 1;
+	warn "Checking for empty trailing column in '$infile' ...\n" if $debug > 1;
+	my $c = scalar(@{$rTable->[0]}) - 1;	# Last column
+	last if $c < 0;
 	my $allEmpty = 1;
 	for (my $r=0; $r<@{$rTable}; $r++) {
 		if ($rTable->[$r]->[$c] =~ m/\S/) {
@@ -1038,13 +1102,42 @@ while($continueRemoving) {
 			}
 		}
 	if ($allEmpty) {
-		warn "Removing empty trailing column from '$infile'\n" if $debug;
+		warn "Removing empty trailing column from '$infile'\n" if $debug > 1;
 		for (my $r=0; $r<@{$rTable}; $r++) {
 			pop @{$rTable->[$r]};
 			}
+		$nRemoved++;
 		}
 	else { $continueRemoving = 0; }
 	}
+warn "Removed $nRemoved trailing empty columns from '$infile'\n" if $debug && $nRemoved;
+# Remove empty trailing rows?
+$continueRemoving = !$keepEmptyTrailingRows;
+my $saveDebug = $debug;
+# $debug = 3;
+$nRemoved = 0;
+while($continueRemoving) {
+	warn "Checking for empty trailing row in '$infile' ...\n" if $debug > 2;
+	# my $c = scalar(@{$rTable->[0]}) - 1;
+	my $r = scalar(@{$rTable}) - 1;		# Last row
+	last if $r < 0;
+	my $allEmpty = 1;
+	# for (my $r=0; $r<@{$rTable}; $r++) {
+	for (my $c=0; $c<@{$rTable->[$r]}; $c++) {
+		if ($rTable->[$r]->[$c] =~ m/\S/) {
+			$allEmpty = 0;
+			last;
+			}
+		}
+	if ($allEmpty) {
+		warn "Removing empty trailing row $r from '$infile'\n" if $debug > 2;
+		pop @{$rTable};
+		$nRemoved++;
+		}
+	else { $continueRemoving = 0; }
+	}
+warn "Removed $nRemoved trailing empty rows from '$infile'\n" if $debug && $nRemoved;
+$debug = $saveDebug;
 return $rTable;
 }
 
@@ -1139,16 +1232,21 @@ my $result = [];
 my $nColumns = 0;
 my $row = 0;
 use Spreadsheet::ParseXLSX;
+# Profiling seems to be too slow in the parser:
+DB::disable_profile() if $fasterProfiling;
 my $excel = Spreadsheet::ParseXLSX->new()->parse($fh);
+DB::enable_profile() if $fasterProfiling;
 my @worksheets = $excel->worksheets();
 # my $nWorksheets = scalar(@worksheets);
 my $nWorksheets = $excel->worksheet_count();
-warn "nWorksheets: $nWorksheets\n" if $debug > 1;
+warn "nWorksheets: $nWorksheets File: $f\n" if $debug > 0;
 my $worksheetObject = $excel->worksheet($worksheet);
 $worksheetObject || return undef;
 my $table = [];
 my ( $row_min, $row_max ) = $worksheetObject->row_range();
+warn "Row range: $row_min : $row_max\n" if $debug > 0;
 my ( $col_min, $col_max ) = $worksheetObject->col_range();
+warn "Col range: $col_min : $col_max\n" if $debug > 0;
 my $r=0;
 for my $row ( $row_min .. $row_max ) {
 	my $nextRow = [];
@@ -1170,7 +1268,9 @@ for my $row ( $row_min .. $row_max ) {
 	$table->[$r] = $nextRow;
 	$r++;
 	}
-warn "Read $r rows\n" if $debug;
+my $nc = $col_max - $col_min + 1;
+$nc = 0 if $nc < 0;
+warn "Read $r rows $nc columns from $f\n" if $debug;
 return $table;
 }
 
@@ -1182,6 +1282,15 @@ my $s = shift @_;
 $s =~ s/\A[\s\n\r]+//s;
 $s =~ s/[\s\n\r]+\Z//s;
 return $s;
+}
+
+########## DeleteControlChars ###########
+sub DeleteControlChars
+{
+my $v = shift @_;
+defined($v) || confess "Died";
+$v =~ tr/\000-\037/ /;
+return $v;
 }
 
 ########## Clean ###########
