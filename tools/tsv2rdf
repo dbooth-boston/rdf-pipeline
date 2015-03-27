@@ -224,6 +224,9 @@ $RTABLE = &ReadTable($infile, $worksheet, $format);
 # die "Done\n";
 
 $MTABLE = &RemoveMetadataRows($RTABLE);
+# print "======================= META table: ======================\n" if $debug;
+# &PrintTable($MTABLE) if $debug;
+# print "==========================================================\n" if $debug;
 
 
 my $headersRef = shift @{$RTABLE};
@@ -471,7 +474,14 @@ defined($MROW) || confess "Died";
 ($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
 $DIRECTIVE || confess "Died";
 @METAS || confess "Died";
-@HEADERS == @METAS || confess "Died";
+my $nHeaders = scalar(@HEADERS);
+my $nMetas = scalar(@METAS);
+@HEADERS == @METAS || confess "Died. nHeaders: $nHeaders nMetas: $nMetas
+ METAS:
+ @METAS
+ HEADERS:
+ @HEADERS
+ ";
 }
 
 ################## ResetGlobalsForMetaRow #################
@@ -1046,24 +1056,28 @@ my $firstCellValue = $tsv->[0]->[0];
 defined($firstCellValue) || die "$0: [ERROR] Table has no header row!\n";
 # warn "firstCellValue: {$firstCellValue}\n";
 return $meta if $firstCellValue ne "#META";
-# Temporarily remove the header row:
-my $headers = shift @{$tsv};
-# Get rid of "#META" header cell:
-shift @{$headers};
-# Grab the metadata rows:
-while (@{$tsv} && $tsv->[0]->[0] =~ s/^\#(\S*)\s*//) {
+# Strip "#META" from header column:
+shift(@{$tsv->[0]});
+# Remove and collect the metadata rows:
+for (my $r=1; $r < @{$tsv}; $r++) {
+	my $row = $tsv->[$r];
+	# Strip the #META column from all rows:
+	my $metaCell = shift(@{$row});
+	# Non-empty meta column means it's a meta row -- not a data row.
+	next if ($metaCell !~ m/\S/);
+	# warn "META row $r.  metaCell: $metaCell\n";
+	# Meta row.  Delete it from data table.
+	splice(@{$tsv}, $r, 1);
+	$r--;
+	# Empty or comment meta cell?
+	next if $metaCell =~ m/^\#\s*(\#.*)?$/;
+	if ($metaCell !~ s/^\#(\S*)\s*//) {
+		die "$0: [ERROR] Unrecognized meta directive in row $r: $metaCell\n";
+		}
 	my $directive = $1;
-	my $row = shift @{$tsv};
-	# warn "REMOVED ROW: @{$row}\n";
-	next if $directive eq "" || $directive =~ m/^\#/;
-	my $args = shift @{$row};
+	my $args = $metaCell;
+	# warn "META pushing: $directive $args @{$row}\n";
 	push(@{$meta}, [ $directive, $args, @{$row} ]);
-	}
-# Put back the header row:
-unshift(@{$tsv}, $headers);
-# Strip the #META column from all the data rows:
-for (my $i=1; $i<@{$tsv}; $i++) {
-	shift @{$tsv->[$i]};
 	}
 return $meta;
 }
