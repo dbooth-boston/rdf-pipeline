@@ -137,9 +137,6 @@ my %inverseStandardNamespaces = (
         'time',   'http://www.w3.org/2006/time#',
         'xsd',    'http://www.w3.org/2001/XMLSchema#',
         );
-my %standardNamespaces = map {($inverseStandardNamespaces{$_}, $_)}
-		keys %inverseStandardNamespaces;
-keys %standardNamespaces == keys %inverseStandardNamespaces or die;
 
 my %namespaces;		# Remembers namespaces seen, stripped by &ShortenUri
 my $nextPrefix = "p1";
@@ -197,6 +194,19 @@ if (!@ARGV) {
 	}
 my $n = $model->size();
 print "Total triples: $n\n";
+
+# Seed the namespace map with whatever prefixes were defined
+# in the input:
+my $ns = $parser->{map};
+foreach ($ns->list_prefixes()) {
+	my $u = $ns->namespace_uri($_)->uri()->as_string();
+	$u =~ s/^\<(.*)\>$/$1/;
+	$inverseStandardNamespaces{$_} = $u;
+	}
+
+my %standardNamespaces = map {($inverseStandardNamespaces{$_}, $_)}
+		keys %inverseStandardNamespaces;
+keys %standardNamespaces == keys %inverseStandardNamespaces or die;
 
 my %typesOf;		# Node -> hash of declared types or datatypes
 my %typeInstances;	# {URI, LITERAL, BLANK} -> hash of instances
