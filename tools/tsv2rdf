@@ -230,7 +230,7 @@ $MTABLE = &RemoveMetadataRows($RTABLE);
 
 
 my $headersRef = shift @{$RTABLE};
-@RHEADERS = map {&Trim($_)} @{$headersRef};
+@RHEADERS = @{$headersRef};
 @HEADERS = @RHEADERS;
 for (my $r=0; $r<@{$RTABLE}; $r++) {
 	@{$TABLE->[$r]} = @{$RTABLE->[$r]};
@@ -259,6 +259,11 @@ if ($metadataFile) {
 		my $extras = join("|", @HEADERS[ $#metaHeaders+1 .. $#HEADERS ] );
 		die "$0: [ERROR] $nExtras extra data columns: $extras\n";
 		}
+	}
+
+# Trim all metadata cells:
+for (my $r=0; $r<@{$MTABLE}; $r++) {
+	@{$MTABLE->[$r]} = map {&Trim($_)} @{$MTABLE->[$r]};
 	}
 
 # print "======================= META table: ======================\n" if $debug;
@@ -811,7 +816,7 @@ my $oldDebug = $debug;
 # Nothing to be done per data cell:
 my $fPerDataCell = undef;
 my $fPerMetaCell = sub {
-	my $meta = &Trim($META);
+	my $meta = $META;
 	return if !$meta;
 	# Auto-quote if it does not already start with a quote,
 	# because it will be eval'ed as an expression:
@@ -837,7 +842,7 @@ $debug = 2;
 # Nothing to be done per data cell:
 my $fPerDataCell = undef;
 my $fPerMetaCell = sub {
-	my $meta = &Trim($META);
+	my $meta = $META;
 	return if !$meta;
 	# Auto-quote if it does not already start with a quote,
 	# because later it will be eval'ed as an expression:
@@ -859,8 +864,6 @@ my $oldDebug = $debug;
 for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
 	&SetGlobalsForMetaColumn();
 	next if $META !~ m/\S/;
-	# TODO: Are meta cells already &Trim()ed anyway?
-	$META = &Trim($META);	
 	my $originalMeta = $META;
 	# Ignore optional "@prefix" and trailing period:
 	$META =~ s/^\@//;
@@ -893,7 +896,6 @@ my $oldDebug = $debug;
 for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
 	&SetGlobalsForMetaColumn();
 	next if $META !~ m/\S/;
-	$META = &Trim($META);
 	my $originalMeta = $META;
 	my ($var, $expr) = split(/\s+/, $META, 2);
 	die "[ERROR] SetUriTemplateVariable: Bad variable declaration at meta row $MROW column $COLUMN: $originalMeta\n" if !defined($expr);
@@ -1005,8 +1007,6 @@ sub EvalWarnings
 @_ == 1 || confess "Died";
 my $expr = shift @_;
 defined($expr) || confess "Died";
-return "" if $expr eq "";
-$expr = &Trim($expr);
 return "" if $expr eq "";
 my $underscore = $_;
 $underscore = "(undef)" if !defined($underscore);
