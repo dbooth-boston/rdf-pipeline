@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 
-# Copyright 2014 by David Booth
+# Copyright 2015 by David Booth
 # This software is available as free and open source under
 # the Apache 2.0 software license, which may be viewed at
 # http://www.apache.org/licenses/LICENSE-2.0.html
@@ -34,6 +34,9 @@
 # put back, even if a smaller final set of lines could have been
 # obtained by removing a different set of lines.
 #
+# TODO: Make this work on large data files.  At present, the
+# entire data file is read into memory.
+#
 # TODO: Generalize the concept of lines, to allow this to work
 # on other record-oriented input, such as by allowing a parser
 # to be supplied as an additional input argument, which would
@@ -42,8 +45,10 @@
 # TODO: Improve the algorithm to allow testProgram to return three
 # possible values: 0 (bug not triggerd), 1 (bug triggered) or
 # 2 (error).  The error case would mean that the testProgram
-# could not be run on that input set.
-#
+# could not be run on that input set, and would be treated
+# similarly to the case where testProgram returns 0 (but not
+# triggered), because that chunk cannot be eliminated from
+# consideration.
 
 use warnings;
 
