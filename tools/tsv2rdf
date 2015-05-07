@@ -287,11 +287,11 @@ no warnings qw(qw);
 	);
 }
 
-my %VAR;	# For #SetUriTemplateVariable
+my %VAR;	# For #SetVar
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
 	Prefix 
-	SetUriTemplateVariable
+	SetVar
 	Type
 	Property
 	PropertyType
@@ -872,10 +872,15 @@ for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
 	my ($prefix, $uri) = ($META =~ m/^([^\:]*\:)\s*(.+)$/);
 	die "$0: [ERROR] Bad prefix declaration in column $COLUMN {$HEADER} row $ROW: $originalMeta\n"
 		if !defined($uri);
-	# Perl convenience: Auto-quote if it contains $
+	# warn "PREFIX: $prefix URI: $uri META: $META\n";
+	# Perl convenience: Auto-quote if the expression contains $
 	$uri = '"' . $uri . '"' if $uri =~ m/\$/;
+	# warn "After auto quote PREFIX: $prefix URI: $uri META: $META\n";
 	# Eval as a perl expression if it starts with quote:
 	$uri = &EvalWarnings($uri) if $uri =~ m/^[\'\"]/;
+	# warn "After eval PREFIX: $prefix URI: $uri META: $META\n";
+	die "$0: [ERROR] Prefix declaration failed in column $COLUMN {$HEADER} row $ROW: $originalMeta\n"
+		if !defined($uri) || $uri eq "";
 	# Auto-wrap in <..> if needed:
 	$uri = "<$uri>" if $uri !~ m/^\</;
 	&MatchesUri($uri) || warn "$0: [WARNING] Unusual prefix URI '$uri' in column $COLUMN {$HEADER} row $ROW from declaration: $originalMeta\n";
@@ -886,80 +891,59 @@ $debug = $oldDebug;
 # die "STOPPED!\n";
 }
 
-################## SetUriTemplateVariable #################
+################## SetVar #################
 # Set %VAR, for use in URI Templates.
-sub SetUriTemplateVariable
+sub SetVar
 {
-die "$0: [ERROR] Unknown ARGS in Prefix directive on metadata row $MROW: $ARGS\n" if $ARGS;
 my $oldDebug = $debug;
 # $debug = 2;
-for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
-	&SetGlobalsForMetaColumn();
-	next if $META !~ m/\S/;
-	my $originalMeta = $META;
-	my ($var, $expr) = split(/\s+/, $META, 2);
-	die "[ERROR] SetUriTemplateVariable: Bad variable declaration at meta row $MROW column $COLUMN: $originalMeta\n" if !defined($expr);
-	warn "$0: [WARNING] SetUriTemplateVariable: Variable $var redeclared at meta row $MROW column $COLUMN: $META\n" if exists($VAR{$var});
-	my $val = &EvalWarnings($expr);
-	$VAR{$var} = $val;
-	warn "SetUriTemplateVariable var: $var value: $val\n" if $debug;
+die "$0: [ERROR] SetVar: No variable specified in metadata row $MROW\n" if $ARGS eq "";
+my $args = $ARGS;
+($args =~ s/^([\$\%\@]\w+)\s*//) || die "$0: [ERROR] SetVar: Bad variable syntax in metadata row $MROW: $ARGS\n";
+my $var = $1;
+die "$0: [ERROR] SetVar: Variable $var redeclared at meta row $MROW column $COLUMN: $META\n" if exists($VAR{$var});
+$VAR{$var} = 1;
+my $ref = eval "our $var; \\$var";
+if ($args ne "") {
+	# $ARGS: var = expr
+	($args =~ m/^\=\s*(\S.*)$/) || die "$0: [ERROR] SetVar: Bad expression syntax in metadata row $MROW: $ARGS\n";
+	my $expr = $1;
+	warn "SetVar var: $var expr: $expr ARGS: $ARGS\n" if $debug > 1;
+	my $val;
+	if ($var =~ m/^\$/) { $val = &EvalWarnings($ARGS); }
+	else 	{
+		my @val = &EvalWarnings($ARGS);
+		$val = join(" ", @val);
+		}
+		
+	$val = "(UNDEF)" if !defined($val);
+	warn "SetVar var: $var set to: $val\n" if $debug;
+	}
+else	{
+	# Evaluate all @METAS to assign to $var
+	my @values = ();
+	${$ref} = "" if $var =~ m/^\$/;;
+	for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
+		my $val = "";
+		if ($METAS[$COLUMN] =~ m/\S/) {
+			&SetGlobalsForMetaColumn();
+			$val = &EvalWarnings($META);
+			die "$0: [ERROR] SetVar: Expression eval failed in metadata row $MROW: $META\n" if !defined($val);
+			warn "SetVar evaluated META: $META = $val\n" if $debug;
+			}
+		${$ref}{$HEADERS[$COLUMN]} = $val if $var =~ m/^\%/;
+		${$ref}[$COLUMN] = $val if $var =~ m/^\@/;
+		${$ref} .= $val if $var =~ m/^\$/;;
+		}
 	}
 if (0 && $debug > 1) {
 	use Data::Dumper;
-	warn "VAR = \n";
-	my $d = &Dumper(\%VAR);
+	warn "VAR $var = \n";
+	my $d = &Dumper($ref);
 	warn "$d\n";
 	}
 $debug = $oldDebug;
 # die "STOPPED!\n";
-}
-
-############### OLD_Expand ###############
-# Usage:
-#   my $value = &Expand($expr);
-# Variable mappings are accessed from global: %VAR
-sub OLD_Expand
-{
-my $expr = shift;
-defined($expr) || confess "Died";
-my ($val, $undefVar) = &ExpandUriTemplate($expr, %VAR);
-if ($undefVar) {
-	my $mrow = (defined($MROW) ? $MROW : "(undef)");
-	my $column = (defined($COLUMN) ? $COLUMN : "(undef)");
-	die "[ERROR] Expand: Undefined variable $undefVar found in URI template expression $_[0] at meta row $mrow column $column\n";
-	}
-return $val;
-}
-
-############### OLD_ExpandUriTemplate ###############
-# Usage:
-#   my ($value, $undefVar) = &ExpandUriTemplate($expr, %varValMappings);
-# Where $undefVar will be the name of an undefined variable in $expr
-# if it has any that are undefined.   If all variables in $expr
-# are defined in %varValMappings then $undefVar will be the empty string.
-sub OLD_ExpandUriTemplate
-{
-@_ >= 1 || confess "Died";
-my $expr = shift;
-my %varValMappings = @_;
-defined($expr) || confess "Died";
-return("", "") if $expr eq "";
-my $template = URI::Template->new( $expr );
-my @variables = $template->variables();
-warn "ExpandUriTemplate EXPR: $expr VARIABLES: @variables\n" if $debug > 1;
-foreach my $v (@variables) {
-	warn "  EXPR: $expr VARIABLE: $v\n" if $debug > 1;
-	# Return error if any variable in $expr is undefined
-	return("", $v) if !exists($varValMappings{$v});
-	}
-if (0) {
-	foreach my $tvar (sort keys %varValMappings) {
-		my $tval = $varValMappings{$tvar};
-		warn "  VAR: $tvar VAL: $tval\n" if $debug > 1;
-		}
-	}
-my $val      = $template->process( %varValMappings )->as_string;
-return($val, "");
 }
 
 ################## Perl_RunArg #################
@@ -1000,6 +984,7 @@ $debug = $oldDebug;
 ################# EvalWarnings ##################
 # Run eval while trapping warnings, and return the eval result.
 # Warnings and errors are reported.  Old eval errors are cleared first.
+# %VAR variables are declared as "our".
 # Usage:
 #   my $result = &EvalWarnings($expr);
 sub EvalWarnings
@@ -1008,12 +993,31 @@ sub EvalWarnings
 my $expr = shift @_;
 defined($expr) || confess "Died";
 return "" if $expr eq "";
+my $ours = join("", map {"our $_; "} sort keys %VAR);
+my $de = "$ours \{ $expr \}";
+return &RawEvalWarnings($de);
+}
+
+################# RawEvalWarnings ##################
+# Run eval while trapping warnings, and return the eval result.
+# Warnings and errors are reported.  Old eval errors are cleared first.
+# Usage:
+#   my $result = &RawEvalWarnings($expr);
+sub RawEvalWarnings
+{
+@_ == 1 || confess "Died";
+my $expr = shift @_;
+defined($expr) || confess "Died";
+return "" if $expr eq "";
 my $underscore = $_;
 $underscore = "(undef)" if !defined($underscore);
-warn "      EvalWarnings starting expr: {$expr} UNDERSCORE: $underscore\n" if $debug > 1;
-my $result;
+warn "      RawEvalWarnings starting expr: {$expr} UNDERSCORE: $underscore\n" if $debug > 1;
+my $result = "";
+my @result = ();
 my $warning = "";
-# Clear old errors prior to eval.  $@ does not need to be cleared.
+my $ours = join("", map {"our $_; "} sort keys %VAR);
+# Clear old errors prior to eval.  $@ does not need to be cleared,
+# because it is reset by perl.
 $! = 0;
 $? = 0;
 #### Create a new scope for trapping warnings.
@@ -1022,19 +1026,25 @@ $? = 0;
 	local $SIG{__WARN__} = sub {
 		$warning .= (shift || "");
 		};
-	$result = eval $expr;
+	if (wantarray) { @result = eval $expr; }
+	else { $result = eval $expr; }
 	}
 my $error = $@ || "";
 $underscore = $_;
 $underscore = "(undef)" if !defined($underscore);
-warn "      EvalWarnings after eval, expr: {$expr} UNDERSCORE: $underscore result: $result\n" if $debug > 1;
+$result = join(" ", map { defined($_) ? $_ : "(undef)" } @result) if wantarray;
+warn "wantarray\n" if wantarray && $debug > 1;
+warn "expr: $expr\n" if $debug > 1;
+warn "      RawEvalWarnings after eval, expr: {$expr} UNDERSCORE: $underscore result: $result\n" if $debug > 1;
 if ($warning || $error) {
+	$result = join(" ", map { defined($_) ? $_ : "(undef)" } @result) if wantarray;
 	my $directive = $DIRECTIVE || "INTERNAL";
 	my $args = $ARGS || "(undef)";
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
-	my $header = (defined($COLUMN) ? $RHEADERS[$COLUMN] : undef);
-	my $cell = (defined($COLUMN) && defined($ROW) 
-		? $TABLE->[$ROW]->[$COLUMN] : undef);
+	my $column = (defined($COLUMN) && $COLUMN < $NCOLUMNS && $COLUMN >= 0 ? $COLUMN : undef);
+	my $header = (defined($column) ? $RHEADERS[$column] : undef);
+	my $cell = (defined($column) && defined($ROW) 
+		? $TABLE->[$ROW]->[$column] : undef);
 	my $max = 20;
 	my $shortExpr = (defined($expr) ? $expr : "");
 	$shortExpr = substr($shortExpr, 0, $max-3) . "..." if length($shortExpr) > $max;
@@ -1046,14 +1056,19 @@ if ($warning || $error) {
 	my $we = ($warning ? "a warning" : "an error");
 	my $weText = ($warning ? $warning : $error);
 	my $msg = "$0: [$WE] $directive: eval of {$shortExpr} at meta row $mrow";
-	$msg .= " column $COLUMN {$header}" if defined($COLUMN);
+	$msg .= " column $column {$header}" if defined($column);
 	$msg .= " meta cell {$shortMeta}" if defined($META);
 	$msg .= " data row $ROW" if defined($ROW);
 	$msg .= " data cell {$shortCell}" if defined($cell);
 	$msg .= " produced $we: $weText\n";
+	# warn "header: $header\n";
+	# warn "column: $column\n";
+	# warn "NCOLUMNS: $NCOLUMNS\n";
+	# warn "RHEADERS[$column]: $RHEADERS[$column]\n";
 	if ($warning) { warn $msg; }
 	else { die $msg; }
 	}
+return @result if wantarray;
 return $result;
 }
 
