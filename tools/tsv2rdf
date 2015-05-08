@@ -368,11 +368,9 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		warn "Directive: $directive ARGS: $ARGS metaFields: @metaFields\n" if $debug;
 		warn "UNDERSCORE: $_\n" if $debug > 1;
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-			$HEADER = $HEADERS[$COLUMN];
-			$META = $metaFields[$COLUMN];
 			if ($firstMeta) {
 				# Init per-column data
-				my $p = &MakeVar($HEADER) || "UNDEFINED";
+				my $p = &MakeVar($HEADERS[$COLUMN]) || "UNDEFINED";
 				$properties[$COLUMN] = "table:$p";
 				$underscores[$COLUMN] = $TABLE->[$ROW]->[$COLUMN];
 				}
