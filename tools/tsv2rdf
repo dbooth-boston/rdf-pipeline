@@ -135,7 +135,6 @@ our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
 our $TABLE;	# Ref to the entire data table
 our $RTABLE;	# Ref to the entire raw data table
 our @HEADERS;	# Column headers (excluding any #META column header)
-our @RHEADERS;	# Column headers before mods 
 our $HEADER;	# Current header: $HEADER[$COLUMN]
 our $RAW;	# Current original cell value.  Corresponds to $_
 our %NAMESPACE;	# Prefix->namespace mappings
@@ -162,10 +161,12 @@ our $PROPERTY_RANGE;	# Turtle property range of current data $ROW and $COLUMN
 our $OBJECT;	# Turtle object of current data $ROW and $COLUMN
 our $LABEL;	# Turtle label of current data $ROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
-our $P;		# Turtle property of current data $ROW and $COLUMN
+our $P;		# Turtle property of current $COLUMN
+our @PS;	# Turtle properties of all columns
 ########### Other globals, probably not used by users
 our $NROWS;	# Number of data rows (excludes header row)
-our $NCOLUMNS;	# Number of data columns (and meta columns)
+our $NMROWS;	# Number of meta rows (excludes header row)
+our $NCOLUMNS;	# Number of data columns (and meta columns and headers)
 ########### To be made obsolete probably:
 our %HEADER_TO_COLUMN;	# Maps header to column index
 our %KEY_TO_ROW;	# Maps header to column hash to row number (0 based)
@@ -230,8 +231,7 @@ $MTABLE = &RemoveMetadataRows($RTABLE);
 
 
 my $headersRef = shift @{$RTABLE};
-@RHEADERS = @{$headersRef};
-@HEADERS = @RHEADERS;
+@HEADERS = @{$headersRef};
 for (my $r=0; $r<@{$RTABLE}; $r++) {
 	@{$TABLE->[$r]} = @{$RTABLE->[$r]};
 	}
@@ -309,17 +309,17 @@ my %isPostProcessingDirective = map {($_,1)} qw(
 
 $NROWS = scalar(@$TABLE);
 $NCOLUMNS = scalar(@HEADERS);
+$NMROWS = scalar(@{$MTABLE});
 
 # Pre-processing directives 
 for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 	# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
-	&SetGlobalsForMetaRow();
+	&SetMetaGlobalsForMRow();
 	next if !$isPreProcessingDirective{$DIRECTIVE};
 	warn "BEGIN Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 0;
 	no strict 'refs';
 	&{$DIRECTIVE}();	# All args are passed as globals
 	warn "END Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
-	&ResetGlobalsForMetaRow();
 	}
 
 # Output namespaces.
@@ -343,73 +343,54 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		}
 	}
 
+@PS = map {
+	my $p = &MakeVar($HEADERS[$_]) || "UNDEFINED$_";
+	"table:$p" } (0 .. $#HEADERS);
 # Process all data rows.
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	warn "================= DATA ROW ====================\n" if $debug;
 	warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
 	warn "===============================================\n" if $debug;
-	$S = "_:row$ROW";
-	my @underscores = map {""} @HEADERS;
-	my @properties = map {""} @HEADERS;
-	my $firstMeta = 1;
+	&SetDataGlobalsForRow();
 	for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 		my $mr = $MTABLE->[$MROW];
-		my ($directive, $args, @metaFields) = @{$mr};
-		$directive || confess "Died";
+		# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
+		&SetMetaGlobalsForMRow();
+		$DIRECTIVE || confess "Died";
 		# Preprocessing directives have already been handled, so skip:
-		next if $isPreProcessingDirective{$directive};
-		next if $isPostProcessingDirective{$directive};
-		@metaFields || confess "Died";
-		@HEADERS == @metaFields || confess "Died";
-		$ARGS = $args;
-		my @r = @{$TABLE->[$ROW]};	# TODO: comment out
-		warn "ROW CONTAINS: @r\n" if $debug > 1;
+		next if $isPreProcessingDirective{$DIRECTIVE};
+		next if $isPostProcessingDirective{$DIRECTIVE};
+		@METAS || confess "Died";
+		@HEADERS == @METAS || confess "Died";
+		# my @r = @{$TABLE->[$ROW]};	# TODO: comment out
+		# warn "ROW CONTAINS: @r\n" if $debug > 1;
 		warn "--------------- META --------------------\n" if $debug;
-		warn "Directive: $directive ARGS: $ARGS metaFields: @metaFields\n" if $debug;
+		warn "Directive: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
 		warn "UNDERSCORE: $_\n" if $debug > 1;
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-			if ($firstMeta) {
-				# Init per-column data
-				my $p = &MakeVar($HEADERS[$COLUMN]) || "UNDEFINED";
-				$properties[$COLUMN] = "table:$p";
-				$underscores[$COLUMN] = $TABLE->[$ROW]->[$COLUMN];
-				}
-			&SetGlobalsForMetaRow();
-			&SetGlobalsForMetaColumn();
-			&SetGlobalsForDataRow();
-			&SetGlobalsForDataColumn();
+			# TODO: Move these
+			&SetMetaGlobalsForColumn();
 			no strict 'refs';
-			defined(&{$directive}) || die "$0: [ERROR] No function $directive defined for directive: #$directive\n";
-			# TODO: make this not depend on having the metadata
-			# columns in the same order as the data columns:
-			$_ = $underscores[$COLUMN];
-			$P = $properties[$COLUMN];
+			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
+			&SetDataGlobalsForColumn();
 			next if $_ eq "";
-			%DATA = map {($HEADERS[$_], $underscores[$_])} 0..$#HEADERS;
-			warn "Calling &$directive();\n" if $debug > 1;
-			&{$directive}();
-			warn "Done calling &$directive();\n" if $debug > 1;
-			#### TODO: Resetting is not yet working right
-			# &ResetGlobalsForDataColumn();
-			# &ResetGlobalsForDataRow();
-			# &ResetGlobalsForMetaColumn();
-			# &ResetGlobalsForMetaRow();
-			$underscores[$COLUMN] = $_;
+			warn "Calling &$DIRECTIVE();\n" if $debug > 1;
+			&{$DIRECTIVE}();
+			warn "Done calling &$DIRECTIVE();\n" if $debug > 1;
+			&ResetDataGlobalsForColumn();
 			}
-		$firstMeta = 0;
 		}
 	}
 
 # Post-processing directives 
 for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 	# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
-	&SetGlobalsForMetaRow();
+	&SetMetaGlobalsForMRow();
 	next if !$isPostProcessingDirective{$DIRECTIVE};
 	warn "BEGIN Postprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 0;
 	no strict 'refs';
 	&{$DIRECTIVE}();	# All args are passed as globals
 	warn "END Postprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
-	&ResetGlobalsForMetaRow();
 	}
 
 exit 0;
@@ -432,44 +413,47 @@ if ($trim) {
 return $v;
 }
 
-################## SetGlobalsForMetaColumn #################
-# Set globals: $META and $HEADER.
-# from $METAS[$COLUMN] and $HEADERS[$COLUMN].
+################## SetMetaGlobalsForColumn #################
+# Set globals: $P $HEADER and maybe $META.
+# from @PS $METAS[$COLUMN] and $HEADERS[$COLUMN].
 # They are relative to $COLUMN, which 
 # must already be set.  @METAS must already be set also,
-# as by calling SetGlobalsForMetaRow.
-sub SetGlobalsForMetaColumn
+# as by calling SetMetaGlobalsForMRow.
+sub SetMetaGlobalsForColumn
 {
 defined($COLUMN) || confess "Died";
-@METAS || confess "Died";
+($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 $META = $METAS[$COLUMN];
+$META = "" if !defined($META);
+$META = "" if $MROW<0 || $MROW>=$NMROWS;
 $HEADER = $HEADERS[$COLUMN];
-defined($META) || confess "Died";
 defined($HEADER) || confess "Died";
+$P = $PS[$COLUMN];
 }
 
-################## ResetGlobalsForMetaColumn #################
-# Reset globals: $METAS[$COLUMN], $HEADERS[$COLUMN]
+################## ResetMetaGlobalsForColumn #################
+# Reset globals: $METAS[$COLUMN], 
 # from $META and $HEADER.
 # They are relative to $COLUMN, which 
 # must already be set.  $META (and @METAS) must already be set also,
-# as by calling SetGlobalsForMetaColumn.
-sub ResetGlobalsForMetaColumn
+# as by calling SetMetaGlobalsForColumn.
+sub ResetMetaGlobalsForColumn
 {
+die;
 defined($COLUMN) || confess "Died";
+($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
 @METAS || confess "Died";
 @HEADERS || confess "Died";
 defined($META) || confess "Died";
 defined($HEADER) || confess "Died";
 $METAS[$COLUMN] = $META;
-$HEADERS[$COLUMN] = $HEADER;
 }
 
-################## SetGlobalsForMetaRow #################
+################## SetMetaGlobalsForMRow #################
 # Set globals: @{$MTABLE->[$MROW]}
 # They are relative to $MROW, which must already be set.
-sub SetGlobalsForMetaRow
+sub SetMetaGlobalsForMRow
 {
 defined($MTABLE) || confess "Died";
 defined($MROW) || confess "Died";
@@ -486,11 +470,12 @@ my $nMetas = scalar(@METAS);
  ";
 }
 
-################## ResetGlobalsForMetaRow #################
+################## ResetMetaGlobalsForMRow #################
 # Reset globals: @{$MTABLE->[$MROW]}
 # They are relative to $MROW, which must already be set.
-sub ResetGlobalsForMetaRow
+sub ResetMetaGlobalsForMRow
 {
+die;
 defined($MROW) || confess "Died";
 $DIRECTIVE || confess "Died";
 @METAS || confess "Died";
@@ -498,48 +483,53 @@ $DIRECTIVE || confess "Died";
 @{$MTABLE->[$MROW]} = ($DIRECTIVE, $ARGS, @METAS);
 }
 
-################## SetGlobalsForDataRow #################
+################## SetDataGlobalsForRow #################
 # Set globals: %DATA
 # They are relative to $ROW, which must already be set.
-sub SetGlobalsForDataRow
+sub SetDataGlobalsForRow
 {
 defined($ROW) || confess "Died";
+($ROW>=0 && $ROW<$NROWS) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
 	}
+$S = "_:row$ROW";
 }
 
-################## ResetGlobalsForDataRow #################
+################## ResetDataGlobalsForRow #################
 # Reset globals that are relative to $ROW, which must already be set.
-sub ResetGlobalsForDataRow
+sub ResetDataGlobalsForRow
 {
+die;
 defined($ROW) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 for (my $i=0; $i<$NCOLUMNS; $i++) {
+	### Not needed, because ResetDataGlobasForColumn already does it:
+	last;
 	$TABLE->[$ROW]->[$i] = $DATA{$HEADERS[$i]};
 	}
 }
 
-################## SetGlobalsForDataColumn #################
+################## SetDataGlobalsForColumn #################
 # Set globals: $HEADER $_ $RAW
 # They are relative to $COLUMN, which must already be set.
 # The $ROW must already be set also.
-sub SetGlobalsForDataColumn
+sub SetDataGlobalsForColumn
 {
 defined($ROW) || confess "Died";
 defined($COLUMN) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
-@HEADERS || confess "Died";
-$HEADER = $HEADERS[$COLUMN];
-defined($HEADER) || confess "Died";
+($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
 # Important to set $RAW and $_ before setting $TYPE, etc., because
 # those will evaluate expressions that may involve $RAW and $_.
 $RAW = $RTABLE->[$ROW]->[$COLUMN];
-$_ = $TABLE->[$ROW]->[$COLUMN];
+# $_ = $TABLE->[$ROW]->[$COLUMN];
+$_ = $DATA{$HEADER};
 defined($_) || confess "Died";
+####
 $TYPE = ($TYPE{$HEADER} || "");
 our $typeWarned;
 !$TYPE || &MatchesUriTerm($TYPE) || $typeWarned++ || warn "$0: [WARNING] Unusual type name in column $COLUMN {$HEADER} row $ROW: $TYPE\n";
@@ -559,6 +549,20 @@ $OBJECT = &EvalWarnings($OBJECT{$HEADER} || "");
 our $objectWarned;
 !$OBJECT || &MatchesUriTerm($OBJECT) || &MatchesLiteral($OBJECT) || $objectWarned++ || warn "$0: [WARNING] Unusual RDF object term in column $COLUMN {$HEADER} row $ROW: $OBJECT\n";
 $LABEL = &EvalWarnings($LABEL{$HEADER} || "");
+}
+
+################## ResetDataGlobalsForColumn #################
+# Reset globals: $_ 
+# They are relative to $COLUMN, which must already be set.
+# The $ROW must already be set also.
+sub ResetDataGlobalsForColumn
+{
+defined($ROW) || confess "Died";
+defined($COLUMN) || confess "Died";
+defined($NCOLUMNS) || confess "Died";
+($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
+defined($_) || confess "Died: Undefined value in \$_ ";
+$TABLE->[$ROW]->[$COLUMN] = $DATA{$HEADER} = $_;
 }
 
 ################## MatchesLiteral ##################
@@ -602,23 +606,6 @@ return 1 if $term =~ m/^([a-z]([a-z0-9_\-\.]*[a-z0-9_\-])?)?\:/i;
 return 0;
 }
 
-################## ResetGlobalsForDataColumn #################
-# Reset globals: $HEADER, $_
-# They are relative to $COLUMN, which must already be set.
-# The $ROW must already be set also.
-sub ResetGlobalsForDataColumn
-{
-defined($ROW) || confess "Died";
-defined($COLUMN) || confess "Died";
-defined($NCOLUMNS) || confess "Died";
-@HEADERS || confess "Died";
-defined($HEADER) || confess "Died";
-$HEADERS[$COLUMN] = $HEADER;
-defined($_) || confess "Died";
-warn "      ResetGlobalsForDataColum UNDERSCORE: $_\n" if $debug > 1;
-$TABLE->[$ROW]->[$COLUMN] = $_;
-}
-
 ################## Iterate #################
 # Iterates through the meta cells if $fPerMetaCell is set,
 # and through data cells if $fPerDataCell is set.
@@ -626,30 +613,26 @@ $TABLE->[$ROW]->[$COLUMN] = $_;
 sub Iterate
 {
 my ($fPerMetaCell, $fPerDataCell) = @_;
-# &SetGlobalsForMetaRow();
+# &SetMetaGlobalsForMRow();
 if ($fPerMetaCell) {
 	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-		&SetGlobalsForMetaColumn();
+		&SetMetaGlobalsForColumn();
 		&{$fPerMetaCell}();
-		&ResetGlobalsForMetaColumn();
 		}
 	}
 if ($fPerDataCell) {
 	for ($ROW=0; $ROW<$NROWS; $ROW++) {
-		&SetGlobalsForDataRow();
+		&SetDataGlobalsForRow();
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-			&SetGlobalsForMetaColumn();
-			&SetGlobalsForDataColumn();
+			&SetMetaGlobalsForColumn();
+			&SetDataGlobalsForColumn();
 			warn "  Iterate before fPerDataCell, UNDERSCORE: $_\n" if $debug > 1;
 			&{$fPerDataCell}();
 			warn "  Iterate after  fPerDataCell, UNDERSCORE: $_\n" if $debug > 1;
-			&ResetGlobalsForDataColumn();
-			&ResetGlobalsForMetaColumn();
+			&ResetDataGlobalsForColumn();
 			}
 		}
-		&ResetGlobalsForDataRow();
 	}
-# &ResetGlobalsForMetaRow();
 }
 
 ################## Perl_PreFilter #################
@@ -859,7 +842,7 @@ die "$0: [ERROR] Unknown ARGS in Prefix directive on metadata row $MROW: $ARGS\n
 my $oldDebug = $debug;
 # $debug = 2;
 for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
-	&SetGlobalsForMetaColumn();
+	&SetMetaGlobalsForColumn();
 	next if $META !~ m/\S/;
 	my $originalMeta = $META;
 	# Ignore optional "@prefix" and trailing period:
@@ -923,7 +906,7 @@ else	{
 	for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
 		my $val = "";
 		if ($METAS[$COLUMN] =~ m/\S/) {
-			&SetGlobalsForMetaColumn();
+			&SetMetaGlobalsForColumn();
 			$val = &EvalWarnings($META);
 			die "$0: [ERROR] SetVar: Expression eval failed in metadata row $MROW: $META\n" if !defined($val);
 			warn "SetVar evaluated META: $META = $val\n" if $debug;
@@ -1039,7 +1022,7 @@ if ($warning || $error) {
 	my $args = $ARGS || "(undef)";
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
 	my $column = (defined($COLUMN) && $COLUMN < $NCOLUMNS && $COLUMN >= 0 ? $COLUMN : undef);
-	my $header = (defined($column) ? $RHEADERS[$column] : undef);
+	my $header = (defined($column) ? $HEADERS[$column] : undef);
 	my $cell = (defined($column) && defined($ROW) 
 		? $TABLE->[$ROW]->[$column] : undef);
 	my $max = 20;
@@ -1061,7 +1044,7 @@ if ($warning || $error) {
 	# warn "header: $header\n";
 	# warn "column: $column\n";
 	# warn "NCOLUMNS: $NCOLUMNS\n";
-	# warn "RHEADERS[$column]: $RHEADERS[$column]\n";
+	# warn "HEADERS[$column]: $HEADERS[$column]\n";
 	if ($warning) { warn $msg; }
 	else { die $msg; }
 	}
