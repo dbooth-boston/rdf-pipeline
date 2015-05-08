@@ -395,7 +395,6 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 			# &ResetGlobalsForMetaColumn();
 			# &ResetGlobalsForMetaRow();
 			$underscores[$COLUMN] = $_;
-			$properties[$COLUMN] = $P;
 			}
 		$firstMeta = 0;
 		}
