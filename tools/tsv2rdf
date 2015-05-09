@@ -151,13 +151,11 @@ our %PROPERTY;	# maps column name to property URI Template
 our %PROPERTY_TYPE;	# maps column name to property type URI Template
 our %PROPERTY_DOMAIN;	# maps column name to property domain URI Template
 our %PROPERTY_RANGE;	# maps column name to property range URI Template
-our %OBJECT;	# Maps column name to object URI Template
 our $TYPE;	# Turtle type of current data $ROW and $COLUMN
 our $PROPERTY;	# Turtle property of current data $ROW and $COLUMN
 our $PROPERTY_TYPE;	# Turtle property type of current data $ROW and $COLUMN
 our $PROPERTY_DOMAIN;	# Turtle property domain of current data $ROW and $COLUMN
 our $PROPERTY_RANGE;	# Turtle property range of current data $ROW and $COLUMN
-our $OBJECT;	# Turtle object of current data $ROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
 our $P;		# Turtle property of current $COLUMN
 our @PS;	# Turtle properties of all columns
@@ -296,7 +294,6 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	PropertyType
 	PropertyDomain
 	PropertyRange
-	Object
 	Perl_PreRun
 	Perl_PreFilter
 	);
@@ -549,9 +546,6 @@ our $propertyDomainWarned;
 !$PROPERTY_DOMAIN || &MatchesUriTerm($PROPERTY_DOMAIN) || $propertyDomainWarned++ || warn "$0: [WARNING] Unusual property domain name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_DOMAIN\n";
 our $propertyRangeWarned;
 !$PROPERTY_RANGE || &MatchesUriTerm($PROPERTY_RANGE) || $propertyRangeWarned++ || warn "$0: [WARNING] Unusual property domain name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_RANGE\n";
-$OBJECT = &EvalWarnings($OBJECT{$HEADER} || "");
-our $objectWarned;
-!$OBJECT || &MatchesUriTerm($OBJECT) || &MatchesLiteral($OBJECT) || $objectWarned++ || warn "$0: [WARNING] Unusual RDF object term in column $COLUMN {$HEADER} row $ROW: $OBJECT\n";
 }
 
 ################## ResetDataGlobalsForColumn #################
@@ -813,12 +807,6 @@ sub PropertyRange
 &TypeOrProperty("PropertyRange", \%PROPERTY_RANGE);
 }
 
-################## Object #################
-sub Object
-{
-&ObjectOrLabel("Object", \%OBJECT);
-}
-
 ################## End #################
 # Eval the expressions after everything else is done.
 sub End
@@ -858,31 +846,6 @@ my $fPerMetaCell = sub {
 	my $result = &EvalWarnings($meta) if $meta ne "";
 	$hash->{$HEADER} = $result;
 	warn "$name expr of column $COLUMN {$HEADER}: $result\n" if $debug > 1;
-	};
-&Iterate($fPerMetaCell, $fPerDataCell);
-$debug = $oldDebug;
-}
-
-################## ObjectOrLabel #################
-# Remember the object or label expression of each column.
-# They will be eval'ed later for each data cell.
-sub ObjectOrLabel
-{
-@_ == 2 || confess "Died";
-my ($name, $hash) = @_;
-my $oldDebug = $debug;
-$debug = 2;
-# warn "$name starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
-# Nothing to be done per data cell:
-my $fPerDataCell = undef;
-my $fPerMetaCell = sub {
-	my $meta = $META;
-	return if !$meta;
-	# Auto-quote if it does not already start with a quote,
-	# because later it will be eval'ed as an expression:
-	$meta = '"' . $meta . '"' if $meta !~ m/^[\'\"]/;
-	$hash->{$HEADER} = $meta;
-	warn "$name expr of column $COLUMN {$HEADER}: $meta\n" if $debug > 1;
 	};
 &Iterate($fPerMetaCell, $fPerDataCell);
 $debug = $oldDebug;
