@@ -411,24 +411,6 @@ defined($HEADER) || confess "Died";
 $P = $PS[$COLUMN];
 }
 
-################## ResetMetaGlobalsForColumn #################
-# Reset globals: $METAS[$COLUMN], 
-# from $META and $HEADER.
-# They are relative to $COLUMN, which 
-# must already be set.  $META (and @METAS) must already be set also,
-# as by calling SetMetaGlobalsForColumn.
-sub ResetMetaGlobalsForColumn
-{
-die;
-defined($COLUMN) || confess "Died";
-($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
-@METAS || confess "Died";
-@HEADERS || confess "Died";
-defined($META) || confess "Died";
-defined($HEADER) || confess "Died";
-$METAS[$COLUMN] = $META;
-}
-
 ################## SetMetaGlobalsForMRow #################
 # Set globals: @{$MTABLE->[$MROW]}
 # They are relative to $MROW, which must already be set.
@@ -449,19 +431,6 @@ my $nMetas = scalar(@METAS);
  ";
 }
 
-################## ResetMetaGlobalsForMRow #################
-# Reset globals: @{$MTABLE->[$MROW]}
-# They are relative to $MROW, which must already be set.
-sub ResetMetaGlobalsForMRow
-{
-die;
-defined($MROW) || confess "Died";
-$DIRECTIVE || confess "Died";
-@METAS || confess "Died";
-@HEADERS == @METAS || confess "Died";
-@{$MTABLE->[$MROW]} = ($DIRECTIVE, $ARGS, @METAS);
-}
-
 ################## SetDataGlobalsForRow #################
 # Set globals: %DATA
 # They are relative to $ROW, which must already be set.
@@ -476,21 +445,6 @@ for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$MAGICS[$i] = "";
 	}
 $S = "_:row$ROW";
-}
-
-################## ResetDataGlobalsForRow #################
-# Reset globals that are relative to $ROW, which must already be set.
-sub ResetDataGlobalsForRow
-{
-die;
-defined($ROW) || confess "Died";
-defined($NCOLUMNS) || confess "Died";
-@HEADERS || confess "Died";
-for (my $i=0; $i<$NCOLUMNS; $i++) {
-	### Not needed, because ResetDataGlobasForColumn already does it:
-	last;
-	$TABLE->[$ROW]->[$i] = $DATA{$HEADERS[$i]};
-	}
 }
 
 ################## SetDataGlobalsForColumn #################
