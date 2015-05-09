@@ -146,8 +146,6 @@ our $ARGS;	# Args parsed from #META column of current $MROW
 our @METAS;	# Meta cell values for current $MROW
 our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
-our %TYPE;	# Maps column name to type URI Template
-our $TYPE;	# Turtle type of current data $ROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
 our $P;		# Turtle property of current $COLUMN
 our @PS;	# Turtle properties of all columns
@@ -281,7 +279,6 @@ my @MAGICS;	# For each $COLUMN, an expr to be eval'ed
 my %isPreProcessingDirective = map {($_,1)} qw( 
 	Prefix 
 	SetVar
-	Type
 	Perl_PreRun
 	Perl_PreFilter
 	);
@@ -507,8 +504,8 @@ defined($ROW) || confess "Died";
 defined($COLUMN) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
 ($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
-# Important to set $RAW and $_ before setting $TYPE, etc., because
-# those will evaluate expressions that may involve $RAW and $_.
+# Important to set $RAW and $_ before eval'ing
+# that may involve $RAW and $_.
 $RAW = $RTABLE->[$ROW]->[$COLUMN];
 # $_ = $TABLE->[$ROW]->[$COLUMN];
 $_ = $DATA{$HEADER};
@@ -518,10 +515,6 @@ if ($e ne "") {
 	my $r = &EvalWarnings($e);
 	defined($r) || warn "$0: [WARNING] Expression evaluation returned undefined in column $COLUMN {$HEADER} row $ROW: $e\n";
 	}
-####
-$TYPE = ($TYPE{$HEADER} || "");
-our $typeWarned;
-!$TYPE || &MatchesUriTerm($TYPE) || $typeWarned++ || warn "$0: [WARNING] Unusual type name in column $COLUMN {$HEADER} row $ROW: $TYPE\n";
 }
 
 ################## ResetDataGlobalsForColumn #################
@@ -753,12 +746,6 @@ print "$S $P $v .\n";
 return;
 }
 
-################## Type #################
-sub Type
-{
-&TypeOrProperty("Type", \%TYPE);
-}
-
 ################## End #################
 # Eval the expressions after everything else is done.
 sub End
@@ -771,33 +758,6 @@ warn "#End starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
 my $fPerDataCell = undef;
 my $fPerMetaCell = sub {
 	&EvalWarnings($META) if $META ne "";
-	};
-&Iterate($fPerMetaCell, $fPerDataCell);
-$debug = $oldDebug;
-}
-
-################## TypeOrProperty #################
-# Eval and remember the type or property of each column.
-# These are evaluated *once*, during directive processing -- not
-# on every data cell.
-sub TypeOrProperty
-{
-@_ == 2 || confess "Died";
-my ($name, $hash) = @_;
-my $oldDebug = $debug;
-# $debug = 2;
-# warn "$name starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
-# Nothing to be done per data cell:
-my $fPerDataCell = undef;
-my $fPerMetaCell = sub {
-	my $meta = $META;
-	return if !$meta;
-	# Auto-quote if it does not already start with a quote,
-	# because it will be eval'ed as an expression:
-	$meta = '"' . $meta . '"' if $meta !~ m/^[\'\"]/;
-	my $result = &EvalWarnings($meta) if $meta ne "";
-	$hash->{$HEADER} = $result;
-	warn "$name expr of column $COLUMN {$HEADER}: $result\n" if $debug > 1;
 	};
 &Iterate($fPerMetaCell, $fPerDataCell);
 $debug = $oldDebug;
