@@ -280,7 +280,6 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Prefix 
 	SetVar
 	Perl_PreRun
-	Perl_PreFilter
 	);
 
 my %isPostProcessingDirective = map {($_,1)} qw( 
@@ -599,35 +598,6 @@ if ($fPerDataCell) {
 			}
 		}
 	}
-}
-
-################## Perl_PreFilter #################
-# Process all data rows for the current meta row $MROW.
-# Called as:
-#   $MROW = ...
-#   &Perl_PreFilter()
-sub Perl_PreFilter
-{
-my $oldDebug = $debug;
-# $debug = 2;
-warn "Perl_PreFilter starting:  ARGS: $ARGS MROW: $MROW UNDERSCORE: $_\n" if $debug > 1;
-# Nothing to be done per meta cell:
-my $fPerMetaCell = undef;
-my $fPerDataCell = sub {
-	# Run $ARGS on every cell
-	if ($ARGS ne "") {
-		warn "    Perl_PreFilter before EvalWarnings ARGS: {$ARGS} ROW: $ROW COLUMN: $COLUMN UNDERSCORE: $_\n" if $debug > 1;
-		$_  =&EvalWarnings($ARGS);
-		warn "    Perl_PreFilter after  EvalWarnings ARGS: {$ARGS} ROW: $ROW COLUMN: $COLUMN UNDERSCORE: $_\n" if $debug > 1;
-		}
-	if ($META ne "") {
-		warn "    Perl_PreFilter before EvalWarnings META: {$META} ROW: $ROW COLUMN: $COLUMN UNDERSCORE: $_\n" if $debug > 1;
-		$_ = &EvalWarnings($META);
-		warn "    Perl_PreFilter after  EvalWarnings META: {$META} ROW: $ROW COLUMN: $COLUMN UNDERSCORE: $_\n" if $debug > 1;
-		}
-	};
-&Iterate($fPerMetaCell, $fPerDataCell);
-$debug = $oldDebug;
 }
 
 ################## Perl_PreRun #################
