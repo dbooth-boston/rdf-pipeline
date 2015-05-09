@@ -787,11 +787,13 @@ my $oldDebug = $debug;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Perl_RunArg(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
-my $result = "";
-$result = &EvalWarnings($ARGS) if $ARGS ne "";
-warn "  Perl_RunArg After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
-$_ = $saveUnderbar;
-warn "  Perl_RunArg Done Perl_RunArg(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+if (($ARGS !~ s/^once\b\s*//) || $ROW > 0) {
+	my $result = "";
+	$result = &EvalWarnings($ARGS) if $ARGS ne "";
+	warn "  Perl_RunArg After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
+	$_ = $saveUnderbar;
+	warn "  Perl_RunArg Done Perl_RunArg(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+	}
 $debug = $oldDebug;
 }
 
@@ -803,14 +805,16 @@ my $oldDebug = $debug;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Perl_Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
-my $result = "";
-$result = &EvalWarnings($ARGS) if $ARGS ne "";
-warn "  Perl_Run After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
-$_ = $saveUnderbar;
-$result = &EvalWarnings($META) if $META ne "";
-warn "  Perl_Run After eval(META) UNDERBAR: $_\n" if $shouldWarn;
-$_ = $saveUnderbar;
-warn "  Perl_Run Done Perl_Run(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+if (($ARGS !~ s/^once\b\s*//) || $ROW > 0) {
+	my $result = "";
+	$result = &EvalWarnings($ARGS) if $ARGS ne "";
+	warn "  Perl_Run After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
+	$_ = $saveUnderbar;
+	$result = &EvalWarnings($META) if $META ne "";
+	warn "  Perl_Run After eval(META) UNDERBAR: $_\n" if $shouldWarn;
+	$_ = $saveUnderbar;
+	warn "  Perl_Run Done Perl_Run(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+	}
 $debug = $oldDebug;
 }
 
