@@ -147,13 +147,7 @@ our @METAS;	# Meta cell values for current $MROW
 our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
 our %TYPE;	# Maps column name to type URI Template
-our %PROPERTY;	# maps column name to property URI Template
-our %PROPERTY_DOMAIN;	# maps column name to property domain URI Template
-our %PROPERTY_RANGE;	# maps column name to property range URI Template
 our $TYPE;	# Turtle type of current data $ROW and $COLUMN
-our $PROPERTY;	# Turtle property of current data $ROW and $COLUMN
-our $PROPERTY_DOMAIN;	# Turtle property domain of current data $ROW and $COLUMN
-our $PROPERTY_RANGE;	# Turtle property range of current data $ROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
 our $P;		# Turtle property of current $COLUMN
 our @PS;	# Turtle properties of all columns
@@ -288,9 +282,6 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	Prefix 
 	SetVar
 	Type
-	Property
-	PropertyDomain
-	PropertyRange
 	Perl_PreRun
 	Perl_PreFilter
 	);
@@ -531,15 +522,6 @@ if ($e ne "") {
 $TYPE = ($TYPE{$HEADER} || "");
 our $typeWarned;
 !$TYPE || &MatchesUriTerm($TYPE) || $typeWarned++ || warn "$0: [WARNING] Unusual type name in column $COLUMN {$HEADER} row $ROW: $TYPE\n";
-$PROPERTY = ($PROPERTY{$HEADER} || "");
-$PROPERTY_DOMAIN = ($PROPERTY_DOMAIN{$HEADER} || "");
-$PROPERTY_RANGE = ($PROPERTY_RANGE{$HEADER} || "");
-our $propertyWarned;
-!$PROPERTY || &MatchesUriTerm($PROPERTY) || $propertyWarned++ || warn "$0: [WARNING] Unusual property name in column $COLUMN {$HEADER} row $ROW: $PROPERTY\n";
-our $propertyDomainWarned;
-!$PROPERTY_DOMAIN || &MatchesUriTerm($PROPERTY_DOMAIN) || $propertyDomainWarned++ || warn "$0: [WARNING] Unusual property domain name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_DOMAIN\n";
-our $propertyRangeWarned;
-!$PROPERTY_RANGE || &MatchesUriTerm($PROPERTY_RANGE) || $propertyRangeWarned++ || warn "$0: [WARNING] Unusual property domain name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_RANGE\n";
 }
 
 ################## ResetDataGlobalsForColumn #################
@@ -775,24 +757,6 @@ return;
 sub Type
 {
 &TypeOrProperty("Type", \%TYPE);
-}
-
-################## Property #################
-sub Property
-{
-&TypeOrProperty("Property", \%PROPERTY);
-}
-
-################## PropertyDomain #################
-sub PropertyDomain
-{
-&TypeOrProperty("PropertyDomain", \%PROPERTY_DOMAIN);
-}
-
-################## PropertyRange #################
-sub PropertyRange
-{
-&TypeOrProperty("PropertyRange", \%PROPERTY_RANGE);
 }
 
 ################## End #################
