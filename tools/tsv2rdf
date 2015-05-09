@@ -148,12 +148,10 @@ our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
 our %TYPE;	# Maps column name to type URI Template
 our %PROPERTY;	# maps column name to property URI Template
-our %PROPERTY_TYPE;	# maps column name to property type URI Template
 our %PROPERTY_DOMAIN;	# maps column name to property domain URI Template
 our %PROPERTY_RANGE;	# maps column name to property range URI Template
 our $TYPE;	# Turtle type of current data $ROW and $COLUMN
 our $PROPERTY;	# Turtle property of current data $ROW and $COLUMN
-our $PROPERTY_TYPE;	# Turtle property type of current data $ROW and $COLUMN
 our $PROPERTY_DOMAIN;	# Turtle property domain of current data $ROW and $COLUMN
 our $PROPERTY_RANGE;	# Turtle property range of current data $ROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
@@ -291,7 +289,6 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	SetVar
 	Type
 	Property
-	PropertyType
 	PropertyDomain
 	PropertyRange
 	Perl_PreRun
@@ -535,13 +532,10 @@ $TYPE = ($TYPE{$HEADER} || "");
 our $typeWarned;
 !$TYPE || &MatchesUriTerm($TYPE) || $typeWarned++ || warn "$0: [WARNING] Unusual type name in column $COLUMN {$HEADER} row $ROW: $TYPE\n";
 $PROPERTY = ($PROPERTY{$HEADER} || "");
-$PROPERTY_TYPE = ($PROPERTY_TYPE{$HEADER} || "");
 $PROPERTY_DOMAIN = ($PROPERTY_DOMAIN{$HEADER} || "");
 $PROPERTY_RANGE = ($PROPERTY_RANGE{$HEADER} || "");
 our $propertyWarned;
 !$PROPERTY || &MatchesUriTerm($PROPERTY) || $propertyWarned++ || warn "$0: [WARNING] Unusual property name in column $COLUMN {$HEADER} row $ROW: $PROPERTY\n";
-our $propertyTypeWarned;
-!$PROPERTY_TYPE || &MatchesUriTerm($PROPERTY_TYPE) || $propertyTypeWarned++ || warn "$0: [WARNING] Unusual property type name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_TYPE\n";
 our $propertyDomainWarned;
 !$PROPERTY_DOMAIN || &MatchesUriTerm($PROPERTY_DOMAIN) || $propertyDomainWarned++ || warn "$0: [WARNING] Unusual property domain name in column $COLUMN {$HEADER} row $ROW: $PROPERTY_DOMAIN\n";
 our $propertyRangeWarned;
@@ -787,12 +781,6 @@ sub Type
 sub Property
 {
 &TypeOrProperty("Property", \%PROPERTY);
-}
-
-################## PropertyType #################
-sub PropertyType
-{
-&TypeOrProperty("PropertyType", \%PROPERTY_TYPE);
 }
 
 ################## PropertyDomain #################
