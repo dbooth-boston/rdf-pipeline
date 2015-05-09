@@ -152,14 +152,12 @@ our %PROPERTY_TYPE;	# maps column name to property type URI Template
 our %PROPERTY_DOMAIN;	# maps column name to property domain URI Template
 our %PROPERTY_RANGE;	# maps column name to property range URI Template
 our %OBJECT;	# Maps column name to object URI Template
-our %LABEL;	# Maps column name to object URI rdfs:label
 our $TYPE;	# Turtle type of current data $ROW and $COLUMN
 our $PROPERTY;	# Turtle property of current data $ROW and $COLUMN
 our $PROPERTY_TYPE;	# Turtle property type of current data $ROW and $COLUMN
 our $PROPERTY_DOMAIN;	# Turtle property domain of current data $ROW and $COLUMN
 our $PROPERTY_RANGE;	# Turtle property range of current data $ROW and $COLUMN
 our $OBJECT;	# Turtle object of current data $ROW and $COLUMN
-our $LABEL;	# Turtle label of current data $ROW and $COLUMN
 our $S;		# Turtle subject of current data $ROW
 our $P;		# Turtle property of current $COLUMN
 our @PS;	# Turtle properties of all columns
@@ -287,7 +285,8 @@ no warnings qw(qw);
 	);
 }
 
-my %VAR;	# For #SetVar
+my %VAR;	# For #SetVar.  Variables to be declared "our"
+my @MAGICS;	# For each $COLUMN, an expr to be eval'ed
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
 	Prefix 
@@ -298,7 +297,6 @@ my %isPreProcessingDirective = map {($_,1)} qw(
 	PropertyDomain
 	PropertyRange
 	Object
-	Label
 	Perl_PreRun
 	Perl_PreFilter
 	);
@@ -494,6 +492,7 @@ defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
+	$MAGICS[$i] = "";
 	}
 $S = "_:row$ROW";
 }
@@ -529,6 +528,11 @@ $RAW = $RTABLE->[$ROW]->[$COLUMN];
 # $_ = $TABLE->[$ROW]->[$COLUMN];
 $_ = $DATA{$HEADER};
 defined($_) || confess "Died";
+my $e = $MAGICS[$COLUMN];
+if ($e ne "") {
+	my $r = &EvalWarnings($e);
+	defined($r) || warn "$0: [WARNING] Expression evaluation returned undefined in column $COLUMN {$HEADER} row $ROW: $e\n";
+	}
 ####
 $TYPE = ($TYPE{$HEADER} || "");
 our $typeWarned;
@@ -548,7 +552,6 @@ our $propertyRangeWarned;
 $OBJECT = &EvalWarnings($OBJECT{$HEADER} || "");
 our $objectWarned;
 !$OBJECT || &MatchesUriTerm($OBJECT) || &MatchesLiteral($OBJECT) || $objectWarned++ || warn "$0: [WARNING] Unusual RDF object term in column $COLUMN {$HEADER} row $ROW: $OBJECT\n";
-$LABEL = &EvalWarnings($LABEL{$HEADER} || "");
 }
 
 ################## ResetDataGlobalsForColumn #################
@@ -694,6 +697,63 @@ my $fPerDataCell = sub {
 $debug = $oldDebug;
 }
 
+################## SetMagic #################
+# Save expression in @MAGICS, for evaluation later.
+# 	#SetMagic $x in %h
+# 	#SetMagic $x in @a
+# 	#SetMagic $x in %h = expr
+# 	#SetMagic $x in @a = expr
+sub SetMagic
+{
+my $oldDebug = $debug;
+# $debug = 2;
+die "$0: [ERROR] SetMagic: No variable specified in metadata row $MROW\n" if $ARGS eq "";
+### Parse $x in %h
+my $args = $ARGS;
+($args =~ s/^([\$]\w+)\s*//) || die "$0: [ERROR] SetMagic: Bad variable syntax in metadata row $MROW: $ARGS\n";
+my $svar = $1;
+($args =~ s/^in\s+([\%\@]\w+)\s*//) || die "$0: [ERROR] SetMagic: Bad 'in' syntax in metadata row $MROW: $ARGS\n";
+my $var = $1;	# Hash or array
+warn "SetMagic: Declaring scalar $svar hash/array: $var at row $ROW column $COLUMN meta row $MROW column $COLUMN: $ARGS\n" if $debug > 1;
+# This check of redeclaration does not work:
+# die "$0: [ERROR] SetMagic: Variable $svar redeclared at meta row $MROW column $COLUMN: $ARGS\n" if exists($VAR{$svar});
+$VAR{$svar} = 1;
+# die "$0: [ERROR] SetMagic: Variable $var redeclared at meta row $MROW column $COLUMN: $ARGS\n" if exists($VAR{$var});
+$VAR{$var} = 1;
+### Parse '= expr' if there is one
+if ($args =~ s/^\=\s*(\S.*)$//) {
+	# $ARGS: var = expr
+	# Treat it as though expr were in every META cell.
+	my $expr = $1;
+	warn "SetMagic var: $var expr: $expr ARGS: $ARGS\n" if $debug > 1;
+	$META eq "" || die "$0: [ERROR] SetMagic: Non-empty META when expr { $ARGS } was provided in ARGS in colum $COLUMN metadata row $MROW: $META\n";
+	$META = $METAS[$COLUMN] = $expr;
+	}
+if ($args ne "") { die "$0: [ERROR] SetMagic: Bad expr syntax in metadata row $MROW: $ARGS\n"; }
+my $v = $var;
+$v =~ s/^[\@\%]//;
+my $m = '""';
+$m = $META if $META ne "";
+my $e = "";
+$e = "\$$v\[\$COLUMN\] = $m" if $var =~ m/^\@/;;
+$e = "\$$v\{\$HEADER\} = $m" if $var =~ m/^\%/;;
+my $val = &EvalWarnings($e);
+die "$0: [ERROR] SetMagic: Eval of assignment expr failed in metadata row $MROW expr: $e\n" if !defined($val);
+# Save magic expr for eval later
+$MAGICS[$COLUMN] .= " ;\n$svar = \$$v\{\$HEADER\}" if $var =~ m/^\%/;
+$MAGICS[$COLUMN] .= " ;\n$svar = \$$v\[\$COLUMN\]" if $var =~ m/^\@/;
+warn "SetMagic svar: $svar var: $var ARGS: $ARGS MAGIC: $MAGICS[$COLUMN]\n" if $debug > 1;
+if (0 && $debug > 1) {
+	use Data::Dumper;
+	warn "MAGIC VAR $var = \n";
+	my $ref = eval "our $var; \\$var";
+	my $d = &Dumper($ref);
+	warn "$d\n";
+	}
+$debug = $oldDebug;
+# die "STOPPED!\n";
+}
+
 ################## Perl_Filter #################
 sub Perl_Filter
 {
@@ -757,12 +817,6 @@ sub PropertyRange
 sub Object
 {
 &ObjectOrLabel("Object", \%OBJECT);
-}
-
-################## Label #################
-sub Label
-{
-&ObjectOrLabel("Label", \%LABEL);
 }
 
 ################## End #################
@@ -1025,7 +1079,7 @@ if ($warning || $error) {
 	my $header = (defined($column) ? $HEADERS[$column] : undef);
 	my $cell = (defined($column) && defined($ROW) 
 		? $TABLE->[$ROW]->[$column] : undef);
-	my $max = 20;
+	my $max = 200;
 	my $shortExpr = (defined($expr) ? $expr : "");
 	$shortExpr = substr($shortExpr, 0, $max-3) . "..." if length($shortExpr) > $max;
 	my $shortCell = (defined($cell) ? $cell : "");
