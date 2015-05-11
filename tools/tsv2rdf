@@ -330,6 +330,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	warn "================= DATA ROW ====================\n" if $debug;
 	warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
 	warn "===============================================\n" if $debug;
+	my $dr = $TABLE->[$ROW];
 	&SetDataGlobalsForRow();
 	for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 		my $mr = $MTABLE->[$MROW];
@@ -339,21 +340,21 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$DIRECTIVE};
 		next if $isPostProcessingDirective{$DIRECTIVE};
+		my $ifdata = ($ARGS =~ s/^ifdata\b\s*//);
+		# warn "  ifdata\n" if $ifdata && $shouldWarn;
 		@METAS || confess "Died";
 		@HEADERS == @METAS || confess "Died";
-		# my @r = @{$TABLE->[$ROW]};	# TODO: comment out
-		# warn "ROW CONTAINS: @r\n" if $debug > 1;
 		warn "--------------- META --------------------\n" if $debug;
 		warn "Directive: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
 		warn "UNDERSCORE: $_\n" if $debug > 1;
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-			# TODO: Move these
+			# Skip $ifdata and $_ is empty?
+			next if $ifdata && $dr->[$COLUMN] eq "";
 			&SetMetaGlobalsForColumn();
 			no strict 'refs';
 			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
 			&SetDataGlobalsForColumn();
-			next if $_ eq "";
-			warn "Calling &$DIRECTIVE();\n" if $debug > 1;
+			# warn "LOOP Calling &$DIRECTIVE() UNDERBAR: $_ ARGS: $ARGS META: $META;\n" if $META =~ m/properties/ || $debug > 1;
 			&{$DIRECTIVE}();
 			warn "Done calling &$DIRECTIVE();\n" if $debug > 1;
 			&ResetDataGlobalsForColumn();
@@ -740,6 +741,7 @@ $debug = $oldDebug;
 
 ################## SetVar #################
 # Set %VAR, for use in URI Templates.
+# Preprocessing directive.
 sub SetVar
 {
 my $oldDebug = $debug;
@@ -801,34 +803,35 @@ my $oldDebug = $debug;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Perl_RunArg(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
-if (($ARGS !~ s/^once\b\s*//) || $ROW > 0) {
-	my $result = "";
-	$result = &EvalWarnings($ARGS) if $ARGS ne "";
-	warn "  Perl_RunArg After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
-	$_ = $saveUnderbar;
-	warn "  Perl_RunArg Done Perl_RunArg(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
-	}
+# my $once = ($ARGS =~ s/^once\b\s*//);
+# "Run once" runs on every data cell (even if empty), whereas
+# regular "Run" only runs on non-empty cells.
+# if (($once && $ROW == 0) || (!$once && $_ ne "")) {
+my $result = "";
+$result = &EvalWarnings($ARGS) if $ARGS ne "";
+warn "  Perl_RunArg After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
+$_ = $saveUnderbar;
+warn "  Perl_RunArg Done Perl_RunArg(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
 }
 
 ################## Perl_Run #################
+# Run both ARGS and META
 sub Perl_Run
 {
 my $oldDebug = $debug;
-# $debug = 2;
+# $debug = 2 if $META =~ m/properties/;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Perl_Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
-if (($ARGS !~ s/^once\b\s*//) || $ROW > 0) {
-	my $result = "";
-	$result = &EvalWarnings($ARGS) if $ARGS ne "";
-	warn "  Perl_Run After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
-	$_ = $saveUnderbar;
-	$result = &EvalWarnings($META) if $META ne "";
-	warn "  Perl_Run After eval(META) UNDERBAR: $_\n" if $shouldWarn;
-	$_ = $saveUnderbar;
-	warn "  Perl_Run Done Perl_Run(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
-	}
+my $expr = $ARGS;
+$expr .= " ; " if $ARGS ne "" && $META ne "";
+$expr .= $META;
+warn "  Perl_Run before eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
+my $result = &EvalWarnings($expr) if $expr ne "";
+warn "  Perl_Run After eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
+$_ = $saveUnderbar;
+warn "  Perl_Run Done Perl_Run(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
 }
 
@@ -872,24 +875,27 @@ my $ours = join("", map {"our $_; "} sort keys %VAR);
 # because it is reset by perl.
 $! = 0;
 $? = 0;
+my $wantarray = wantarray;
 #### Create a new scope for trapping warnings.
 #### DO NOT TRY TO CALL warn FROM THIS SCOPE!
 	{
 	local $SIG{__WARN__} = sub {
 		$warning .= (shift || "");
 		};
-	if (wantarray) { @result = eval $expr; }
+	if ($wantarray) { @result = eval $expr; }
 	else { $result = eval $expr; }
 	}
 my $error = $@ || "";
 $underscore = $_;
+if ($wantarray) {
+	$result = join(" ", map { defined($_) ? $_ : "(undef)" } @result);
+	}
 $underscore = "(undef)" if !defined($underscore);
-$result = join(" ", map { defined($_) ? $_ : "(undef)" } @result) if wantarray;
-warn "wantarray\n" if wantarray && $debug > 1;
+warn "wantarray\n" if $wantarray && $debug > 1;
 warn "expr: $expr\n" if $debug > 1;
 warn "      RawEvalWarnings after eval, expr: {$expr} UNDERSCORE: $underscore result: $result\n" if $debug > 1;
 if ($warning || $error) {
-	$result = join(" ", map { defined($_) ? $_ : "(undef)" } @result) if wantarray;
+	$result = join(" ", map { defined($_) ? $_ : "(undef)" } @result) if $wantarray;
 	my $directive = $DIRECTIVE || "INTERNAL";
 	my $args = $ARGS || "(undef)";
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
@@ -897,7 +903,7 @@ if ($warning || $error) {
 	my $header = (defined($column) ? $HEADERS[$column] : undef);
 	my $cell = (defined($column) && defined($ROW) 
 		? $TABLE->[$ROW]->[$column] : undef);
-	my $max = 200;
+	my $max = 400;
 	my $shortExpr = (defined($expr) ? $expr : "");
 	$shortExpr = substr($shortExpr, 0, $max-3) . "..." if length($shortExpr) > $max;
 	my $shortCell = (defined($cell) ? $cell : "");
@@ -920,7 +926,7 @@ if ($warning || $error) {
 	if ($warning) { warn $msg; }
 	else { die $msg; }
 	}
-return @result if wantarray;
+return @result if $wantarray;
 return $result;
 }
 
