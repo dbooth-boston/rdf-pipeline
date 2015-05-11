@@ -274,7 +274,7 @@ no warnings qw(qw);
 }
 
 my %VAR;	# For #SetVar.  Variables to be declared "our"
-my @MAGICS;	# For each $COLUMN, an expr to be eval'ed
+my %MAGIC;	# For "$svar in %var" or "$svar in @var".  Maps $svar to %/@var
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
 	Prefix 
@@ -442,7 +442,8 @@ defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
-	$MAGICS[$i] = "";
+	# Clear old magic vars for safety:
+	%MAGIC = ();
 	}
 $S = "_:row$ROW";
 }
@@ -463,10 +464,13 @@ $RAW = $RTABLE->[$ROW]->[$COLUMN];
 # $_ = $TABLE->[$ROW]->[$COLUMN];
 $_ = $DATA{$HEADER};
 defined($_) || confess "Died";
-my $e = $MAGICS[$COLUMN];
-if ($e ne "") {
-	my $r = &EvalWarnings($e);
-	defined($r) || warn "$0: [WARNING] Expression evaluation returned undefined in column $COLUMN {$HEADER} row $ROW: $e\n";
+# Set magic vars
+foreach my $svar (keys %MAGIC) {
+	my $sr = &RefOf($svar);
+	my $hvar = $MAGIC{$svar};
+	my $hr = &RefOf($hvar);
+	${$sr} = $hr->{$HEADER} if $hvar =~ m/^\%/;
+	${$sr} = $hr->[$COLUMN] if $hvar =~ m/^\@/;
 	}
 }
 
@@ -584,6 +588,20 @@ my $fPerDataCell = sub {
 $debug = $oldDebug;
 }
 
+################## RefOf #################
+# Return a ref to the given variable, whose name is given as a string.
+sub RefOf
+{
+my $var = shift || confess "Died ";
+our %REFS;
+my $ref = $REFS{$var};
+if (!defined($ref)) {
+	$ref = $REFS{$var} = eval("our $var = (); \\$var") if $var =~ m/^[\%\@]/;
+	$ref = $REFS{$var} = eval("our $var = ''; \\$var") if $var =~ m/^\$/;
+	}
+return($ref);
+}
+
 ################## SetMagic #################
 # Save expression in @MAGICS, for evaluation later.
 # 	#SetMagic $x in %h
@@ -617,19 +635,15 @@ if ($args =~ s/^\=\s*(\S.*)$//) {
 	$META = $METAS[$COLUMN] = $expr;
 	}
 if ($args ne "") { die "$0: [ERROR] SetMagic: Bad expr syntax in metadata row $MROW: $ARGS\n"; }
-my $v = $var;
-$v =~ s/^[\@\%]//;
-my $m = '""';
-$m = $META if $META ne "";
-my $e = "";
-$e = "\$$v\[\$COLUMN\] = $m" if $var =~ m/^\@/;;
-$e = "\$$v\{\$HEADER\} = $m" if $var =~ m/^\%/;;
-my $val = &EvalWarnings($e);
-die "$0: [ERROR] SetMagic: Eval of assignment expr failed in metadata row $MROW expr: $e\n" if !defined($val);
-# Save magic expr for eval later
-$MAGICS[$COLUMN] .= " ;\n$svar = \$$v\{\$HEADER\}" if $var =~ m/^\%/;
-$MAGICS[$COLUMN] .= " ;\n$svar = \$$v\[\$COLUMN\]" if $var =~ m/^\@/;
-warn "SetMagic svar: $svar var: $var ARGS: $ARGS MAGIC: $MAGICS[$COLUMN]\n" if $debug > 1;
+# Eval $META
+my $val = &EvalWarnings($META);
+die "$0: [ERROR] SetMagic: Eval returned undefined in metadata row $MROW expr: $META\n" if !defined($val);
+my $vr =&RefOf($var);
+$vr->[$COLUMN] = $val if $var =~ m/^\@/;
+$vr->{$HEADER} = $val if $var =~ m/^\%/;
+# Save for assigning later:
+$MAGIC{$svar} = $var;
+warn "SetMagic svar: $svar var: $var ARGS: $ARGS value: $val\n" if $val ne "" && $debug > 1;
 if (0 && $debug > 1) {
 	use Data::Dumper;
 	warn "MAGIC VAR $var = \n";
@@ -829,7 +843,8 @@ sub EvalWarnings
 @_ == 1 || confess "Died";
 my $expr = shift @_;
 defined($expr) || confess "Died";
-return "" if $expr eq "";
+return "" if $expr eq "" || $expr eq '""' || $expr eq "''";
+# warn "EVAL: $expr\n";
 my $ours = join("", map {"our $_; "} sort keys %VAR);
 my $de = "$ours \{ $expr \}";
 return &RawEvalWarnings($de);
