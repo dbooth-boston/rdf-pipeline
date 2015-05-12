@@ -134,6 +134,7 @@ our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
 		#   ($DIRECTIVE, $ARGS, @METAS)
 our $TABLE;	# Ref to the entire data table
 our $RTABLE;	# Ref to the entire raw data table
+our @PENDING;	# Rows pending, used by #Filter for splitting rows
 our @HEADERS;	# Column headers (excluding any #META column header)
 our $HEADER;	# Current header: $HEADER[$COLUMN]
 our $RAW;	# Current original cell value.  Corresponds to $_
@@ -204,14 +205,14 @@ $infile = $ARGV[0] if @ARGV;
 
 $RTABLE = &ReadTable($infile, $worksheet, $format); 
 
-# warn "======================= DATA table: ======================\n" if $debug;
+# warn "======================= DATA table ======================\n" if $debug;
 # &PrintTable($RTABLE) if $debug;
 # warn "==========================================================\n" if $debug;
 # warn "\n" if $debug;
 # die "Done\n";
 
 $MTABLE = &RemoveMetadataRows($RTABLE);
-# print "======================= META table: ======================\n" if $debug;
+# print "======================= META table ======================\n" if $debug;
 # &PrintTable($MTABLE) if $debug;
 # print "==========================================================\n" if $debug;
 
@@ -252,11 +253,11 @@ for (my $r=0; $r<@{$MTABLE}; $r++) {
 	@{$MTABLE->[$r]} = map {&Trim($_)} @{$MTABLE->[$r]};
 	}
 
-# print "======================= META table: ======================\n" if $debug;
+# print "======================= META table ======================\n" if $debug;
 # &PrintTable($MTABLE) if $debug;
 # print "==========================================================\n" if $debug;
 # warn "\n" if $debug;
-# print "======================= DATA table: ======================\n" if $debug;
+# print "======================= DATA table ======================\n" if $debug;
 # &PrintTable($TABLE) if $debug;
 # print "==========================================================\n" if $debug;
 # print "\n" if $debug;
@@ -327,10 +328,12 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	"table:$p" } (0 .. $#HEADERS);
 # Process all data rows.
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
-	warn "================= DATA ROW ====================\n" if $debug;
-	warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
-	warn "===============================================\n" if $debug;
-	my $dr = $TABLE->[$ROW];
+    warn "================= DATA ROW ====================\n" if $debug;
+    warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
+    warn "===============================================\n" if $debug;
+    my $dr = $TABLE->[$ROW];
+    @PENDING = ();
+    while (1) {
 	&SetDataGlobalsForRow();
 	for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 		my $mr = $MTABLE->[$MROW];
@@ -348,19 +351,24 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		warn "Directive: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
 		warn "UNDERSCORE: $_\n" if $debug > 1;
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
-			# Skip $ifdata and $_ is empty?
-			next if $ifdata && $dr->[$COLUMN] eq "";
 			&SetMetaGlobalsForColumn();
+			&SetDataGlobalsForColumn();
+			# Skip $ifdata and $_ is empty?
+			# next if $ifdata && $dr->[$COLUMN] eq "";
+			next if $ifdata && $_ eq "";
 			no strict 'refs';
 			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
-			&SetDataGlobalsForColumn();
 			# warn "LOOP Calling &$DIRECTIVE() UNDERBAR: $_ ARGS: $ARGS META: $META;\n" if $META =~ m/properties/ || $debug > 1;
 			&{$DIRECTIVE}();
 			warn "Done calling &$DIRECTIVE();\n" if $debug > 1;
 			&ResetDataGlobalsForColumn();
 			}
 		}
+	# Repeat this row because #Filter added pending rows?
+	last if !@PENDING;
+	$dr = $TABLE->[$ROW] = shift @PENDING;
 	}
+    }
 
 # Post-processing directives 
 for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
@@ -381,7 +389,7 @@ exit 0;
 #####################################################################
 
 ################## CellFilter ###################
-# Filter all cells through this function, applying global options.
+# Filter all meta and data cells through this function, applying global options.
 sub CellFilter
 {
 @_ == 1 || confess "Died";
@@ -657,15 +665,37 @@ $debug = $oldDebug;
 }
 
 ################## Perl_Filter #################
+# If an expression yields more than one value then the additional
+# values are placed into PENDING rows, to be processed before the
+# next regular row iteration.
 sub Perl_Filter
 {
-warn "Called Perl_Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $debug > 1;
-$_ = &EvalWarnings($ARGS) if $ARGS ne "";
-defined($_) || die "$0: [ERROR] Eval of ARGS {$ARGS} failed: $?\n";
-warn "  After eval(ARGS) UNDERBAR: $_\n" if $debug > 1;
-$_ = &EvalWarnings($META) if $META ne "";
-defined($_) || die "$0: [ERROR] Eval of META {$META} failed: $?\n";
-warn "  Done Perl_Filter(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $debug > 1;
+my $oldDebug = $debug;
+# $debug = 2;
+my $expr = $ARGS;
+$expr .= " ; " if $ARGS ne "" && $META ne "";
+$expr .= $META;
+warn "Called Perl_Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS expr: $expr\n" if $expr ne "" && $debug > 1;
+# Empty filter means pass the data through unchanged.
+if ($expr ne "") {
+	my @results = &EvalWarnings($expr);
+	my $n = scalar(@results);
+	warn "Perl_Filter evaluated to $n PENDING raw values: (@results)\n" if $expr ne "" && $debug > 1;
+	@results = map {defined($_) ? &CellFilter($_) : $_} @results;
+	@results = grep {!defined($_) || $_ ne ""} @results;
+	my $underbar = "";
+	$underbar = shift @results if @results;
+	if (@results) {
+		unshift(@PENDING, map { my $rr = [ @{$TABLE->[$ROW]} ];
+					$rr->[$COLUMN] = $_;
+					$rr } @results);
+		warn "Perl_Filter added $n PENDING rows for: (@results)\n" if $debug > 1;
+		}
+	$_ = $underbar;
+	}
+defined($_) || die "$0: [ERROR] Eval of META . ARGS {$expr} failed: $?\n";
+warn "  After eval(ARGS . META) UNDERBAR: $_\n" if $expr ne "" && $debug > 1;
+$debug = $oldDebug;
 }
 
 ################## Echo #################
@@ -866,11 +896,10 @@ defined($expr) || confess "Died";
 return "" if $expr eq "";
 my $underscore = $_;
 $underscore = "(undef)" if !defined($underscore);
-warn "      RawEvalWarnings starting expr: {$expr} UNDERSCORE: $underscore\n" if $debug > 1;
+warn "      RawEvalWarnings starting expr: {$expr} UNDERSCORE: $underscore\n" if $debug > 2;
 my $result = "";
 my @result = ();
 my $warning = "";
-my $ours = join("", map {"our $_; "} sort keys %VAR);
 # Clear old errors prior to eval.  $@ does not need to be cleared,
 # because it is reset by perl.
 $! = 0;
@@ -893,7 +922,7 @@ if ($wantarray) {
 $underscore = "(undef)" if !defined($underscore);
 warn "wantarray\n" if $wantarray && $debug > 1;
 warn "expr: $expr\n" if $debug > 1;
-warn "      RawEvalWarnings after eval, expr: {$expr} UNDERSCORE: $underscore result: $result\n" if $debug > 1;
+warn "      RawEvalWarnings after eval, expr: {$expr} UNDERSCORE: $underscore result: $result\n" if $debug > 2;
 if ($warning || $error) {
 	$result = join(" ", map { defined($_) ? $_ : "(undef)" } @result) if $wantarray;
 	my $directive = $DIRECTIVE || "INTERNAL";
@@ -1231,7 +1260,7 @@ return $s;
 }
 
 ########## QuoteSafe ############
-# Make a string safe to write as a Turtle "string".  Prohibited
+# Make a string safe to write as a single-line Turtle "string".  Prohibited
 # characters [\"\r\n\\] are silently changed to spaces.
 # http://www.w3.org/TR/turtle/#string
 sub QuoteSafe
