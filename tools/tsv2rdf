@@ -328,10 +328,10 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	"table:$p" } (0 .. $#HEADERS);
 # Process all data rows.
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
+    # next if $ROW != 2;
     warn "================= DATA ROW ====================\n" if $debug;
     warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
     warn "===============================================\n" if $debug;
-    my $dr = $TABLE->[$ROW];
     @PENDING = ();
     while (1) {
 	&SetDataGlobalsForRow();
@@ -354,11 +354,11 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 			&SetMetaGlobalsForColumn();
 			&SetDataGlobalsForColumn();
 			# Skip $ifdata and $_ is empty?
-			# next if $ifdata && $dr->[$COLUMN] eq "";
 			next if $ifdata && $_ eq "";
 			no strict 'refs';
 			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
 			# warn "LOOP Calling &$DIRECTIVE() UNDERBAR: $_ ARGS: $ARGS META: $META;\n" if $META =~ m/properties/ || $debug > 1;
+			my $oldUnderbar = $_;
 			&{$DIRECTIVE}();
 			warn "Done calling &$DIRECTIVE();\n" if $debug > 1;
 			&ResetDataGlobalsForColumn();
@@ -366,7 +366,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		}
 	# Repeat this row because #Filter added pending rows?
 	last if !@PENDING;
-	$dr = $TABLE->[$ROW] = shift @PENDING;
+	$TABLE->[$ROW] = shift @PENDING;
 	}
     }
 
@@ -673,7 +673,7 @@ sub Perl_Filter
 my $oldDebug = $debug;
 # $debug = 2;
 my $expr = $ARGS;
-$expr .= " ; " if $ARGS ne "" && $META ne "";
+$expr .= "\n; " if $ARGS ne "" && $META ne "";
 $expr .= $META;
 warn "Called Perl_Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS expr: $expr\n" if $expr ne "" && $debug > 1;
 # Empty filter means pass the data through unchanged.
@@ -686,9 +686,16 @@ if ($expr ne "") {
 	my $underbar = "";
 	$underbar = shift @results if @results;
 	if (@results) {
-		unshift(@PENDING, map { my $rr = [ @{$TABLE->[$ROW]} ];
+		my @newRows = map { my $rr = [ @{$TABLE->[$ROW]} ];
 					$rr->[$COLUMN] = $_;
-					$rr } @results);
+					$rr } @results;
+		unshift(@PENDING, @newRows);
+		if (0 && $HEADER =~ m/technology/) {
+			warn "New rows:\n";
+			foreach my $r (@newRows) {
+				warn "  $r->[$COLUMN] $r->[$COLUMN+1]\n";
+				}
+			}
 		warn "Perl_Filter added $n PENDING rows for: (@results)\n" if $debug > 1;
 		}
 	$_ = $underbar;
@@ -855,7 +862,7 @@ my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Perl_Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
 my $expr = $ARGS;
-$expr .= " ; " if $ARGS ne "" && $META ne "";
+$expr .= "\n; " if $ARGS ne "" && $META ne "";
 $expr .= $META;
 warn "  Perl_Run before eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
 my $result = &EvalWarnings($expr) if $expr ne "";
@@ -879,7 +886,7 @@ defined($expr) || confess "Died";
 return "" if $expr eq "" || $expr eq '""' || $expr eq "''";
 # warn "EVAL: $expr\n";
 my $ours = join("", map {"our $_; "} sort keys %VAR);
-my $de = "$ours \{ $expr \}";
+my $de = "$ours \{\n$expr\n\}";
 return &RawEvalWarnings($de);
 }
 
@@ -1203,6 +1210,19 @@ my $nc = $col_max - $col_min + 1;
 $nc = 0 if $nc < 0;
 warn "Read $r rows $nc columns from $f\n" if $debug;
 return $table;
+}
+
+########## Split ############
+# Split a string at separators, returning only non-empty results
+# after Trimming whitespace.
+sub Split
+{
+@_ == 2 || confess "Died";
+my ($separator, $s) = @_;
+my $qs = quotemeta($separator);
+my @raw = split(/$qs/, $s);
+my @cooked = grep {$_ ne ""} map {&Trim($_)} @raw;
+return @cooked;
 }
 
 ########## Trim ############
