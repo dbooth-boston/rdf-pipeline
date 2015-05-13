@@ -458,7 +458,7 @@ defined($NCOLUMNS) || confess "Died";
 for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
 	# Clear old magic vars for safety:
-	# %MAGIC = ();
+	%MAGIC = ();
 	}
 $S = "_:row$ROW";
 }
@@ -659,6 +659,64 @@ if (0 && $debug > 1) {
 	}
 $debug = $oldDebug;
 # die "STOPPED!\n";
+}
+
+################## SplitGroup #################
+# A set of columns forms a tuple.  Each column has n values to
+# be split.  The i'th value from each column in the tuple is
+# used to add a new PENDING row.
+sub SplitGroup
+{
+my $oldDebug = $debug;
+# $debug = 2;
+die "$0: [ERROR] SplitGroup does not allow an ARGS expression in meta row $MROW column $COLUMN: $ARGS\n" if $ARGS ne "";
+our @vrs;
+our @indexes;
+our $maxValues;
+our $lastIndex;
+my $result = $_;
+if ($META ne "") {
+	if (!@vrs) {
+		# First META column used.  Initialize.
+		@indexes = ();
+		$maxValues = 0;
+		# Find the last META column used
+		$lastIndex = $COLUMN;
+		for (my $i=$COLUMN+1; $i<$NCOLUMNS; $i++) {
+			$lastIndex = $i if $METAS[$i] ne "";
+			}
+		}
+	my @results = map {&CellFilter($_)} &MagicEvalWarnings($META);
+	$result = "";
+	$result = shift(@results) if @results;
+	my $nr = scalar(@results);
+	$maxValues = $nr if $nr > $maxValues;
+	push(@vrs, [ @results ] );
+	push(@indexes, $COLUMN);
+	$TABLE->[$ROW]->[$COLUMN] = $result;
+	# If this was the last participating column, emit pending rows.
+	if ($COLUMN == $lastIndex) {
+		# Emit the pending rows
+		my $warned;
+		for (my $i=0; $i<$maxValues; $i++) {
+			my $rr = [ @{$TABLE->[$ROW]} ];
+			for (my $j=0; $j<@vrs; $j++) {
+				my $v = $vrs[$j]->[$i];
+				warn "$0: [WARNING] SplitGroup: Undefined value in row $ROW column $indexes[$j] from evaluating META expression: {$METAS[$indexes[$j]]}\n(Possibly a mismatched number of items?)\n"
+					if !defined($v) && !$warned++;
+				$v = "" if !defined($v);
+				$rr->[$indexes[$j]] = $v;
+				}
+			unshift(@PENDING, $rr);
+			}
+		# Reset for the next time
+		@vrs = ();
+		}
+	}
+$_ = $result;
+defined($_) || die "$0: [ERROR] SplitGroup Eval of META failed: $?\n";
+# warn "  After eval(ARGS . META) UNDERBAR: $_\n" if $META ne "" && $debug > 1;
+$debug = $oldDebug;
 }
 
 ################## Perl_Filter #################
