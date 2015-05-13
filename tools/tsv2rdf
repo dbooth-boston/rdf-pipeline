@@ -275,6 +275,7 @@ no warnings qw(qw);
 }
 
 my %VAR;	# For #SetVar.  Variables to be declared "our"
+my %REFS;	# Maps var name (as string) to its reference.
 my %MAGIC;	# For "$svar in %var" or "$svar in @var".  Maps $svar to %/@var
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
@@ -327,6 +328,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	my $p = &MakeVar($HEADERS[$_]) || "UNDEFINED$_";
 	"table:$p" } (0 .. $#HEADERS);
 # Process all data rows.
+my $isFirstRow = 1;
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
     # next if $ROW != 2;
     warn "================= DATA ROW ====================\n" if $debug;
@@ -343,18 +345,21 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$DIRECTIVE};
 		next if $isPostProcessingDirective{$DIRECTIVE};
-		my $ifdata = ($ARGS =~ s/^ifdata\b\s*//);
-		# warn "  ifdata\n" if $ifdata && $shouldWarn;
+		my $option = "";
+		$option = $1 if ($ARGS =~ s/^(ifdata|once)\b\s*//);
+		my $ifdata = ($option eq "ifdata");
+		my $once = ($option eq "once");
+		next if $once && !$isFirstRow;
 		@METAS || confess "Died";
 		@HEADERS == @METAS || confess "Died";
 		warn "--------------- META --------------------\n" if $debug;
 		warn "Directive: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
 		warn "UNDERSCORE: $_\n" if $debug > 1;
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+			# Skip $ifdata and $_ is empty?
+			next if $ifdata && $TABLE->[$ROW]->[$COLUMN] eq "";
 			&SetMetaGlobalsForColumn();
 			&SetDataGlobalsForColumn();
-			# Skip $ifdata and $_ is empty?
-			next if $ifdata && $_ eq "";
 			no strict 'refs';
 			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
 			# warn "LOOP Calling &$DIRECTIVE() UNDERBAR: $_ ARGS: $ARGS META: $META;\n" if $META =~ m/properties/ || $debug > 1;
@@ -364,6 +369,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 			&ResetDataGlobalsForColumn();
 			}
 		}
+	$isFirstRow = 0;
 	# Repeat this row because #Filter added pending rows?
 	last if !@PENDING;
 	$TABLE->[$ROW] = shift @PENDING;
@@ -452,7 +458,7 @@ defined($NCOLUMNS) || confess "Died";
 for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
 	# Clear old magic vars for safety:
-	%MAGIC = ();
+	# %MAGIC = ();
 	}
 $S = "_:row$ROW";
 }
@@ -473,14 +479,6 @@ $RAW = $RTABLE->[$ROW]->[$COLUMN];
 # $_ = $TABLE->[$ROW]->[$COLUMN];
 $_ = $DATA{$HEADER};
 defined($_) || confess "Died";
-# Set magic vars
-foreach my $svar (keys %MAGIC) {
-	my $sr = &RefOf($svar);
-	my $hvar = $MAGIC{$svar};
-	my $hr = &RefOf($hvar);
-	${$sr} = $hr->{$HEADER} if $hvar =~ m/^\%/;
-	${$sr} = $hr->[$COLUMN] if $hvar =~ m/^\@/;
-	}
 }
 
 ################## ResetDataGlobalsForColumn #################
@@ -602,7 +600,6 @@ $debug = $oldDebug;
 sub RefOf
 {
 my $var = shift || confess "Died ";
-our %REFS;
 my $ref = $REFS{$var};
 if (!defined($ref)) {
 	$ref = $REFS{$var} = eval("our $var = (); \\$var") if $var =~ m/^[\%\@]/;
@@ -645,7 +642,7 @@ if ($args =~ s/^\=\s*(\S.*)$//) {
 	}
 if ($args ne "") { die "$0: [ERROR] SetMagic: Bad expr syntax in metadata row $MROW: $ARGS\n"; }
 # Eval $META
-my $val = &EvalWarnings($META);
+my $val = &MagicEvalWarnings($META);
 die "$0: [ERROR] SetMagic: Eval returned undefined in metadata row $MROW expr: $META\n" if !defined($val);
 my $vr =&RefOf($var);
 $vr->[$COLUMN] = $val if $var =~ m/^\@/;
@@ -678,7 +675,7 @@ $expr .= $META;
 warn "Called Perl_Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS expr: $expr\n" if $expr ne "" && $debug > 1;
 # Empty filter means pass the data through unchanged.
 if ($expr ne "") {
-	my @results = &EvalWarnings($expr);
+	my @results = &MagicEvalWarnings($expr);
 	my $n = scalar(@results);
 	warn "Perl_Filter evaluated to $n PENDING raw values: (@results)\n" if $expr ne "" && $debug > 1;
 	@results = map {defined($_) ? &CellFilter($_) : $_} @results;
@@ -714,7 +711,7 @@ sub Echo
 warn "Called Echo(@_)\n" if $debug > 1;
 return if !$S || !$P || !defined($META) || $META eq "";
 return if !defined($_) || $_ eq "";
-my $v = &EvalWarnings($META);
+my $v = &MagicEvalWarnings($META);
 defined($v) || die "$0: [ERROR] Echo: Eval of META {$META} failed: $?\n";
 # Always quote as strings:
 $v = &Quote($v);
@@ -733,7 +730,7 @@ warn "#End starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
 # Nothing to be done per data cell:
 my $fPerDataCell = undef;
 my $fPerMetaCell = sub {
-	&EvalWarnings($META) if $META ne "";
+	&MagicEvalWarnings($META) if $META ne "";
 	};
 &Iterate($fPerMetaCell, $fPerDataCell);
 $debug = $oldDebug;
@@ -845,7 +842,7 @@ warn "Called Perl_RunArg(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldW
 # regular "Run" only runs on non-empty cells.
 # if (($once && $ROW == 0) || (!$once && $_ ne "")) {
 my $result = "";
-$result = &EvalWarnings($ARGS) if $ARGS ne "";
+$result = &MagicEvalWarnings($ARGS) if $ARGS ne "";
 warn "  Perl_RunArg After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
 $_ = $saveUnderbar;
 warn "  Perl_RunArg Done Perl_RunArg(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
@@ -865,11 +862,32 @@ my $expr = $ARGS;
 $expr .= "\n; " if $ARGS ne "" && $META ne "";
 $expr .= $META;
 warn "  Perl_Run before eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
-my $result = &EvalWarnings($expr) if $expr ne "";
+my $result = &MagicEvalWarnings($expr) if $expr ne "";
 warn "  Perl_Run After eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
 $_ = $saveUnderbar;
 warn "  Perl_Run Done Perl_Run(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
+}
+
+################# MagicEvalWarnings ##################
+# Set MAGIC vars and then run EvalWarnings.
+# This should only be called if $ROW $COLUMN and $HEADER are set, i.e.,
+# when processing data cells.
+sub MagicEvalWarnings
+{
+@_ == 1 || confess "Died";
+my $expr = shift @_;
+defined($expr) || confess "Died";
+return "" if $expr eq "" || $expr eq '""' || $expr eq "''";
+# Set magic vars
+foreach my $svar (keys %MAGIC) {
+	my $sr = &RefOf($svar);
+	my $hvar = $MAGIC{$svar};
+	my $hr = &RefOf($hvar);
+	${$sr} = $hr->{$HEADER} if $hvar =~ m/^\%/;
+	${$sr} = $hr->[$COLUMN] if $hvar =~ m/^\@/;
+	}
+return &EvalWarnings($expr);
 }
 
 ################# EvalWarnings ##################
