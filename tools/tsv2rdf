@@ -277,6 +277,7 @@ no warnings qw(qw);
 my %VAR;	# For #SetVar.  Variables to be declared "our"
 my %REFS;	# Maps var name (as string) to its reference.
 my %MAGIC;	# For "$svar in %var" or "$svar in @var".  Maps $svar to %/@var
+my $warnedSplitGroup = 0;
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
 	Prefix 
@@ -387,6 +388,7 @@ for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 	warn "END Postprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
 	}
 
+warn "$0: [WARNING] SplitGroup: $warnedSplitGroup total undefined values from evaluating META expressions\n" if $warnedSplitGroup > 1;
 exit 0;
 
 
@@ -458,6 +460,7 @@ defined($NCOLUMNS) || confess "Died";
 for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
 	# Clear old magic vars for safety:
+	%VAR = ();
 	%MAGIC = ();
 	}
 $S = "_:row$ROW";
@@ -597,6 +600,8 @@ $debug = $oldDebug;
 
 ################## RefOf #################
 # Return a ref to the given variable, whose name is given as a string.
+# I believe this actually keeps the variable from being garbage collected,
+# even though %VAR and %MAGIC are cleared between rows.
 sub RefOf
 {
 my $var = shift || confess "Died ";
@@ -697,13 +702,12 @@ if ($META ne "") {
 	# If this was the last participating column, emit pending rows.
 	if ($COLUMN == $lastIndex) {
 		# Emit the pending rows
-		my $warned;
 		for (my $i=0; $i<$maxValues; $i++) {
 			my $rr = [ @{$TABLE->[$ROW]} ];
 			for (my $j=0; $j<@vrs; $j++) {
 				my $v = $vrs[$j]->[$i];
 				warn "$0: [WARNING] SplitGroup: Undefined value in row $ROW column $indexes[$j] from evaluating META expression: {$METAS[$indexes[$j]]}\n(Possibly a mismatched number of items?)\n"
-					if !defined($v) && !$warned++;
+					if !defined($v) && !$warnedSplitGroup++;
 				$v = "" if !defined($v);
 				$rr->[$indexes[$j]] = $v;
 				}
