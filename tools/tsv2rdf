@@ -280,13 +280,13 @@ my %MAGIC;	# For "$svar in %var" or "$svar in @var".  Maps $svar to %/@var
 my $warnedSplitGroup = 0;
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
-	Prefix 
-	SetVar
-	Perl_PreRun
+	Directive_Prefix 
+	Directive_SetVar
+	Directive_PreRun
 	);
 
 my %isPostProcessingDirective = map {($_,1)} qw( 
-	End
+	Directive_End
 	);
 
 $NROWS = scalar(@$TABLE);
@@ -436,8 +436,8 @@ sub SetMetaGlobalsForMRow
 defined($MTABLE) || confess "Died";
 defined($MROW) || confess "Died";
 ($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
-$DIRECTIVE || confess "Died";
-@METAS || confess "Died";
+defined($DIRECTIVE) || confess "Died";
+defined($ARGS) || confess "Died";
 my $nHeaders = scalar(@HEADERS);
 my $nMetas = scalar(@METAS);
 @HEADERS == @METAS || confess "Died. nHeaders: $nHeaders nMetas: $nMetas
@@ -568,28 +568,28 @@ if ($fPerDataCell) {
 	}
 }
 
-################## Perl_PreRun #################
+################## Directive_PreRun #################
 # Process all data rows for the current meta row $MROW.
 # Called as:
 #   $MROW = ...
-#   &Perl_PreRun()
-sub Perl_PreRun
+#   &Directive_PreRun()
+sub Directive_PreRun
 {
 my $oldDebug = $debug;
 # $debug = 2;
-warn "Perl_PreRun starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
+warn "PreRun starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
 # Nothing to be done per meta cell:
 my $fPerMetaCell = undef;
 my $fPerDataCell = sub {
 	# Run $ARGS on every cell
 	my $saveUnderscore = $_;	# Do not overwrite $_
 	if ($ARGS ne "") {
-		warn "Perl_PreRun ARGS: {$ARGS} ROW: $ROW COLUMN: $COLUMN\n" if $debug > 1;
+		warn "PreRun ARGS: {$ARGS} ROW: $ROW COLUMN: $COLUMN\n" if $debug > 1;
 		&EvalWarnings($ARGS);
 		}
 	$_ = $saveUnderscore;		# Restore $_
 	if ($META ne "") {
-		warn "Perl_PreRun META: {$META} ROW: $ROW COLUMN: $COLUMN\n" if $debug > 1;
+		warn "PreRun META: {$META} ROW: $ROW COLUMN: $COLUMN\n" if $debug > 1;
 		&EvalWarnings($META);
 		}
 	$_ = $saveUnderscore;		# Restore $_
@@ -613,13 +613,13 @@ if (!defined($ref)) {
 return($ref);
 }
 
-################## SetMagic #################
+################## Directive_SetMagic #################
 # Save expression in @MAGICS, for evaluation later.
 # 	#SetMagic $x in %h
 # 	#SetMagic $x in @a
 # 	#SetMagic $x in %h = expr
 # 	#SetMagic $x in @a = expr
-sub SetMagic
+sub Directive_SetMagic
 {
 my $oldDebug = $debug;
 # $debug = 2;
@@ -666,11 +666,11 @@ $debug = $oldDebug;
 # die "STOPPED!\n";
 }
 
-################## SplitGroup #################
+################## Directive_SplitGroup #################
 # A set of columns forms a tuple.  Each column has n values to
 # be split.  The i'th value from each column in the tuple is
 # used to add a new PENDING row.
-sub SplitGroup
+sub Directive_SplitGroup
 {
 my $oldDebug = $debug;
 # $debug = 2;
@@ -723,23 +723,23 @@ defined($_) || die "$0: [ERROR] SplitGroup Eval of META failed: $?\n";
 $debug = $oldDebug;
 }
 
-################## Perl_Filter #################
+################## Directive_Filter #################
 # If an expression yields more than one value then the additional
 # values are placed into PENDING rows, to be processed before the
 # next regular row iteration.
-sub Perl_Filter
+sub Directive_Filter
 {
 my $oldDebug = $debug;
 # $debug = 2;
 my $expr = $ARGS;
 $expr .= "\n; " if $ARGS ne "" && $META ne "";
 $expr .= $META;
-warn "Called Perl_Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS expr: $expr\n" if $expr ne "" && $debug > 1;
+warn "Called Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS expr: $expr\n" if $expr ne "" && $debug > 1;
 # Empty filter means pass the data through unchanged.
 if ($expr ne "") {
 	my @results = &MagicEvalWarnings($expr);
 	my $n = scalar(@results);
-	warn "Perl_Filter evaluated to $n PENDING raw values: (@results)\n" if $expr ne "" && $debug > 1;
+	warn "Filter evaluated to $n PENDING raw values: (@results)\n" if $expr ne "" && $debug > 1;
 	@results = map {defined($_) ? &CellFilter($_) : $_} @results;
 	@results = grep {!defined($_) || $_ ne ""} @results;
 	my $underbar = "";
@@ -755,7 +755,7 @@ if ($expr ne "") {
 				warn "  $r->[$COLUMN] $r->[$COLUMN+1]\n";
 				}
 			}
-		warn "Perl_Filter added $n PENDING rows for: (@results)\n" if $debug > 1;
+		warn "Filter added $n PENDING rows for: (@results)\n" if $debug > 1;
 		}
 	$_ = $underbar;
 	}
@@ -781,9 +781,9 @@ print "$S $P $v .\n";
 return;
 }
 
-################## End #################
+################## Directive_End #################
 # Eval the expressions after everything else is done.
-sub End
+sub Directive_End
 {
 @_ == 0 || confess "Died";
 my $oldDebug = $debug;
@@ -798,9 +798,9 @@ my $fPerMetaCell = sub {
 $debug = $oldDebug;
 }
 
-################## Prefix #################
-# Prefix is a preprocessing directive.
-sub Prefix
+################## Directive_Prefix #################
+# Directive_Prefix is a preprocessing directive.
+sub Directive_Prefix
 {
 die "$0: [ERROR] Unknown ARGS in Prefix directive on metadata row $MROW: $ARGS\n" if $ARGS;
 my $oldDebug = $debug;
@@ -835,10 +835,10 @@ $debug = $oldDebug;
 # die "STOPPED!\n";
 }
 
-################## SetVar #################
+################## Directive_SetVar #################
 # Set %VAR, for use in URI Templates.
 # Preprocessing directive.
-sub SetVar
+sub Directive_SetVar
 {
 my $oldDebug = $debug;
 # $debug = 2;
@@ -891,43 +891,43 @@ $debug = $oldDebug;
 # die "STOPPED!\n";
 }
 
-################## Perl_RunArg #################
-sub Perl_RunArg
+################## Directive_RunArg #################
+sub Directive_RunArg
 {
 my $oldDebug = $debug;
 # $debug = 2;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
-warn "Called Perl_RunArg(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
+warn "Called RunArg(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
 # my $once = ($ARGS =~ s/^once\b\s*//);
 # "Run once" runs on every data cell (even if empty), whereas
 # regular "Run" only runs on non-empty cells.
 # if (($once && $ROW == 0) || (!$once && $_ ne "")) {
 my $result = "";
 $result = &MagicEvalWarnings($ARGS) if $ARGS ne "";
-warn "  Perl_RunArg After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
+warn "  RunArg After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
 $_ = $saveUnderbar;
-warn "  Perl_RunArg Done Perl_RunArg(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+warn "  RunArg Done RunArg(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
 }
 
-################## Perl_Run #################
+################## Directive_Run #################
 # Run both ARGS and META
-sub Perl_Run
+sub Directive_Run
 {
 my $oldDebug = $debug;
 # $debug = 2 if $META =~ m/properties/;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
-warn "Called Perl_Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
+warn "Called Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
 my $expr = $ARGS;
 $expr .= "\n; " if $ARGS ne "" && $META ne "";
 $expr .= $META;
-warn "  Perl_Run before eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
+warn "  Run before eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
 my $result = &MagicEvalWarnings($expr) if $expr ne "";
-warn "  Perl_Run After eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
+warn "  Run After eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
 $_ = $saveUnderbar;
-warn "  Perl_Run Done Perl_Run(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+warn "  Run Done Run(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
 }
 
@@ -1049,9 +1049,11 @@ return $result;
 ################# RemoveMetadataRows ##################
 # Destructively remove and return metadata rows from the given data table.
 # Metadata rows are returned as a ref to an array of row refs -- the
-# same form as the given data table.  The metadata directive is
+# same form as the given data table -- but with two columns
+# prepended: $DIRECTIVE and $ARGS.  The metadata directive is
 # the first cell in each metadata row.  The #META column is removed
-# entirely from the data table.  
+# entirely from the data table.   Meta rows that are only comments
+# are skipped.  "Directive_" is prepended to each directive.
 sub RemoveMetadataRows
 {
 my $tsv = shift @_ || confess "Died";
@@ -1074,11 +1076,12 @@ for (my $r=1; $r < @{$tsv}; $r++) {
 	splice(@{$tsv}, $r, 1);
 	$r--;
 	# Empty or comment meta cell?
-	next if $metaCell =~ m/^\#\s*(\#.*)?$/;
-	if ($metaCell !~ s/^\#(\S*)\s*//) {
+	next if $metaCell =~ m/^\s*\#\s*\#/;
+	if ($metaCell !~ s/^\s*\#(\S*)\s*//) {
 		die "$0: [ERROR] Unrecognized meta directive in row $r: $metaCell\n";
 		}
 	my $directive = $1;
+	$directive = "Directive_$directive";
 	my $args = $metaCell;
 	# warn "META pushing: $directive $args @{$row}\n";
 	push(@{$meta}, [ $directive, $args, @{$row} ]);
