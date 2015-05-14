@@ -338,9 +338,11 @@ while (my $ts = $si->next()) {
 print "===== Predicates by Subject Class =====\n";
 my @sortedClasses = sort {&ShortenUri($a) cmp &ShortenUri($b)}
 		keys %classInstances;
+my $nRootClasses = 0;
 foreach my $c (@sortedClasses) {
 	my $isRoot = "";
 	$isRoot = "*" if $isRootClass{$c};
+	$nRootClasses++ if $isRoot;
 	my $sc = &ShortenUri($c);
 	my @instances = keys %{$classInstances{$c}};
 	my $ni = scalar(@instances);
@@ -372,7 +374,8 @@ foreach my $c (@sortedClasses) {
 	print "\n";
 	}
 
-print "* Indicates a root class, whose instances are never objects.\n";
+print "* Root class whose instances are never objects of a triple\n"
+	if $nRootClasses;
 print "\n";
 
 print "===== Namespaces =====\n";
