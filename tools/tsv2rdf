@@ -147,6 +147,12 @@ our $ARGS;	# Args parsed from #META column of current $MROW
 our @METAS;	# Meta cell values for current $MROW
 our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
+our $SUBJECT;	# For subject of triple
+our %SUBJECT;	# For subject of triple
+our $PREDICATE;	# For predicate of triple
+our %PREDICATE;	# For predicate of triple
+our $OBJECT;	# For object of triple
+our %OBJECT;	# For object of triple
 our $S;		# Turtle subject of current data $ROW
 our $P;		# Turtle property of current $COLUMN
 our @PS;	# Turtle properties of all columns
@@ -346,6 +352,17 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$DIRECTIVE};
 		next if $isPostProcessingDirective{$DIRECTIVE};
+		# Force these to be reset even if $ifdata was set
+		if ($DIRECTIVE eq "Directive_SUBJECT") {
+			%SUBJECT = ();
+			%PREDICATE = ();
+			%OBJECT = ();
+		} elsif ($DIRECTIVE eq "Directive_PREDICATE") {
+			%PREDICATE = ();
+			%OBJECT = ();
+		} elsif ($DIRECTIVE eq "Directive_OBJECT") {
+			%OBJECT = ();
+		} 
 		my $option = "";
 		$option = $1 if ($ARGS =~ s/^(ifdata|once)\b\s*//);
 		my $ifdata = ($option eq "ifdata");
@@ -457,11 +474,14 @@ defined($ROW) || confess "Died";
 ($ROW>=0 && $ROW<$NROWS) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
+# Clear old magic vars for safety:
+%MAGIC = ();
+%VAR = ();
 for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
-	# Clear old magic vars for safety:
-	%VAR = ();
-	%MAGIC = ();
+	$SUBJECT{$HEADERS[$i]} = "";
+	$PREDICATE{$HEADERS[$i]} = "";
+	$OBJECT{$HEADERS[$i]} = "";
 	}
 $S = "_:row$ROW";
 }
@@ -575,6 +595,7 @@ if ($fPerDataCell) {
 #   &Directive_PreRun()
 sub Directive_PreRun
 {
+confess "Deprecated!";
 my $oldDebug = $debug;
 # $debug = 2;
 warn "PreRun starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
@@ -631,24 +652,19 @@ my $svar = $1;
 ($args =~ s/^in\s+([\%\@]\w+)\s*//) || die "$0: [ERROR] SetMagic: Bad 'in' syntax in metadata row $MROW: $ARGS\n";
 my $var = $1;	# Hash or array
 warn "SetMagic: Declaring scalar $svar hash/array: $var at row $ROW column $COLUMN meta row $MROW column $COLUMN: $ARGS\n" if $debug > 1;
-# This check of redeclaration does not work:
-# die "$0: [ERROR] SetMagic: Variable $svar redeclared at meta row $MROW column $COLUMN: $ARGS\n" if exists($VAR{$svar});
 $VAR{$svar} = 1;
-# die "$0: [ERROR] SetMagic: Variable $var redeclared at meta row $MROW column $COLUMN: $ARGS\n" if exists($VAR{$var});
 $VAR{$var} = 1;
+my $both = $META;
+my $expr = "";
 ### Parse '= expr' if there is one
-if ($args =~ s/^\=\s*(\S.*)$//) {
-	# $ARGS: var = expr
-	# Treat it as though expr were in every META cell.
-	my $expr = $1;
-	warn "SetMagic var: $var expr: $expr ARGS: $ARGS\n" if $debug > 1;
-	$META eq "" || die "$0: [ERROR] SetMagic: Non-empty META when expr { $ARGS } was provided in ARGS in colum $COLUMN metadata row $MROW: $META\n";
-	$META = $METAS[$COLUMN] = $expr;
-	}
+# $ARGS: var = expr
+$expr = $1 if ($args =~ s/^\=\s*(\S.*)$//);
+# Treat ARGS as though expr were prepended to every META cell.
+$both = &CombineExpressions($expr, $META);
 if ($args ne "") { die "$0: [ERROR] SetMagic: Bad expr syntax in metadata row $MROW: $ARGS\n"; }
 # Eval $META
-my $val = &MagicEvalWarnings($META);
-die "$0: [ERROR] SetMagic: Eval returned undefined in metadata row $MROW expr: $META\n" if !defined($val);
+my $val = &MagicEvalWarnings($both);
+die "$0: [ERROR] SetMagic: Eval returned undefined in metadata row $MROW expr: $both\n" if !defined($val);
 my $vr =&RefOf($var);
 $vr->[$COLUMN] = $val if $var =~ m/^\@/;
 $vr->{$HEADER} = $val if $var =~ m/^\%/;
@@ -664,6 +680,18 @@ if (0 && $debug > 1) {
 	}
 $debug = $oldDebug;
 # die "STOPPED!\n";
+}
+
+################## CombineExpressions #################
+sub CombineExpressions
+{
+@_ == 2 || confess "Died";
+my ($args, $meta) = @_;
+my $both = "";
+if ($args eq "") { $both = $meta; }
+elsif ($meta eq "") { $both = $args; }
+else { $both = "$args\n; { $meta\n }"; }
+return $both;
 }
 
 ################## Directive_SplitGroup #################
@@ -731,9 +759,7 @@ sub Directive_Filter
 {
 my $oldDebug = $debug;
 # $debug = 2;
-my $expr = $ARGS;
-$expr .= "\n; " if $ARGS ne "" && $META ne "";
-$expr .= $META;
+my $expr = &CombineExpressions($ARGS, $META);
 warn "Called Filter(@_) UNDERBAR: $_ META: $META ARGS: $ARGS expr: $expr\n" if $expr ne "" && $debug > 1;
 # Empty filter means pass the data through unchanged.
 if ($expr ne "") {
@@ -770,6 +796,7 @@ $debug = $oldDebug;
 # The resulting value will be quoted as a string.
 sub Echo
 {
+confess "Deprecated!";
 warn "Called Echo(@_)\n" if $debug > 1;
 return if !$S || !$P || !defined($META) || $META eq "";
 return if !defined($_) || $_ eq "";
@@ -779,6 +806,59 @@ defined($v) || die "$0: [ERROR] Echo: Eval of META {$META} failed: $?\n";
 $v = &Quote($v);
 print "$S $P $v .\n";
 return;
+}
+
+################## Directive_SUBJECT #################
+# Set $SUBJECT and %SUBJECT in prep for triples generation.
+# Same as #SetMagic $SUBJECT in %SUBJECT = ...
+sub Directive_SUBJECT
+{
+@_ == 0 || confess "Died";
+my $oldDebug = $debug;
+# $debug = 2;
+warn "#SUBJECT starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
+# Clear out previous %PREDICATE and %OBJECT
+%PREDICATE = ();
+%OBJECT = ();
+my $oldArgs = $ARGS;
+$ARGS = '$SUBJECT in %SUBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
+&Directive_SetMagic();
+$ARGS = $oldArgs;
+$debug = $oldDebug;
+}
+
+################## Directive_PREDICATE #################
+# Set $PREDICATE and %PREDICATE in prep for triples generation.
+# Same as #SetMagic $PREDICATE in %PREDICATE = ...
+sub Directive_PREDICATE
+{
+@_ == 0 || confess "Died";
+my $oldDebug = $debug;
+# $debug = 2;
+warn "#PREDICATE starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
+my $oldArgs = $ARGS;
+$ARGS = '$PREDICATE in %PREDICATE' . ( $ARGS eq "" ? "" : " = $ARGS" );
+&Directive_SetMagic();
+$ARGS = $oldArgs;
+$debug = $oldDebug;
+}
+
+################## Directive_OBJECT #################
+# Set $OBJECT and %OBJECT in prep for triples generation.
+# Same as #SetMagic $OBJECT in %OBJECT = ...
+sub Directive_OBJECT
+{
+@_ == 0 || confess "Died";
+my $oldDebug = $debug;
+# $debug = 2;
+warn "#OBJECT starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
+my $oldArgs = $ARGS;
+$ARGS = '$OBJECT in %PREDICATE' . ( $ARGS eq "" ? "" : " = $ARGS" );
+&Directive_SetMagic();
+$OBJECT = $OBJECT{$HEADER};
+print "$SUBJECT $PREDICATE $OBJECT .\n" if $SUBJECT && $PREDICATE && $OBJECT ne "";
+$ARGS = $oldArgs;
+$debug = $oldDebug;
 }
 
 ################## Directive_End #################
@@ -792,7 +872,7 @@ warn "#End starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
 # Nothing to be done per data cell:
 my $fPerDataCell = undef;
 my $fPerMetaCell = sub {
-	&MagicEvalWarnings($META) if $META ne "";
+	&MagicEvalWarnings(&CombineExpressions($ARGS, $META));
 	};
 &Iterate($fPerMetaCell, $fPerDataCell);
 $debug = $oldDebug;
@@ -899,10 +979,6 @@ my $oldDebug = $debug;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called RunArg(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
-# my $once = ($ARGS =~ s/^once\b\s*//);
-# "Run once" runs on every data cell (even if empty), whereas
-# regular "Run" only runs on non-empty cells.
-# if (($once && $ROW == 0) || (!$once && $_ ne "")) {
 my $result = "";
 $result = &MagicEvalWarnings($ARGS) if $ARGS ne "";
 warn "  RunArg After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
@@ -920,9 +996,7 @@ my $oldDebug = $debug;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
-my $expr = $ARGS;
-$expr .= "\n; " if $ARGS ne "" && $META ne "";
-$expr .= $META;
+my $expr = &CombineExpressions($ARGS, $META);
 warn "  Run before eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
 my $result = &MagicEvalWarnings($expr) if $expr ne "";
 warn "  Run After eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
