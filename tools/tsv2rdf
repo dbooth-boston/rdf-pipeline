@@ -645,6 +645,7 @@ sub Directive_SetMagic
 my $oldDebug = $debug;
 # $debug = 2;
 die "$0: [ERROR] SetMagic: No variable specified in metadata row $MROW\n" if $ARGS eq "";
+my $underbar = $_;
 ### Parse $x in %h
 my $args = $ARGS;
 ($args =~ s/^([\$]\w+)\s*//) || die "$0: [ERROR] SetMagic: Bad variable syntax in metadata row $MROW: $ARGS\n";
@@ -654,23 +655,40 @@ my $var = $1;	# Hash or array
 warn "SetMagic: Declaring scalar $svar hash/array: $var at row $ROW column $COLUMN meta row $MROW column $COLUMN: $ARGS\n" if $debug > 1;
 $VAR{$svar} = 1;
 $VAR{$var} = 1;
-my $both = $META;
-my $expr = "";
-### Parse '= expr' if there is one
+### Parse '= expr' or 'if expr' if there is one
 # $ARGS: var = expr
-$expr = $1 if ($args =~ s/^\=\s*(\S.*)$//);
-# Treat ARGS as though expr were prepended to every META cell.
-$both = &CombineExpressions($expr, $META);
+my $expr = "";
+my $ifOrEquals = "";
+if ($args =~ s/^(\=|if\b)\s*(\S.*)$//) {
+	$ifOrEquals = $1;
+	$expr = $2;
+	}
 if ($args ne "") { die "$0: [ERROR] SetMagic: Bad expr syntax in metadata row $MROW: $ARGS\n"; }
-# Eval $META
+my $both = $META;
+if ($ifOrEquals eq "=") {
+	# Treat ARGS as though it were prepended to every META cell.
+	$both = &CombineExpressions($expr, $META);
+	}
+elsif ($ifOrEquals eq "if") {
+	my $meta = ($META eq "" ? '""' : $META);
+	# $expr =~ s/(\;\s*)+$//;
+	$both = "if ( $expr\n ) { $meta\n } else { '' }";
+	}
 my $val = &MagicEvalWarnings($both);
-die "$0: [ERROR] SetMagic: Eval returned undefined in metadata row $MROW expr: $both\n" if !defined($val);
+die "$0: [ERROR] SetMagic: Eval returned undefined in row $ROW column {$HEADER} metadata row $MROW data {$underbar} expr: $both\n" if !defined($val);
 my $vr =&RefOf($var);
 $vr->[$COLUMN] = $val if $var =~ m/^\@/;
 $vr->{$HEADER} = $val if $var =~ m/^\%/;
 # Save for assigning later:
 $MAGIC{$svar} = $var;
-warn "SetMagic svar: $svar var: $var ARGS: $ARGS value: $val\n" if $val ne "" && $debug > 1;
+# warn "SetMagic svar: $svar var: $var ARGS: $ARGS value: $val\n" if $svar eq '$TOBJECT' || ($val ne "" && $debug > 1);
+our %warnedVarMismatch;
+if (substr($svar, 1) ne substr($var, 1)) {
+	my $m = "$svar in $var";
+	warn "$0: [WARNING] SetMagic: Variable name mismatch: '$svar in $var'\n"
+		if !$warnedVarMismatch{$m};
+	$warnedVarMismatch{$m} = 1;
+	}
 if (0 && $debug > 1) {
 	use Data::Dumper;
 	warn "MAGIC VAR $var = \n";
@@ -817,9 +835,6 @@ sub Directive_SUBJECT
 my $oldDebug = $debug;
 # $debug = 2;
 warn "#SUBJECT starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
-# Clear out previous %PREDICATE and %OBJECT
-%PREDICATE = ();
-%OBJECT = ();
 my $oldArgs = $ARGS;
 $ARGS = '$SUBJECT in %SUBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
 &Directive_SetMagic();
@@ -850,13 +865,15 @@ sub Directive_OBJECT
 {
 @_ == 0 || confess "Died";
 my $oldDebug = $debug;
-# $debug = 2;
-warn "#OBJECT starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
+# $debug = 2 if ($ARGS || $META);
+# warn "#OBJECT starting: ARGS: $ARGS META: $META UNDERBAR: $_\n" if ($ARGS || $META);
 my $oldArgs = $ARGS;
-$ARGS = '$OBJECT in %PREDICATE' . ( $ARGS eq "" ? "" : " = $ARGS" );
+$ARGS = '$OBJECT in %OBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
 &Directive_SetMagic();
 $OBJECT = $OBJECT{$HEADER};
-print "$SUBJECT $PREDICATE $OBJECT .\n" if $SUBJECT && $PREDICATE && $OBJECT ne "";
+# warn "  #OBJECT set: $OBJECT\n" if ($ARGS || $META);
+# confess "UNDEF" if !defined($OBJECT);
+print "$SUBJECT $PREDICATE $OBJECT .\n" if $SUBJECT && $PREDICATE && defined($OBJECT) && $OBJECT ne "";
 $ARGS = $oldArgs;
 $debug = $oldDebug;
 }
