@@ -1025,6 +1025,8 @@ $debug = $oldDebug;
 }
 
 ################## Directive_Triple #################
+# Print the triples from eval'ing ARGS and META if all three 
+# components are non-empty.
 sub Directive_Triple
 {
 my $oldDebug = $debug;
@@ -1040,6 +1042,15 @@ if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "
 	&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
 	print "$s $p $o .\n";
 	}
+($s, $p, $o) = &MagicEvalWarnings($META) if $META ne "";
+warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
+if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "") {
+	&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
+	&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
+	&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
+	print "$s $p $o .\n";
+	}
+
 $_ = $saveUnderbar;
 warn "  Triple Done Triple(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
