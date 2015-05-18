@@ -518,6 +518,42 @@ defined($_) || confess "Died: Undefined value in \$_ ";
 $TABLE->[$ROW]->[$COLUMN] = $DATA{$HEADER} = $_;
 }
 
+################## MatchesObject ##################
+# Does $term seem to match what is required in the predicate position
+# of a Turtle triple?
+sub MatchesObject
+{
+my $term = shift;
+return 1 if &MatchesPname($term);
+return 1 if &MatchesLiteral($term);
+return 1 if &MatchesBnode($term);
+return 1 if &MatchesUri($term);
+return 0;
+}
+
+################## MatchesSubject ##################
+# Does $term seem to match what is required in the predicate position
+# of a Turtle triple?
+sub MatchesSubject
+{
+my $term = shift;
+return 1 if &MatchesPname($term);
+return 1 if &MatchesBnode($term);
+return 1 if &MatchesUri($term);
+return 0;
+}
+
+################## MatchesPredicate ##################
+# Does $term seem to match what is required in the predicate position
+# of a Turtle triple?
+sub MatchesPredicate
+{
+my $term = shift;
+return 1 if &MatchesPname($term);
+return 1 if &MatchesUri($term);
+return 0;
+}
+
 ################## MatchesLiteral ##################
 # Does $term seem to be a Turtle literal?
 # This is not a precise check.
@@ -531,16 +567,6 @@ return 1 if $term =~ m/^[\+\-]?(\.?)[0-9][0-9E\-\+]*$/;
 return 0;
 }
 
-################## MatchesUriTerm ##################
-# Does $term seem to be a Turtle term like <uri> or p:foo?
-sub MatchesUriTerm
-{
-my $term = shift;
-return 1 if &MatchesUri($term);
-return 1 if &MatchesPname($term);
-return 0;
-}
-
 ################## MatchesUri ##################
 # Does $term seem to be a Turtle <uri> ?
 sub MatchesUri
@@ -550,8 +576,18 @@ return 1 if $term =~ m/^\<[\~\!\#\$\%\&\(\)\*\+\,\-\.\/0-9\:\;\=\?\@A-Z_a-z]*\>$
 return 0;
 }
 
+################## MatchesBnode ##################
+# Does $term seem to be a bnode, like _:b ?
+sub MatchesBnode
+{
+my $term = shift;
+return 1 if $term =~ m/^_\:[a-z0-9_\-]/;
+return 0;
+}
+
 ################## MatchesPname ##################
-# Does $term seem to be a pname like p:foo p.1: :foo : ?
+# Does $term seem to be a prefixed name like p:foo p.1: :foo : 
+# (but not bnode)?
 sub MatchesPname
 {
 my $term = shift;
@@ -986,6 +1022,27 @@ if (0 && $debug > 1) {
 	}
 $debug = $oldDebug;
 # die "STOPPED!\n";
+}
+
+################## Directive_Triple #################
+sub Directive_Triple
+{
+my $oldDebug = $debug;
+# $debug = 2;
+my $saveUnderbar = $_;
+my $shouldWarn = $debug && ($ARGS || $META);
+warn "Called Triple(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
+my ($s, $p, $o) = &MagicEvalWarnings($ARGS) if $ARGS ne "";
+warn "  Triple After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
+if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "") {
+	&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
+	&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
+	&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
+	print "$s $p $o .\n";
+	}
+$_ = $saveUnderbar;
+warn "  Triple Done Triple(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+$debug = $oldDebug;
 }
 
 ################## Directive_RunArg #################
