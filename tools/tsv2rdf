@@ -931,6 +931,7 @@ my $oldDebug = $debug;
 # $debug = 2 if ($ARGS || $META);
 # warn "#OBJECT starting: ARGS: $ARGS META: $META UNDERBAR: $_\n" if ($ARGS || $META);
 my $oldArgs = $ARGS;
+my $isOnt = ($ARGS =~ s/^ont\b\s*//);
 $ARGS = '$OBJECT in %OBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
 &Directive_SetMagic();
 $OBJECT = $OBJECT{$HEADER};
@@ -938,7 +939,7 @@ $OBJECT = $OBJECT{$HEADER};
 # confess "UNDEF" if !defined($OBJECT);
 if ($SUBJECT && $PREDICATE && defined($OBJECT) && $OBJECT ne "") {
 	print "$SUBJECT $PREDICATE $OBJECT .\n";
-	print $OFH "$SUBJECT $PREDICATE $OBJECT .\n" if $OFH;
+	print $OFH "$SUBJECT $PREDICATE $OBJECT .\n" if $OFH && $isOnt;
 	}
 $ARGS = $oldArgs;
 $debug = $oldDebug;
