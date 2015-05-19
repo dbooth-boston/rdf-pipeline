@@ -130,6 +130,8 @@ options can be used to override file extensions.
 ##################################################################
 
 ########### Globals
+our $ONTFILE;	# Ontology filename
+our $OFH;	# Ontology file handle
 our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
 		#   ($DIRECTIVE, $ARGS, @METAS)
 our $TABLE;	# Ref to the entire data table
@@ -286,7 +288,8 @@ my %MAGIC;	# For "$svar in %var" or "$svar in @var".  Maps $svar to %/@var
 my $warnedSplitGroup = 0;
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
-	Directive_Prefix 
+	Directive_OntFile
+	Directive_Prefix
 	Directive_SetVar
 	Directive_PreRun
 	);
@@ -313,6 +316,7 @@ for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 # Output namespaces.
 foreach my $prefix (sort keys %NAMESPACE) {
 	print "\@prefix $prefix\t$NAMESPACE{$prefix} .\n";
+	print $OFH "\@prefix $prefix\t$NAMESPACE{$prefix} .\n" if $OFH;
 	}
 print "\n";
 
@@ -717,7 +721,7 @@ $vr->[$COLUMN] = $val if $var =~ m/^\@/;
 $vr->{$HEADER} = $val if $var =~ m/^\%/;
 # Save for assigning later:
 $MAGIC{$svar} = $var;
-# warn "SetMagic svar: $svar var: $var ARGS: $ARGS value: $val\n" if $svar eq '$TOBJECT' || ($val ne "" && $debug > 1);
+# warn "SetMagic svar: $svar var: $var ARGS: $ARGS value: $val\n" if $svar eq '$THIS' || ($val ne "" && $debug > 1);
 our %warnedVarMismatch;
 if (substr($svar, 1) ne substr($var, 1)) {
 	my $m = "$svar in $var";
@@ -802,6 +806,29 @@ if ($META ne "") {
 $_ = $result;
 defined($_) || die "$0: [ERROR] SplitGroup Eval of META failed: $?\n";
 # warn "  After eval(ARGS . META) UNDERBAR: $_\n" if $META ne "" && $debug > 1;
+$debug = $oldDebug;
+}
+
+################## Directive_OntFile #################
+# Open the ont file.
+sub Directive_OntFile
+{
+my $oldDebug = $debug;
+$debug = 2;
+$META = "";
+my $expr = $ARGS;
+for ($COLUMN=0; $COLUMN<@METAS && !$expr; $COLUMN++) {
+	if ($METAS[$COLUMN] =~ m/\S/) {
+		&SetMetaGlobalsForColumn();
+		$expr = $META;
+		}
+	}
+warn "Called OntFile(@_) UNDERBAR: $_ META: $META ARGS: $ARGS expr: $expr\n" if $debug > 1;
+$expr || die "$0: [ERROR] OntFile: No ontology filename specified.\n";
+$ONTFILE = &MagicEvalWarnings($expr);
+$ONTFILE || die "$0: [ERROR] OntFile: Filename expression failed: $expr\n";
+warn "OntFile: $ONTFILE\n" if $debug > 1;
+open($OFH, ">", $ONTFILE) || die "$0: [ERROR] OntFile: Cannot open '$ONTFILE' for write: $!\n";
 $debug = $oldDebug;
 }
 
@@ -909,7 +936,10 @@ $ARGS = '$OBJECT in %OBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
 $OBJECT = $OBJECT{$HEADER};
 # warn "  #OBJECT set: $OBJECT\n" if ($ARGS || $META);
 # confess "UNDEF" if !defined($OBJECT);
-print "$SUBJECT $PREDICATE $OBJECT .\n" if $SUBJECT && $PREDICATE && defined($OBJECT) && $OBJECT ne "";
+if ($SUBJECT && $PREDICATE && defined($OBJECT) && $OBJECT ne "") {
+	print "$SUBJECT $PREDICATE $OBJECT .\n";
+	print $OFH "$SUBJECT $PREDICATE $OBJECT .\n" if $OFH;
+	}
 $ARGS = $oldArgs;
 $debug = $oldDebug;
 }
@@ -931,38 +961,51 @@ my $fPerMetaCell = sub {
 $debug = $oldDebug;
 }
 
+################## ProcessPrefix #################
+# Helper function for Directive_Prefix.  Either process $ARGS or $META.
+sub ProcessPrefix
+{
+@_ == 2 || confess "Died";
+my ($which, $meta) = @_;
+my $originalMeta = $meta;
+# Ignore optional "@prefix" and trailing period:
+$meta =~ s/^\@//;
+$meta =~ s/^prefix\s+//i;
+$meta =~ s/\s*\.$//;
+my ($prefix, $uri) = ($meta =~ m/^([^\:]*\:)\s*(.+)$/);
+die "$0: [ERROR] Bad prefix declaration in column $COLUMN {$HEADER} row $ROW: $originalMeta\n"
+	if !defined($uri);
+# warn "PREFIX: $prefix URI: $uri $which: $meta\n";
+# Perl convenience: Auto-quote if the expression contains $
+$uri = '"' . $uri . '"' if $uri =~ m/\$/;
+# warn "After auto quote PREFIX: $prefix URI: $uri $which: $meta\n";
+# Eval as a perl expression if it starts with quote:
+$uri = &EvalWarnings($uri) if $uri =~ m/^[\'\"]/;
+# warn "After eval PREFIX: $prefix URI: $uri $which: $meta\n";
+die "$0: [ERROR] Prefix declaration failed in column $COLUMN {$HEADER} row $ROW: $originalMeta\n"
+	if !defined($uri) || $uri eq "";
+# Auto-wrap in <..> if needed:
+$uri = "<$uri>" if $uri !~ m/^\</;
+&MatchesUri($uri) || warn "$0: [WARNING] Unusual prefix URI '$uri' in column $COLUMN {$HEADER} row $ROW from declaration: $originalMeta\n";
+$NAMESPACE{$prefix} = $uri;
+warn "  PREFIX: $prefix $uri\n" if $debug;
+# print "\@prefix $prefix\t$uri .\n";
+# print $OFH "\@prefix $prefix\t$uri .\n" if $OFH;
+}
+
 ################## Directive_Prefix #################
 # Directive_Prefix is a preprocessing directive.
 sub Directive_Prefix
 {
 die "$0: [ERROR] Unknown ARGS in Prefix directive on metadata row $MROW: $ARGS\n" if $ARGS;
 my $oldDebug = $debug;
-# $debug = 2;
+$debug = 2;
+&ProcessPrefix('ARGS', $ARGS) if $ARGS;
 for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
-	&SetMetaGlobalsForColumn();
-	next if $META !~ m/\S/;
-	my $originalMeta = $META;
-	# Ignore optional "@prefix" and trailing period:
-	$META =~ s/^\@//;
-	$META =~ s/^prefix\s+//i;
-	$META =~ s/\s*\.$//;
-	my ($prefix, $uri) = ($META =~ m/^([^\:]*\:)\s*(.+)$/);
-	die "$0: [ERROR] Bad prefix declaration in column $COLUMN {$HEADER} row $ROW: $originalMeta\n"
-		if !defined($uri);
-	# warn "PREFIX: $prefix URI: $uri META: $META\n";
-	# Perl convenience: Auto-quote if the expression contains $
-	$uri = '"' . $uri . '"' if $uri =~ m/\$/;
-	# warn "After auto quote PREFIX: $prefix URI: $uri META: $META\n";
-	# Eval as a perl expression if it starts with quote:
-	$uri = &EvalWarnings($uri) if $uri =~ m/^[\'\"]/;
-	# warn "After eval PREFIX: $prefix URI: $uri META: $META\n";
-	die "$0: [ERROR] Prefix declaration failed in column $COLUMN {$HEADER} row $ROW: $originalMeta\n"
-		if !defined($uri) || $uri eq "";
-	# Auto-wrap in <..> if needed:
-	$uri = "<$uri>" if $uri !~ m/^\</;
-	&MatchesUri($uri) || warn "$0: [WARNING] Unusual prefix URI '$uri' in column $COLUMN {$HEADER} row $ROW from declaration: $originalMeta\n";
-	$NAMESPACE{$prefix} = $uri;
-	warn "  PREFIX: $prefix $uri\n" if $debug;
+	if ($METAS[$COLUMN] =~ m/\S/) {
+		&SetMetaGlobalsForColumn();
+		&ProcessPrefix('META', $META) if $META;
+		}
 	}
 $debug = $oldDebug;
 # die "STOPPED!\n";
@@ -1034,13 +1077,16 @@ my $oldDebug = $debug;
 my $saveUnderbar = $_;
 my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Triple(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
-my ($s, $p, $o) = &MagicEvalWarnings($ARGS) if $ARGS ne "";
+my $args = $ARGS;
+my $isOnt = ($args =~ s/^ont\b\s*//);
+my ($s, $p, $o) = &MagicEvalWarnings($args) if $args ne "";
 warn "  Triple After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
 if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "") {
 	&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
 	&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
 	&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
 	print "$s $p $o .\n";
+	print $OFH "$s $p $o .\n" if $OFH && $isOnt;
 	}
 ($s, $p, $o) = &MagicEvalWarnings($META) if $META ne "";
 warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
@@ -1049,8 +1095,8 @@ if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "
 	&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
 	&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
 	print "$s $p $o .\n";
+	print $OFH "$s $p $o .\n" if $OFH && $isOnt;
 	}
-
 $_ = $saveUnderbar;
 warn "  Triple Done Triple(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
