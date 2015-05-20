@@ -632,37 +632,6 @@ if ($fPerDataCell) {
 	}
 }
 
-################## Directive_PreRun #################
-# Process all data rows for the current meta row $MROW.
-# Called as:
-#   $MROW = ...
-#   &Directive_PreRun()
-sub Directive_PreRun
-{
-confess "Deprecated!";
-my $oldDebug = $debug;
-# $debug = 2;
-warn "PreRun starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
-# Nothing to be done per meta cell:
-my $fPerMetaCell = undef;
-my $fPerDataCell = sub {
-	# Run $ARGS on every cell
-	my $saveUnderscore = $_;	# Do not overwrite $_
-	if ($ARGS ne "") {
-		warn "PreRun ARGS: {$ARGS} ROW: $ROW COLUMN: $COLUMN\n" if $debug > 1;
-		&EvalWarnings($ARGS);
-		}
-	$_ = $saveUnderscore;		# Restore $_
-	if ($META ne "") {
-		warn "PreRun META: {$META} ROW: $ROW COLUMN: $COLUMN\n" if $debug > 1;
-		&EvalWarnings($META);
-		}
-	$_ = $saveUnderscore;		# Restore $_
-	};
-&Iterate($fPerMetaCell, $fPerDataCell);
-$debug = $oldDebug;
-}
-
 ################## RefOf #################
 # Return a ref to the given variable, whose name is given as a string.
 # I believe this actually keeps the variable from being garbage collected,
@@ -707,18 +676,18 @@ if ($args =~ s/^(\=|if\b)\s*(\S.*)$//) {
 	$expr = $2;
 	}
 if ($args ne "") { die "$0: [ERROR] SetMagic: Bad expr syntax in metadata row $MROW: $ARGS\n"; }
-my $both = $META;
+my $val = "";
+my $useMeta = 1;
 if ($ifOrEquals eq "=") {
-	# Treat ARGS as though it were prepended to every META cell.
-	$both = &CombineExpressions($expr, $META);
+	# Potentially use both ARGS and META
+	$val = &MagicEvalWarnings($expr);
+	die "$0: [ERROR] SetMagic: Eval ARGS returned undefined in row $ROW column {$HEADER} metadata row $MROW data {$underbar} expr: $expr\n" if !defined($val) && $META ne "";
 	}
 elsif ($ifOrEquals eq "if") {
-	my $meta = ($META eq "" ? '""' : $META);
-	# $expr =~ s/(\;\s*)+$//;
-	$both = "if ( $expr\n ) { $meta\n } else { '' }";
+	$useMeta = &MagicEvalWarnings($expr);
 	}
-my $val = &MagicEvalWarnings($both);
-die "$0: [ERROR] SetMagic: Eval returned undefined in row $ROW column {$HEADER} metadata row $MROW data {$underbar} expr: $both\n" if !defined($val);
+$val = &MagicEvalAutoQuote($META) if $META ne "" && $useMeta;
+die "$0: [ERROR] SetMagic: Eval META returned undefined in row $ROW column {$HEADER} metadata row $MROW data {$underbar} expr: $META\n" if !defined($val);
 my $sr = &RefOf($svar);
 my $hr = &RefOf($hvar);
 ${$sr} = $hr->{$HEADER} = $val;
@@ -1140,6 +1109,34 @@ warn "  Run After eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
 $_ = $saveUnderbar;
 warn "  Run Done Run(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
+}
+
+################# ShouldAutoQuote ##################
+# Should the given string be auto-quoted?  
+# Any string starting with a word char should be auto-quoted, because
+# it does not appear to be a perl expression.
+# Should autoquote: foo
+# Should not autoquote: $bar 
+sub ShouldAutoQuote
+{
+@_ == 1 || confess "Died";
+my $expr = shift @_;
+defined($expr) || confess "Died";
+return 1 if $expr eq "" || $expr =~ m/^\w/;
+return 0;
+}
+
+################# MagicEvalAutoQuote ##################
+# Check for autoquote, then if needed Set MAGIC vars and then run MagicEvalWarnings.
+# This should only be called if $ROW $COLUMN and $HEADER are set, i.e.,
+# when processing data cells.
+sub MagicEvalAutoQuote
+{
+@_ == 1 || confess "Died";
+my $expr = shift @_;
+defined($expr) || confess "Died";
+return $expr if &ShouldAutoQuote($expr);
+return &MagicEvalWarnings($expr);
 }
 
 ################# MagicEvalWarnings ##################
