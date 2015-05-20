@@ -284,7 +284,7 @@ no warnings qw(qw);
 
 my %VAR;	# For #SetVar.  Variables to be declared "our"
 my %REFS;	# Maps var name (as string) to its reference.
-my %MAGIC;	# For "$svar in %var" or "$svar in @var".  Maps $svar to %/@var
+my %MAGIC;	# For "#SetMagic $var" Maps $var to corresponding hash name %var
 my $warnedSplitGroup = 0;
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
@@ -554,6 +554,7 @@ sub MatchesPredicate
 {
 my $term = shift;
 return 1 if &MatchesPname($term);
+return 1 if $term eq "a";
 return 1 if &MatchesUri($term);
 return 0;
 }
@@ -675,11 +676,10 @@ return($ref);
 }
 
 ################## Directive_SetMagic #################
-# Save expression in @MAGICS, for evaluation later.
-# 	#SetMagic $x in %h
-# 	#SetMagic $x in @a
-# 	#SetMagic $x in %h = expr
-# 	#SetMagic $x in @a = expr
+# Evaluate $ARGS or $META expressions and set the resulting value into
+# the magic scalar $var and corresponding hash %var.
+# 	#SetMagic $x
+# 	#SetMagic $x = expr
 sub Directive_SetMagic
 {
 my $oldDebug = $debug;
@@ -690,8 +690,8 @@ my $underbar = $_;
 my $args = $ARGS;
 ($args =~ s/^([\$]\w+)\s*//) || die "$0: [ERROR] SetMagic: Bad variable syntax in metadata row $MROW: $ARGS\n";
 my $svar = $1;
-($args =~ s/^in\s+([\%\@]\w+)\s*//) || die "$0: [ERROR] SetMagic: Bad 'in' syntax in metadata row $MROW: $ARGS\n";
-my $var = $1;	# Hash or array
+my $var = $svar;
+$var =~ s/^\$/\%/;	# Make it a hash
 warn "SetMagic: Declaring scalar $svar hash/array: $var at row $ROW column $COLUMN meta row $MROW column $COLUMN: $ARGS\n" if $debug > 1;
 $VAR{$svar} = 1;
 $VAR{$var} = 1;
@@ -722,13 +722,6 @@ $vr->{$HEADER} = $val if $var =~ m/^\%/;
 # Save for assigning later:
 $MAGIC{$svar} = $var;
 # warn "SetMagic svar: $svar var: $var ARGS: $ARGS value: $val\n" if $svar eq '$THIS' || ($val ne "" && $debug > 1);
-our %warnedVarMismatch;
-if (substr($svar, 1) ne substr($var, 1)) {
-	my $m = "$svar in $var";
-	warn "$0: [WARNING] SetMagic: Variable name mismatch: '$svar in $var'\n"
-		if !$warnedVarMismatch{$m};
-	$warnedVarMismatch{$m} = 1;
-	}
 if (0 && $debug > 1) {
 	use Data::Dumper;
 	warn "MAGIC VAR $var = \n";
@@ -814,7 +807,7 @@ $debug = $oldDebug;
 sub Directive_OntFile
 {
 my $oldDebug = $debug;
-$debug = 2;
+# $debug = 2;
 $META = "";
 my $expr = $ARGS;
 for ($COLUMN=0; $COLUMN<@METAS && !$expr; $COLUMN++) {
@@ -891,7 +884,7 @@ return;
 
 ################## Directive_SUBJECT #################
 # Set $SUBJECT and %SUBJECT in prep for triples generation.
-# Same as #SetMagic $SUBJECT in %SUBJECT = ...
+# Same as '#SetMagic $SUBJECT = ...'
 sub Directive_SUBJECT
 {
 @_ == 0 || confess "Died";
@@ -899,7 +892,7 @@ my $oldDebug = $debug;
 # $debug = 2;
 warn "#SUBJECT starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
 my $oldArgs = $ARGS;
-$ARGS = '$SUBJECT in %SUBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
+$ARGS = '$SUBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
 &Directive_SetMagic();
 $ARGS = $oldArgs;
 $debug = $oldDebug;
@@ -907,7 +900,7 @@ $debug = $oldDebug;
 
 ################## Directive_PREDICATE #################
 # Set $PREDICATE and %PREDICATE in prep for triples generation.
-# Same as #SetMagic $PREDICATE in %PREDICATE = ...
+# Same as '#SetMagic $PREDICATE = ...'
 sub Directive_PREDICATE
 {
 @_ == 0 || confess "Died";
@@ -915,7 +908,7 @@ my $oldDebug = $debug;
 # $debug = 2;
 warn "#PREDICATE starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
 my $oldArgs = $ARGS;
-$ARGS = '$PREDICATE in %PREDICATE' . ( $ARGS eq "" ? "" : " = $ARGS" );
+$ARGS = '$PREDICATE' . ( $ARGS eq "" ? "" : " = $ARGS" );
 &Directive_SetMagic();
 $ARGS = $oldArgs;
 $debug = $oldDebug;
@@ -923,7 +916,7 @@ $debug = $oldDebug;
 
 ################## Directive_OBJECT #################
 # Set $OBJECT and %OBJECT in prep for triples generation.
-# Same as #SetMagic $OBJECT in %OBJECT = ...
+# Same as '#SetMagic $OBJECT = ...'
 sub Directive_OBJECT
 {
 @_ == 0 || confess "Died";
@@ -932,14 +925,17 @@ my $oldDebug = $debug;
 # warn "#OBJECT starting: ARGS: $ARGS META: $META UNDERBAR: $_\n" if ($ARGS || $META);
 my $oldArgs = $ARGS;
 my $isOnt = ($ARGS =~ s/^ont\b\s*//);
-$ARGS = '$OBJECT in %OBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
+$ARGS = '$OBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
 &Directive_SetMagic();
 $OBJECT = $OBJECT{$HEADER};
 # warn "  #OBJECT set: $OBJECT\n" if ($ARGS || $META);
 # confess "UNDEF" if !defined($OBJECT);
 if ($SUBJECT && $PREDICATE && defined($OBJECT) && $OBJECT ne "") {
-	print "$SUBJECT $PREDICATE $OBJECT .\n";
-	print $OFH "$SUBJECT $PREDICATE $OBJECT .\n" if $OFH && $isOnt;
+	if ($isOnt) {
+		$OFH || die "$0: [ERROR] OBJECT: OntFile has not been opened.\n";
+		print $OFH "$SUBJECT $PREDICATE $OBJECT .\n";
+		}
+	else { print "$SUBJECT $PREDICATE $OBJECT .\n"; }
 	}
 $ARGS = $oldArgs;
 $debug = $oldDebug;
@@ -1000,7 +996,7 @@ sub Directive_Prefix
 {
 die "$0: [ERROR] Unknown ARGS in Prefix directive on metadata row $MROW: $ARGS\n" if $ARGS;
 my $oldDebug = $debug;
-$debug = 2;
+# $debug = 2;
 &ProcessPrefix('ARGS', $ARGS) if $ARGS;
 for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
 	if ($METAS[$COLUMN] =~ m/\S/) {
@@ -1086,8 +1082,11 @@ if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "
 	&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
 	&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
 	&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
-	print "$s $p $o .\n";
-	print $OFH "$s $p $o .\n" if $OFH && $isOnt;
+	if ($isOnt) {
+		$OFH || die "$0: [ERROR] Triple: OntFile has not been opened.\n";
+		print $OFH "$s $p $o .\n";
+		}
+	else { print "$s $p $o .\n"; }
 	}
 ($s, $p, $o) = &MagicEvalWarnings($META) if $META ne "";
 warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
@@ -1095,8 +1094,11 @@ if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "
 	&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
 	&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
 	&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
-	print "$s $p $o .\n";
-	print $OFH "$s $p $o .\n" if $OFH && $isOnt;
+	if ($isOnt) {
+		$OFH || die "$0: [ERROR] Triple: OntFile has not been opened.\n";
+		print $OFH "$s $p $o .\n";
+		}
+	else { print "$s $p $o .\n"; }
 	}
 $_ = $saveUnderbar;
 warn "  Triple Done Triple(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
