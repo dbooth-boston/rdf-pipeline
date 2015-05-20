@@ -284,7 +284,7 @@ no warnings qw(qw);
 
 my %VAR;	# For #SetVar.  Variables to be declared "our"
 my %REFS;	# Maps var name (as string) to its reference.
-my %MAGIC;	# For "#SetMagic $var" Maps $var to corresponding hash name %var
+my %MAGIC;	# For "#SetMagic $var" Maps $var ref to corresponding hash ref
 my $warnedSplitGroup = 0;
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
@@ -690,11 +690,11 @@ my $underbar = $_;
 my $args = $ARGS;
 ($args =~ s/^([\$]\w+)\s*//) || die "$0: [ERROR] SetMagic: Bad variable syntax in metadata row $MROW: $ARGS\n";
 my $svar = $1;
-my $var = $svar;
-$var =~ s/^\$/\%/;	# Make it a hash
-warn "SetMagic: Declaring scalar $svar hash/array: $var at row $ROW column $COLUMN meta row $MROW column $COLUMN: $ARGS\n" if $debug > 1;
+my $hvar = $svar;
+$hvar =~ s/^\$/\%/;	# Make it a hash
+warn "SetMagic: Declaring scalar $svar hash $hvar at row $ROW column $COLUMN meta row $MROW column $COLUMN: $ARGS\n" if $debug > 1;
 $VAR{$svar} = 1;
-$VAR{$var} = 1;
+$VAR{$hvar} = 1;
 ### Parse '= expr' or 'if expr' if there is one
 # $ARGS: var = expr
 my $expr = "";
@@ -716,16 +716,16 @@ elsif ($ifOrEquals eq "if") {
 	}
 my $val = &MagicEvalWarnings($both);
 die "$0: [ERROR] SetMagic: Eval returned undefined in row $ROW column {$HEADER} metadata row $MROW data {$underbar} expr: $both\n" if !defined($val);
-my $vr =&RefOf($var);
-$vr->[$COLUMN] = $val if $var =~ m/^\@/;
-$vr->{$HEADER} = $val if $var =~ m/^\%/;
-# Save for assigning later:
-$MAGIC{$svar} = $var;
-# warn "SetMagic svar: $svar var: $var ARGS: $ARGS value: $val\n" if $svar eq '$THIS' || ($val ne "" && $debug > 1);
+my $sr = &RefOf($svar);
+my $hr = &RefOf($hvar);
+${$sr} = $hr->{$HEADER} = $val;
+# Save the var names for assigning later:
+$MAGIC{$svar} = $hvar;
+# warn "SetMagic svar: $svar var: $hvar ARGS: $ARGS value: $val\n" if $svar eq '$THIS' || ($val ne "" && $debug > 1);
 if (0 && $debug > 1) {
 	use Data::Dumper;
-	warn "MAGIC VAR $var = \n";
-	my $ref = eval "our $var; \\$var";
+	warn "MAGIC VAR $hvar = \n";
+	my $ref = eval "our $hvar; \\$hvar";
 	my $d = &Dumper($ref);
 	warn "$d\n";
 	}
@@ -1151,11 +1151,10 @@ defined($expr) || confess "Died";
 return "" if $expr eq "" || $expr eq '""' || $expr eq "''";
 # Set magic vars
 foreach my $svar (keys %MAGIC) {
-	my $sr = &RefOf($svar);
 	my $hvar = $MAGIC{$svar};
+	my $sr = &RefOf($svar);
 	my $hr = &RefOf($hvar);
-	${$sr} = $hr->{$HEADER} if $hvar =~ m/^\%/;
-	${$sr} = $hr->[$COLUMN] if $hvar =~ m/^\@/;
+	${$sr} = $hr->{$HEADER};
 	}
 return &EvalWarnings($expr);
 }
