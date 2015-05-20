@@ -478,14 +478,17 @@ defined($ROW) || confess "Died";
 ($ROW>=0 && $ROW<$NROWS) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
-# Clear old magic vars for safety:
+# Clear old magic vars for safety and speed, because it reduces the
+# number of magic vars that will be needlessly initialized by
+# MagicEvalWarnings in each row before the row where they are defined.
 %MAGIC = ();
 %VAR = ();
 for (my $i=0; $i<$NCOLUMNS; $i++) {
-	$DATA{$HEADERS[$i]} = $TABLE->[$ROW]->[$i];
-	$SUBJECT{$HEADERS[$i]} = "";
-	$PREDICATE{$HEADERS[$i]} = "";
-	$OBJECT{$HEADERS[$i]} = "";
+	my $h = $HEADERS[$i];
+	$DATA{$h} = $TABLE->[$ROW]->[$i];
+	$SUBJECT{$h} = "";
+	$PREDICATE{$h} = "";
+	$OBJECT{$h} = "";
 	}
 $S = "_:row$ROW";
 }
