@@ -155,9 +155,6 @@ our $PREDICATE;	# For predicate of triple
 our %PREDICATE;	# For predicate of triple
 our $OBJECT;	# For object of triple
 our %OBJECT;	# For object of triple
-our $S;		# Turtle subject of current data $ROW
-our $P;		# Turtle property of current $COLUMN
-our @PS;	# Turtle properties of all columns
 ########### Other globals, probably not used by users
 our $NROWS;	# Number of data rows (excludes header row)
 our $NMROWS;	# Number of meta rows (excludes header row)
@@ -335,9 +332,6 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		}
 	}
 
-@PS = map {
-	my $p = &MakeVar($HEADERS[$_]) || "UNDEFINED$_";
-	"table:$p" } (0 .. $#HEADERS);
 # Process all data rows.
 my $isFirstRow = 1;
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
@@ -431,8 +425,8 @@ return $v;
 }
 
 ################## SetMetaGlobalsForColumn #################
-# Set globals: $P $HEADER and maybe $META.
-# from @PS $METAS[$COLUMN] and $HEADERS[$COLUMN].
+# Set globals: $HEADER and maybe $META.
+# from $METAS[$COLUMN] and $HEADERS[$COLUMN].
 # They are relative to $COLUMN, which 
 # must already be set.  @METAS must already be set also,
 # as by calling SetMetaGlobalsForMRow.
@@ -446,7 +440,6 @@ $META = "" if !defined($META);
 $META = "" if $MROW<0 || $MROW>=$NMROWS;
 $HEADER = $HEADERS[$COLUMN];
 defined($HEADER) || confess "Died";
-$P = $PS[$COLUMN];
 }
 
 ################## SetMetaGlobalsForMRow #################
@@ -490,7 +483,6 @@ for (my $i=0; $i<$NCOLUMNS; $i++) {
 	$PREDICATE{$h} = "";
 	$OBJECT{$h} = "";
 	}
-$S = "_:row$ROW";
 }
 
 ################## SetDataGlobalsForColumn #################
@@ -836,24 +828,6 @@ warn "  After eval(ARGS . META) UNDERBAR: $_\n" if $expr ne "" && $debug > 1;
 $debug = $oldDebug;
 }
 
-################## Echo #################
-# Print a triple for each non-empty cell in the table, using the current 
-# subject $S, the current property $P and the expression given in $META .
-# The resulting value will be quoted as a string.
-sub Echo
-{
-confess "Deprecated!";
-warn "Called Echo(@_)\n" if $debug > 1;
-return if !$S || !$P || !defined($META) || $META eq "";
-return if !defined($_) || $_ eq "";
-my $v = &MagicEvalWarnings($META);
-defined($v) || die "$0: [ERROR] Echo: Eval of META {$META} failed: $?\n";
-# Always quote as strings:
-$v = &Quote($v);
-print "$S $P $v .\n";
-return;
-}
-
 ################## Directive_SUBJECT #################
 # Set $SUBJECT and %SUBJECT in prep for triples generation.
 # Same as '#SetMagic $SUBJECT = ...'
@@ -1048,7 +1022,7 @@ my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Triple(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
 my $args = $ARGS;
 my $isOnt = ($args =~ s/^ont\b\s*//);
-my ($s, $p, $o) = &MagicEvalWarnings($args) if $args ne "";
+my ($s, $p, $o) = &MagicEvalWarnings($args);
 warn "  Triple After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
 if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "") {
 	&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
@@ -1059,8 +1033,9 @@ if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "
 		print $OFH "$s $p $o .\n";
 		}
 	else { print "$s $p $o .\n"; }
+	# warn "Triple from ARGS: $s $p $o\n";
 	}
-($s, $p, $o) = &MagicEvalWarnings($META) if $META ne "";
+($s, $p, $o) = &MagicEvalWarnings($META);
 warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
 if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "") {
 	&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
@@ -1071,6 +1046,7 @@ if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "
 		print $OFH "$s $p $o .\n";
 		}
 	else { print "$s $p $o .\n"; }
+	# warn "Triple from META: $s $p $o\n";
 	}
 $_ = $saveUnderbar;
 warn "  Triple Done Triple(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
@@ -1149,6 +1125,7 @@ sub MagicEvalWarnings
 my $expr = shift @_;
 defined($expr) || confess "Died";
 return "" if $expr eq "" || $expr eq '""' || $expr eq "''";
+# print "EVAL: $expr\n";
 # Set magic vars
 foreach my $svar (keys %MAGIC) {
 	my $hvar = $MAGIC{$svar};
