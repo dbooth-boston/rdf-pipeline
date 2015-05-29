@@ -881,13 +881,7 @@ $ARGS = '$OBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
 $OBJECT = $OBJECT{$HEADER};
 # warn "  #OBJECT set: $OBJECT\n" if ($ARGS || $META);
 # confess "UNDEF" if !defined($OBJECT);
-if ($SUBJECT && $PREDICATE && defined($OBJECT) && $OBJECT ne "") {
-	if ($isOnt) {
-		$OFH || die "$0: [ERROR] OBJECT: OntFile has not been opened.\n";
-		print $OFH "$SUBJECT $PREDICATE $OBJECT .\n";
-		}
-	else { print "$SUBJECT $PREDICATE $OBJECT .\n"; }
-	}
+&OutputTriple($isOnt, $SUBJECT, $PREDICATE, $OBJECT, "OBJECT", (length($OBJECT) ? $OBJECT : ""));
 $ARGS = $oldArgs;
 $debug = $oldDebug;
 }
@@ -1022,7 +1016,7 @@ my ($isOnt, $s, $p, $o, $where, $argsOrMeta) = @_;
 return if !(defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "");
 my $fh = ($isOnt ? "STDOUT" : $OFH);
 defined($fh) || die "$0: [ERROR] Triple: OntFile has not been opened.\n";
-return if $tripleSeen{$fh}->{$s}->{$p}->{$o};
+return if $suppressDuplicates && $tripleSeen{$fh}->{$s}->{$p}->{$o};
 &MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from $where: $argsOrMeta\n";
 &MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from $where: $argsOrMeta\n";
 &MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from $where: $argsOrMeta\n";
