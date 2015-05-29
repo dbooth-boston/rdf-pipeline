@@ -171,6 +171,9 @@ my %readerForFormat = qw(
 	xlsx	ReadXlsx
 	);
 
+my %tripleSeen;		# Maps FH->S->P->O->boolean
+
+############ Options:
 my $baseUri = "http://example/";
 my $help = 0;
 my $debug = 0;
@@ -181,6 +184,7 @@ my $format = "";
 my $metaFormat = "";
 my $infile = "";
 my $trim = 1;
+my $suppressDuplicates = 1;
 my $keepEmptyTrailingColumns = 0;
 my $keepEmptyTrailingRows = 0;
 my $requireVersion = "";
@@ -197,6 +201,7 @@ GetOptions(
                 "trim|t!" => \$trim,
 		"keepEmptyTrailingColumns!" => \$keepEmptyTrailingColumns,
 		"keepEmptyTrailingRows!" => \$keepEmptyTrailingRows,
+		"suppressDuplicates!" => \$suppressDuplicates,
                 "requireVersion=s" => \$requireVersion,
                 ) or die "$0: Error reading options.  " . &Usage();
 
@@ -1010,6 +1015,22 @@ $debug = $oldDebug;
 # die "STOPPED!\n";
 }
 
+################## OutputTriple #################
+sub OutputTriple
+{
+my ($isOnt, $s, $p, $o, $where, $argsOrMeta) = @_;
+return if !(defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "");
+my $fh = ($isOnt ? "STDOUT" : $OFH);
+defined($fh) || die "$0: [ERROR] Triple: OntFile has not been opened.\n";
+return if $tripleSeen{$fh}->{$s}->{$p}->{$o};
+&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from $where: $argsOrMeta\n";
+&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from $where: $argsOrMeta\n";
+&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from $where: $argsOrMeta\n";
+if ($isOnt) { print $OFH "$s $p $o .\n"; }
+else { print "$s $p $o .\n"; }
+$tripleSeen{$fh}->{$s}->{$p}->{$o} = 1;
+}
+
 ################## Directive_Triple #################
 # Print the triples from eval'ing ARGS and META if all three 
 # components are non-empty.
@@ -1024,30 +1045,10 @@ my $args = $ARGS;
 my $isOnt = ($args =~ s/^ont\b\s*//);
 my ($s, $p, $o) = &MagicEvalWarnings($args);
 warn "  Triple After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
-if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "") {
-	&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
-	&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
-	&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from ARGS: $ARGS\n";
-	if ($isOnt) {
-		$OFH || die "$0: [ERROR] Triple: OntFile has not been opened.\n";
-		print $OFH "$s $p $o .\n";
-		}
-	else { print "$s $p $o .\n"; }
-	# warn "Triple from ARGS: $s $p $o\n";
-	}
+&OutputTriple($isOnt, $s, $p, $o, "ARGS", $ARGS);
 ($s, $p, $o) = &MagicEvalWarnings($META);
 warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
-if (defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "") {
-	&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
-	&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
-	&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from META: $META\n";
-	if ($isOnt) {
-		$OFH || die "$0: [ERROR] Triple: OntFile has not been opened.\n";
-		print $OFH "$s $p $o .\n";
-		}
-	else { print "$s $p $o .\n"; }
-	# warn "Triple from META: $s $p $o\n";
-	}
+&OutputTriple($isOnt, $s, $p, $o, "META", $META);
 $_ = $saveUnderbar;
 warn "  Triple Done Triple(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
