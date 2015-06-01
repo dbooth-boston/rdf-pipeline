@@ -135,11 +135,9 @@ our $OFH;	# Ontology file handle
 our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
 		#   ($DIRECTIVE, $ARGS, @METAS)
 our $TABLE;	# Ref to the entire data table
-our $RTABLE;	# Ref to the entire raw data table
 our @PENDING;	# Rows pending, used by #Filter for splitting rows
 our @HEADERS;	# Column headers (excluding any #META column header)
 our $HEADER;	# Current header: $HEADER[$COLUMN]
-our $RAW;	# Current original cell value.  Corresponds to $_
 our %NAMESPACE;	# Prefix->namespace mappings
 our $MROW;	# Index of current meta row
 our $ROW;	# Index of current data row
@@ -213,25 +211,21 @@ die &Usage() if @ARGV > 1;
 $infile = $ARGV[0] if @ARGV;
 
 
-$RTABLE = &ReadTable($infile, $worksheet, $format); 
+$TABLE = &ReadTable($infile, $worksheet, $format); 
 
 # warn "======================= DATA table ======================\n" if $debug;
-# &PrintTable($RTABLE) if $debug;
+# &PrintTable($TABLE) if $debug;
 # warn "==========================================================\n" if $debug;
 # warn "\n" if $debug;
 # die "Done\n";
 
-$MTABLE = &RemoveMetadataRows($RTABLE);
+$MTABLE = &RemoveMetadataRows($TABLE);
 # print "======================= META table ======================\n" if $debug;
 # &PrintTable($MTABLE) if $debug;
 # print "==========================================================\n" if $debug;
 
-
-my $headersRef = shift @{$RTABLE};
+my $headersRef = shift @{$TABLE};
 @HEADERS = @{$headersRef};
-for (my $r=0; $r<@{$RTABLE}; $r++) {
-	@{$TABLE->[$r]} = @{$RTABLE->[$r]};
-	}
 
 if ($metadataFile) {
 	warn "Reading separate metadataFile: $metadataFile\n" if $debug;
@@ -491,7 +485,7 @@ for (my $i=0; $i<$NCOLUMNS; $i++) {
 }
 
 ################## SetDataGlobalsForColumn #################
-# Set globals: $HEADER $_ $RAW
+# Set globals: $HEADER $_
 # They are relative to $COLUMN, which must already be set.
 # The $ROW must already be set also.
 sub SetDataGlobalsForColumn
@@ -500,9 +494,8 @@ defined($ROW) || confess "Died";
 defined($COLUMN) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
 ($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
-# Important to set $RAW and $_ before eval'ing
-# that may involve $RAW and $_.
-$RAW = $RTABLE->[$ROW]->[$COLUMN];
+# Important to set $_ before eval'ing something
+# that may involve $_.
 # $_ = $TABLE->[$ROW]->[$COLUMN];
 $_ = $DATA{$HEADER};
 defined($_) || confess "Died";
