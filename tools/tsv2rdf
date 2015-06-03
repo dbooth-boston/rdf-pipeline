@@ -162,7 +162,7 @@ our $NCOLUMNS;	# Number of meta columns (and data columns incl virtual)
 our %HEADER_TO_COLUMN;	# Maps header to meta column index
 our %KEY_TO_ROW;	# Maps header to column hash to row number (0 based)
 our %PK_TO_ROW;		# Maps $PRIMARY_KEY column hash to row number (0 based)
-our $PRIMARY_KEY;	# Header name of primary key column
+our $PRIMARY_KEY;	# Header name(s) of primary key column(s): a|b|c
 
 # Map file extensions (lower case) to readers:
 my %readerForFormat = qw(
@@ -347,13 +347,23 @@ warn "NCOLUMNS: $NCOLUMNS NROWS: $NROWS headers: @HEADERS\n" if $debug;
 for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 	$HEADER_TO_COLUMN{$HEADERS[$COLUMN]} = $COLUMN;
 	}
+my @compositeKeys = ();
+@compositeKeys = grep {m/\S/} split(/\s*\|\s*/, $PRIMARY_KEY) if defined($PRIMARY_KEY);
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 		# For PK 'PROJECT ID' value 'P001' in first row:
 		# $KEY_TO_ROW{'PROJECT ID'}->{'P001'} = 0;
 		$KEY_TO_ROW{$HEADERS[$COLUMN]}->{$TABLE->[$ROW][$COLUMN]} = $ROW;
-		$PK_TO_ROW{$TABLE->[$ROW][$COLUMN]} = $ROW
-			if defined($PRIMARY_KEY) && $HEADERS[$COLUMN] eq $PRIMARY_KEY;
+		}
+	if (@compositeKeys) {
+		my $k = join("|", map {
+			my $i = $HEADER_TO_COLUMN{$_};
+			defined($i) || die "$0: [ERROR] PRIMARY_KEY column not found: $_\n";
+			my $v = $TABLE->[$ROW][$i];
+			die "$0: [ERROR] PRIMARY_KEY value in row $ROW column $i {$_} contains vertical bar: $v\n"
+				if $v =~ m/\|/;;
+			$v } @compositeKeys);
+		$PK_TO_ROW{$k} = $ROW;
 		}
 	}
 
