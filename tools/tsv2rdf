@@ -1609,17 +1609,16 @@ return $v;
 }
 
 ########## Clean ###########
-# Trim leading and trailing whitespace, turn everything but [a-zA-Z0-9_]
-# into underscore ("_") and change any occurrences of multiple
-# underscores into a single underscore (in order to treat multiple
-# blanks as a single blank).
+# Trim leading and trailing whitespace, turn everything but [a-zA-Z0-9_\-]
+# into underscore ("_"), and then turn multiple successive underscores
+# into a single underscore.
 sub Clean
 {
 my $v = shift @_;
 defined($v) || confess "Died";
 $v = &Trim($v);
-$v =~ s/[^A-Za-z0-9_]/_/g;
-$v =~ s/_+/_/g;
+$v =~ s/[^A-Za-z0-9_\-]/_/g;
+$v =~ s/__+/_/g;
 return $v;
 }
 
