@@ -363,6 +363,8 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 			die "$0: [ERROR] PRIMARY_KEY value in row $ROW column $i {$_} contains vertical bar: $v\n"
 				if $v =~ m/\|/;;
 			$v } @compositeKeys);
+		warn "$0: [WARNING] Non-unique PRIMARY_KEY in row $ROW: $k\n"
+			if exists($PK_TO_ROW{$k});
 		$PK_TO_ROW{$k} = $ROW;
 		}
 	}
