@@ -1124,7 +1124,7 @@ $tripleSeen{$fh}->{$s}->{$p}->{$o} = 1;
 }
 
 ################## Directive_Triple #################
-# Print the triples from eval'ing ARGS and META if all three 
+# Print the triples from eval'ing ARGS or META if all three 
 # components are non-empty.
 sub Directive_Triple
 {
@@ -1135,12 +1135,24 @@ my $shouldWarn = $debug && ($ARGS || $META);
 warn "Called Triple(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
 my $args = $ARGS;
 my $isOnt = ($args =~ s/^ont\b\s*//);
-my ($s, $p, $o) = &MagicEvalWarnings($args);
-warn "  Triple After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
-&OutputTriple($isOnt, $s, $p, $o, "ARGS", $ARGS);
-($s, $p, $o) = &MagicEvalWarnings($META);
-warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
-&OutputTriple($isOnt, $s, $p, $o, "META", $META);
+my @metas = ();
+@metas = &MagicEvalAutoQuote($META) if $META ne "";
+if (@metas == 1) { $META = $metas[0]; }
+elsif (@metas == 3) {
+	my ($s, $p, $o) = @metas;
+	warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
+	&OutputTriple($isOnt, $s, $p, $o, "META", $META);
+	}
+if ($args ne "") {
+	my ($s, $p, $o) = &MagicEvalWarnings($args);
+	warn "  Triple After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
+	&OutputTriple($isOnt, $s, $p, $o, "ARGS", $ARGS);
+	}
+else	{
+	my ($s, $p, $o) = &MagicEvalWarnings($META);
+	warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
+	&OutputTriple($isOnt, $s, $p, $o, "META", $META);
+	}
 $_ = $saveUnderbar;
 warn "  Triple Done Triple(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
 $debug = $oldDebug;
