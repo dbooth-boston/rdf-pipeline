@@ -817,7 +817,7 @@ if ($META ne "") {
 			$lastIndex = $i if $METAS[$i] ne "";
 			}
 		}
-	my @results = map {&CellFilter($_)} &MagicEvalWarnings($META);
+	my @results = map {$trim ? &Trim($_) : $_} &MagicEvalWarnings($META);
 	$result = "";
 	$result = shift(@results) if @results;
 	my $nr = scalar(@results);
@@ -907,7 +907,7 @@ if ($expr ne "") {
 	my @results = &MagicEvalWarnings($expr);
 	my $n = scalar(@results);
 	warn "$functionName evaluated to $n PENDING raw values: (@results)\n" if $expr ne "" && $debug > 1;
-	@results = map {defined($_) ? &CellFilter($_) : $_} @results;
+	@results = map {$trim ? &Trim($_) : $_} @results;
 	@results = grep {!defined($_) || $_ ne ""} @results;
 	my $underbar = "";
 	$underbar = shift @results if @results;
@@ -1606,6 +1606,7 @@ return @cooked;
 sub Trim
 {
 my $s = shift @_;
+return undef if !defined($s);
 $s =~ s/\A[\s\n\r]+//s;
 $s =~ s/[\s\n\r]+\Z//s;
 return $s;
