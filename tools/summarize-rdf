@@ -152,11 +152,13 @@ my $RDFS_SUBCLASS_OF = RDF::Trine::Node::Resource->new($inverseStandardNamespace
 ################## Get options ###################
 
 my $impliedRanges = 0;
+my $diagram = 0;
 my $help = 0;
 use Getopt::Long; # Perl
 GetOptions(
                 "help|h" => \$help,
                 "impliedRanges|i" => \$impliedRanges,
+                "diagram|d" => \$diagram,
                 ) or die "$0: Error reading options.\n";
 
 die "Usage: $0 [ options ] [ turtleFiles...]
@@ -168,6 +170,14 @@ Options:
 		then :o is implicitly declared as:
 		  :o a :pRange .
 		Implied classes are shown in parentheses: \"(:pRange)\"
+
+	-d, --diagram
+		Generate pseudo-Turtle, suitable for input to
+		diagram-sparql, for generating a diagram of
+		class relationships.  You will probably want
+		to filter out relationships involving rdf:type
+		declarations and UNTYPED values:
+		  $0 -d infile.ttl | grep -v -E 'rdf:type|UNTYPED|owl:imports'
 
 	-h, --help
 		Print usage info and exit
@@ -183,9 +193,9 @@ Options:
 my $model = RDF::Trine::Model->temporary_model;
 my $parser = RDF::Trine::Parser->new( 'turtle' );
 my $base_uri = "http://example/";
-print "===== Input Summary =====\n";
+print "===== Input Summary =====\n" if !$diagram;
 foreach my $file (@ARGV) {
-	print "Parsing turtle: $file \n";
+	print "Parsing turtle: $file \n" if !$diagram;
 	$parser->parse_file_into_model( $base_uri, $file, $model );
 	}
 if (!@ARGV) {
@@ -193,7 +203,7 @@ if (!@ARGV) {
 	$parser->parse_into_model( $base_uri, $turtle, $model );
 	}
 my $n = $model->size();
-print "Total triples: $n\n";
+print "Total triples: $n\n" if !$diagram;
 
 # Seed the namespace map with whatever prefixes were defined
 # in the input:
@@ -281,23 +291,23 @@ if ($impliedRanges) {
   # The rest of the work will be done by ShortenUri.
   }
 
-print "Nodes by kind:  ";
+print "Nodes by kind:  " if !$diagram;
 foreach my $t (sort keys %typeInstances) {
 my @instances = keys %{$typeInstances{$t}};
 my $ni = scalar(@instances);
-print "$t $ni  ";
+print "$t $ni  " if !$diagram;
 }
-print "\n";
+print "\n" if !$diagram;
 
-print "Literals by datatype:  ";
+print "Literals by datatype:  " if !$diagram;
 foreach my $dt (sort keys %datatypeValues) {
 	my @values = keys %{$datatypeValues{$dt}};
 	my $nv = scalar(@values);
 	my $sdt = &ShortenUri($dt);
-	print "$sdt $nv  ";
+	print "$sdt $nv  " if !$diagram;
 	}
-print "\n";
-print "\n";
+print "\n" if !$diagram;
+print "\n" if !$diagram;
 
 # Determine the classes for each subject (including any that are UNK):
 my %classInstances;	# Maps subject classes -> hash of instances
@@ -335,7 +345,13 @@ while (my $ts = $si->next()) {
 		}
 	}
 
-print "===== Predicates by Subject Class =====\n";
+# Prefixes for diagram option:
+foreach my $ns (sort {$namespaces{$a} cmp $namespaces{$b}} keys %namespaces) {
+	my $p = $namespaces{$ns};
+	print "PREFIX $p: <$ns> \n" if $diagram;
+	}
+
+print "===== Predicates by Subject Class =====\n" if !$diagram;
 my @sortedClasses = sort {&ShortenUri($a) cmp &ShortenUri($b)}
 		keys %classInstances;
 my $nRootClasses = 0;
@@ -346,14 +362,14 @@ foreach my $c (@sortedClasses) {
 	my $sc = &ShortenUri($c);
 	my @instances = keys %{$classInstances{$c}};
 	my $ni = scalar(@instances);
-	print "$isRoot$sc $ni\n";
+	print "$isRoot$sc $ni\n" if !$diagram;
 	my @sortedPredicates = sort {&ShortenUri($a) cmp &ShortenUri($b)}
 			keys %{$classPredicates{$c}};
 	foreach my $p (@sortedPredicates) {
 		my $sp = &ShortenUri($p);
 		# Number of triples using this predicate:
 		my $nt = $nTriples{$c}->{$p} || die;
-		print "  $sp $nt -> { ";
+		print "  $sp $nt -> { " if !$diagram;
 		my %oClasses;
 		my @objects = keys %{$predicateObjects{$p}};
 		foreach my $o (@objects) {
@@ -364,24 +380,25 @@ foreach my $c (@sortedClasses) {
 			}
 		foreach my $c (sort keys %oClasses) {
 			my $nc = $oClasses{$c};
-			my $sc = &ShortenUri($c);
-			$sc = "($sc)" if $isDatatype{$c};
-			print "$sc $nc ";
+			my $stc = &ShortenUri($c);
+			$stc = "($stc)" if $isDatatype{$c};
+			print "$stc $nc " if !$diagram;
+			print "$sc $sp $stc .\n" if $diagram;
 			}
 		my $no = scalar(@objects);
-		print "} $no\n";
+		print "} $no\n" if !$diagram;
 		}
-	print "\n";
+	print "\n" if !$diagram;
 	}
 
 print "* Root class whose instances are never objects of a triple\n"
-	if $nRootClasses;
-print "\n";
+	if $nRootClasses && !$diagram;
+print "\n" if !$diagram;
 
-print "===== Namespaces =====\n";
+print "===== Namespaces =====\n" if !$diagram;
 foreach my $ns (sort {$namespaces{$a} cmp $namespaces{$b}} keys %namespaces) {
 	my $p = $namespaces{$ns};
-	print "PREFIX $p: <$ns> \n";
+	print "PREFIX $p: <$ns> \n" if !$diagram;
 	}
 exit 0;
 
