@@ -107,6 +107,12 @@ Options:
 	Keep trailing (bottom-most) rows whose cells contain 
 	only whitespace.  By default they are ignored.
 
+  --warnOfSplitGroupMismatch
+	Warn of every item count mismatch seen by SplitGroup.  (This
+	is the default.)  A count of item count mismatches will still 
+	be given (if non-zero) even if this option is disabled 
+	by --no-warnOfSplitGroupMismatch .
+
   --requireVersion v
 	Require at least version v.
 	NOT YET IMPLEMENTED.
@@ -181,6 +187,7 @@ my $suppressDuplicates = 1;
 my $keepEmptyTrailingColumns = 0;
 my $keepEmptyTrailingRows = 0;
 my $requireVersion = "";
+my $warnOfSplitGroupMismatches = 1;
 use Getopt::Long qw(:config no_ignore_case bundling);
 GetOptions(
                 "debug|d+" => \$debug,
@@ -196,6 +203,7 @@ GetOptions(
 		"keepEmptyTrailingRows!" => \$keepEmptyTrailingRows,
 		"suppressDuplicates!" => \$suppressDuplicates,
                 "requireVersion=s" => \$requireVersion,
+		"warnOfSplitGroupMismatches!" => \$warnOfSplitGroupMismatches,
                 ) or die "$0: Error reading options.  " . &Usage();
 
 warn "$0: [WARNING] Option not yet implemented: --requireVersion\n"
@@ -818,7 +826,7 @@ if ($META ne "") {
 	if ($nr != $nPrevious) {
 		my $warning = "$0: [WARNING] SplitGroup: Item count mismatch in row $ROW column {$HEADERS[$previousIndex]} versus {$HEADER}: {$previousData} versus {$underbar}\n";
 		if (!exists($warnedSplitGroup{$warning})) {
-			warn $warning;
+			warn $warning if $warnOfSplitGroupMismatches;
 			$warnedSplitGroup{$warning} = 1;
 			}
 		}
