@@ -149,6 +149,9 @@ my $RDF_REST         = RDF::Trine::Node::Resource->new($inverseStandardNamespace
 my $RDFS_CLASS       = RDF::Trine::Node::Resource->new($inverseStandardNamespaces{rdfs} . "Class");
 my $RDFS_SUBCLASS_OF = RDF::Trine::Node::Resource->new($inverseStandardNamespaces{rdfs} . "subClassOf");
 
+my $program = $0;
+$program =~ s/^.*[\\\/]//;
+
 ################## Get options ###################
 
 my $impliedRanges = 0;
@@ -161,7 +164,7 @@ GetOptions(
                 "diagram|d" => \$diagram,
                 ) or die "$0: Error reading options.\n";
 
-die "Usage: $0 [ options ] [ turtleFiles...]
+die "Usage: $program [ options ] [ turtleFiles...]
 Options:
 	-i, --impliedRanges
 		Include implied classes (based on predicate ranges) 
@@ -177,7 +180,7 @@ Options:
 		class relationships.  You will probably want
 		to filter out relationships involving rdf:type
 		declarations and UNTYPED values:
-		  $0 -d infile.ttl | grep -v -E 'rdf:type|UNTYPED|owl:imports'
+		  $program -d infile.ttl | grep -v -E 'rdf:type|UNTYPED|owl:imports'
 
 	-h, --help
 		Print usage info and exit
