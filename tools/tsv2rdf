@@ -498,6 +498,9 @@ sub CellFilter
 {
 @_ == 1 || confess "Died";
 my ($v) = @_;
+# TODO: Is this being encoded in the right place?
+# Should it be done on output instead?   Or only when
+# reading certain kinds of input files?
 $v = encode( 'utf-8', $v );
 if ($trim) {
 	$v = &Trim($v);
