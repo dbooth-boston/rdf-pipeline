@@ -789,6 +789,7 @@ our @vrs;
 our @indexes;
 our $maxValues;
 our $lastIndex;
+our $nPrevious;
 our $previousIndex;
 our $previousData;
 my $underbar = $_;
@@ -808,15 +809,21 @@ if ($META ne "") {
 	$result = "";
 	$result = shift(@results) if @results;
 	my $nr = scalar(@results);
-	$maxValues = $nr if !defined($maxValues);
-	if ($nr != $maxValues) {
+	if (!defined($maxValues)) {
+		$maxValues = $nr;
+		$nPrevious = $nr;
+		$previousIndex = $COLUMN;
+		$previousData = $underbar;
+		}
+	if ($nr != $nPrevious) {
 		my $warning = "$0: [WARNING] SplitGroup: Item count mismatch in row $ROW column {$HEADERS[$previousIndex]} versus {$HEADER}: {$previousData} versus {$underbar}\n";
 		if (!exists($warnedSplitGroup{$warning})) {
-			warn "$0: [WARNING] SplitGroup: Item count mismatch in row $ROW column {$HEADERS[$previousIndex]} versus {$HEADER}: {$previousData} versus {$underbar}\n";
+			warn $warning;
 			$warnedSplitGroup{$warning} = 1;
 			}
-		$maxValues = $nr if $nr > $maxValues;
 		}
+	$maxValues = $nr if ($nr > $maxValues);
+	$nPrevious = $nr;
 	$previousIndex = $COLUMN;
 	$previousData = $underbar;
 	push(@vrs, [ @results ] );
