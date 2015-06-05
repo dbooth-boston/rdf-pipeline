@@ -148,12 +148,6 @@ our $ARGS;	# Args parsed from #META column of current $MROW
 our @METAS;	# Meta cell values for current $MROW
 our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
-our $SUBJECT;	# For subject of triple
-our %SUBJECT;	# For subject of triple
-our $PREDICATE;	# For predicate of triple
-our %PREDICATE;	# For predicate of triple
-our $OBJECT;	# For object of triple
-our %OBJECT;	# For object of triple
 ########### Other globals, probably not used by users
 our $NROWS;	# Number of data rows (excludes header row)
 our $NMROWS;	# Number of meta rows (excludes header row)
@@ -387,17 +381,6 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$DIRECTIVE};
 		next if $isPostProcessingDirective{$DIRECTIVE};
-		# Force these to be reset even if $ifdata was set
-		if ($DIRECTIVE eq "Directive_SUBJECT") {
-			%SUBJECT = ();
-			%PREDICATE = ();
-			%OBJECT = ();
-		} elsif ($DIRECTIVE eq "Directive_PREDICATE") {
-			%PREDICATE = ();
-			%OBJECT = ();
-		} elsif ($DIRECTIVE eq "Directive_OBJECT") {
-			%OBJECT = ();
-		} 
 		my $option = "";
 		$option = $1 if ($ARGS =~ s/^(ifdata|once)\b\s*//);
 		my $ifdata = ($option eq "ifdata");
@@ -564,9 +547,6 @@ for (my $i=0; $i<$NCOLUMNS; $i++) {
 	my $h = $HEADERS[$i];
 	$DATA{$h} = $TABLE->[$ROW]->[$i];
 	# warn "i: $i DATA{$h}: $DATA{$h}\n";
-	$SUBJECT{$h} = "";
-	$PREDICATE{$h} = "";
-	$OBJECT{$h} = "";
 	}
 # warn "\%DATA: " . Dumper \%DATA;
 }
@@ -835,7 +815,7 @@ if ($META ne "") {
 			my $rr = [ @{$TABLE->[$ROW]} ];
 			for (my $j=0; $j<@vrs; $j++) {
 				my $v = $vrs[$j]->[$i];
-				warn "$0: [WARNING] SplitGroup: Undefined value in row $ROW column $indexes[$j] from evaluating META expression: {$METAS[$indexes[$j]]}\n(Possibly a mismatched number of items?)\n"
+				warn "$0: [WARNING] SplitGroup: Undefined value in row $ROW column $indexes[$j] {$HEADERS[$indexes[$j]]} from evaluating META expression: {$METAS[$indexes[$j]]}\n(Possibly a mismatched number of items?)\n"
 					if !defined($v) && !$warnedSplitGroup++;
 				$v = "" if !defined($v);
 				$rr->[$indexes[$j]] = $v;
@@ -931,59 +911,6 @@ if ($expr ne "") {
 	}
 defined($_) || die "$0: [ERROR] Eval of META . ARGS {$expr} failed: $?\n";
 warn "  After eval(ARGS . META) UNDERBAR: $_\n" if $expr ne "" && $debug > 1;
-$debug = $oldDebug;
-}
-
-################## Directive_SUBJECT #################
-# Set $SUBJECT and %SUBJECT in prep for triples generation.
-# Same as '#SetMagic $SUBJECT = ...'
-sub Directive_SUBJECT
-{
-@_ == 0 || confess "Died";
-my $oldDebug = $debug;
-# $debug = 2;
-warn "#SUBJECT starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
-my $oldArgs = $ARGS;
-$ARGS = '$SUBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
-&Directive_SetMagic();
-$ARGS = $oldArgs;
-$debug = $oldDebug;
-}
-
-################## Directive_PREDICATE #################
-# Set $PREDICATE and %PREDICATE in prep for triples generation.
-# Same as '#SetMagic $PREDICATE = ...'
-sub Directive_PREDICATE
-{
-@_ == 0 || confess "Died";
-my $oldDebug = $debug;
-# $debug = 2;
-warn "#PREDICATE starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
-my $oldArgs = $ARGS;
-$ARGS = '$PREDICATE' . ( $ARGS eq "" ? "" : " = $ARGS" );
-&Directive_SetMagic();
-$ARGS = $oldArgs;
-$debug = $oldDebug;
-}
-
-################## Directive_OBJECT #################
-# Set $OBJECT and %OBJECT in prep for triples generation.
-# Same as '#SetMagic $OBJECT = ...'
-sub Directive_OBJECT
-{
-@_ == 0 || confess "Died";
-my $oldDebug = $debug;
-# $debug = 2 if ($ARGS || $META);
-# warn "#OBJECT starting: ARGS: $ARGS META: $META UNDERBAR: $_\n" if ($ARGS || $META);
-my $oldArgs = $ARGS;
-my $isOnt = ($ARGS =~ s/^ont\b\s*//);
-$ARGS = '$OBJECT' . ( $ARGS eq "" ? "" : " = $ARGS" );
-&Directive_SetMagic();
-$OBJECT = $OBJECT{$HEADER};
-# warn "  #OBJECT set: $OBJECT\n" if ($ARGS || $META);
-# confess "UNDEF" if !defined($OBJECT);
-&OutputTriple($isOnt, $SUBJECT, $PREDICATE, $OBJECT, "OBJECT", (length($OBJECT) ? $OBJECT : ""));
-$ARGS = $oldArgs;
 $debug = $oldDebug;
 }
 
@@ -1134,7 +1061,7 @@ sub Directive_Triple
 my $oldDebug = $debug;
 # $debug = 2;
 my $saveUnderbar = $_;
-my $shouldWarn = $debug && ($ARGS || $META);
+my $shouldWarn = $debug>1 && ($ARGS || $META);
 warn "Called Triple(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
 my $args = $ARGS;
 my $isOnt = ($args =~ s/^ont\b\s*//);
