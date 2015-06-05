@@ -306,7 +306,7 @@ no warnings qw(qw);
 my %VAR;	# For #SetVar.  Variables to be declared "our"
 my %REFS;	# Maps var name (as string) to its reference.
 my %MAGIC;	# For "#SetMagic $var" Maps $var ref to corresponding hash ref
-my $warnedSplitGroup = 0;
+my %warnedSplitGroup = ();
 
 my %isPreProcessingDirective = map {($_,1)} qw( 
 	Directive_OntFile
@@ -423,7 +423,8 @@ for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 	warn "END Postprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
 	}
 
-warn "$0: [WARNING] SplitGroup: $warnedSplitGroup total undefined values from evaluating META expressions\n" if $warnedSplitGroup > 1;
+my $nWarnedSplitGroup = scalar(keys %warnedSplitGroup);
+warn "$0: [WARNING] SplitGroup: $nWarnedSplitGroup total item count mismatches\n" if $nWarnedSplitGroup > 0;
 exit 0;
 
 
@@ -788,12 +789,15 @@ our @vrs;
 our @indexes;
 our $maxValues;
 our $lastIndex;
+our $previousIndex;
+our $previousData;
+my $underbar = $_;
 my $result = $_;
 if ($META ne "") {
 	if (!@vrs) {
 		# First META column used.  Initialize.
 		@indexes = ();
-		$maxValues = 0;
+		$maxValues = undef;
 		# Find the last META column used
 		$lastIndex = $COLUMN;
 		for (my $i=$COLUMN+1; $i<$NCOLUMNS; $i++) {
@@ -804,8 +808,19 @@ if ($META ne "") {
 	$result = "";
 	$result = shift(@results) if @results;
 	my $nr = scalar(@results);
-	$maxValues = $nr if $nr > $maxValues;
+	$maxValues = $nr if !defined($maxValues);
+	if ($nr != $maxValues) {
+		my $warning = "$0: [WARNING] SplitGroup: Item count mismatch in row $ROW column {$HEADERS[$previousIndex]} versus {$HEADER}: {$previousData} versus {$underbar}\n";
+		if (!exists($warnedSplitGroup{$warning})) {
+			warn "$0: [WARNING] SplitGroup: Item count mismatch in row $ROW column {$HEADERS[$previousIndex]} versus {$HEADER}: {$previousData} versus {$underbar}\n";
+			$warnedSplitGroup{$warning} = 1;
+			}
+		$maxValues = $nr if $nr > $maxValues;
+		}
+	$previousIndex = $COLUMN;
+	$previousData = $underbar;
 	push(@vrs, [ @results ] );
+	# warn "SplitGroup ROW $ROW COLUMN $COLUMN pushed: [ " . join("|", @results) . " ]\n";
 	push(@indexes, $COLUMN);
 	$TABLE->[$ROW]->[$COLUMN] = $result;
 	# If this was the last participating column, emit pending rows.
@@ -815,8 +830,6 @@ if ($META ne "") {
 			my $rr = [ @{$TABLE->[$ROW]} ];
 			for (my $j=0; $j<@vrs; $j++) {
 				my $v = $vrs[$j]->[$i];
-				warn "$0: [WARNING] SplitGroup: Undefined value in row $ROW column $indexes[$j] {$HEADERS[$indexes[$j]]} from evaluating META expression: {$METAS[$indexes[$j]]}\n(Possibly a mismatched number of items?)\n"
-					if !defined($v) && !$warnedSplitGroup++;
 				$v = "" if !defined($v);
 				$rr->[$indexes[$j]] = $v;
 				}
@@ -824,6 +837,7 @@ if ($META ne "") {
 			}
 		# Reset for the next time
 		@vrs = ();
+		# warn "SplitGroup ROW $ROW COLUMN $COLUMN reset\n\n";
 		}
 	}
 $_ = $result;
