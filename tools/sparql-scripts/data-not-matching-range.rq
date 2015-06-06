@@ -1,0 +1,20 @@
+############ Check for data not matching declared range:
+prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+prefix schemaorg:       <https://schema.org/>
+prefix owl:     <http://www.w3.org/2002/07/owl#>
+prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+select DISTINCT ?property ?range ?value {
+  ?s ?property ?value .
+  FILTER ( !strStarts(str(?property), str(owl:)) )
+  FILTER ( !strStarts(str(?property), str(rdf:)) )
+  FILTER ( !strStarts(str(?property), str(rdfs:)) )
+  FILTER ( !strStarts(str(?property), str(schemaorg:)) )
+  ?value a ?range .
+  FILTER ( !(?range = rdfs:Resource || ?range = owl:Thing) )
+  FILTER ( !(isLiteral($value) && datatype($value) = ?range) )
+  FILTER NOT EXISTS {
+          { ?property rdfs:range ?range . }
+            UNION { ?property schemaorg:rangeIncludes ?range . } }
+}
+ORDER BY ?property ?range ?value
+

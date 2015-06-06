@@ -1,0 +1,16 @@
+############ Check for predicates with no domain declared:
+prefix rdfs:    <http://www.w3.org/2000/01/rdf-schema#>
+prefix schemaorg:       <https://schema.org/>
+prefix owl:     <http://www.w3.org/2002/07/owl#>
+prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+select DISTINCT ?property {
+  ?s ?property ?o .
+  FILTER ( !strStarts(str(?property), str(owl:)) )
+  FILTER ( !strStarts(str(?property), str(rdf:)) )
+  FILTER ( !strStarts(str(?property), str(rdfs:)) )
+  FILTER ( !strStarts(str(?property), str(schemaorg:)) )
+  FILTER NOT EXISTS { ?property rdfs:domain ?domain . }
+  FILTER NOT EXISTS { ?property schemaorg:domainIncludes ?domain . }
+}
+ORDER BY ?property
+
