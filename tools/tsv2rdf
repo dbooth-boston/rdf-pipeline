@@ -108,14 +108,18 @@ Options:
 	only whitespace.  By default they are ignored.
 
   --warnOfSplitGroupMismatch
-	Warn of every item count mismatch seen by SplitGroup.  (This
-	is the default.)  A count of item count mismatches will still 
-	be given (if non-zero) even if this option is disabled 
-	by --no-warnOfSplitGroupMismatch .
+	Warn of every item count mismatch seen by SplitGroup.  (Default)
+	If this option is disabled by '--no-warnOfSplitGroupMismatch'
+	then the user will only be warned of the total number of number 
+	of item count mismatches, rather than being warned of each
+	mismatch individually.
 
   --requireVersion v
 	Require at least version v.
 	NOT YET IMPLEMENTED.
+
+  -v, --verbose
+	Print info about what's happening.
 
   -d, --debug
 	Print debugging info.  Intended for developers only.
@@ -143,14 +147,14 @@ our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
 		#   ($DIRECTIVE, $ARGS, @METAS)
 our $TABLE;	# Ref to the entire data table
 our @PENDING;	# Rows pending, used by #Filter for splitting rows
-our @HEADERS;	# Meta Column headers (excluding #META column)
+our @HEADERS;	# Meta Column headers (excluding !META column)
 our $HEADER;	# Current header: $HEADER[$COLUMN]
 our %NAMESPACE;	# Prefix->namespace mappings
 our $MROW;	# Index of current meta row
 our $ROW;	# Index of current data row
 our $COLUMN;	# Index of current meta column
-our $DIRECTIVE;	# Directive parsed from #META column of current $MROW
-our $ARGS;	# Args parsed from #META column of current $MROW
+our $DIRECTIVE;	# Directive parsed from !META column of current $MROW
+our $ARGS;	# Args parsed from !META column of current $MROW
 our @METAS;	# Meta cell values for current $MROW
 our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
@@ -176,6 +180,7 @@ my %tripleSeen;		# Maps FH->S->P->O->boolean
 my $baseUri = "http://example/";
 my $help = 0;
 my $debug = 0;
+my $verbose = 0;
 my $metadataFile = "";
 my $worksheet = "";
 my $metaWorksheet = "";
@@ -191,6 +196,7 @@ my $warnOfSplitGroupMismatches = 1;
 use Getopt::Long qw(:config no_ignore_case bundling);
 GetOptions(
                 "debug|d+" => \$debug,
+                "verbose|v+" => \$verbose,
                 "help|h" => \$help,
                 "base|b=s" => \$baseUri,
                 "worksheet|w=s" => \$worksheet,
@@ -294,6 +300,8 @@ if ($metadataFile) {
 		}	
 	}
 
+warn "Data rows: $NROWS columns: $NCOLUMNS  Meta rows: $NMROWS\n" if $verbose;
+
 if (1) {
 	&PrintTable("META", $MTABLE) if $debug;
 	&PrintTable("DATA", $TABLE) if $debug;
@@ -333,6 +341,7 @@ for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
 	next if !$isPreProcessingDirective{$DIRECTIVE};
 	warn "BEGIN Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 0;
 	no strict 'refs';
+	warn "Preprocessing: $DIRECTIVE\n" if $verbose;
 	&{$DIRECTIVE}();	# All args are passed as globals
 	warn "END Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
 	}
@@ -351,6 +360,7 @@ for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 	}
 my @compositeKeys = ();
 @compositeKeys = grep {m/\S/} split(/\s*\|\s*/, $PRIMARY_KEY) if defined($PRIMARY_KEY);
+warn "Using composite PRIMARY_KEY: $PRIMARY_KEY\n" if $verbose;
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
 	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
 		# For PK 'PROJECT ID' value 'P001' in first row:
@@ -375,7 +385,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 my $isFirstRow = 1;
 for ($ROW=0; $ROW<$NROWS; $ROW++) {
     # next if $ROW != 2;
-    warn "================= DATA ROW ====================\n" if $debug;
+    warn "================= DATA ROW $ROW ====================\n" if $verbose || $debug;
     warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
     warn "===============================================\n" if $debug;
     @PENDING = ();
@@ -386,6 +396,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
 		&SetMetaGlobalsForMRow();
 		$DIRECTIVE || confess "Died";
+		warn "  $DIRECTIVE ARGS: $ARGS\n" if $verbose;
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$DIRECTIVE};
 		next if $isPostProcessingDirective{$DIRECTIVE};
@@ -397,6 +408,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		@METAS || confess "Died";
 		@HEADERS == @METAS || confess "Died";
 		warn "--------------- META --------------------\n" if $debug;
+		warn "  RUNNING $DIRECTIVE ARGS: $ARGS\n" if $verbose;
 		warn "Directive: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
 		# warn "UNDERSCORE: $_\n" if $debug > 1;
 		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
@@ -405,7 +417,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 			&SetMetaGlobalsForColumn();
 			&SetDataGlobalsForColumn();
 			no strict 'refs';
-			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: #$DIRECTIVE\n";
+			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: $DIRECTIVE\n";
 			# warn "LOOP Calling &$DIRECTIVE() UNDERBAR: $_ ARGS: $ARGS META: $META;\n" if $META =~ m/properties/ || $debug > 1;
 			my $oldUnderbar = $_;
 			&{$DIRECTIVE}();
@@ -1299,7 +1311,7 @@ return $result;
 # Metadata rows are returned as a ref to an array of row refs -- the
 # same form as the given data table -- but with two columns
 # prepended: $DIRECTIVE and $ARGS.  The metadata directive is
-# the first cell in each metadata row.  The #META column is removed
+# the first cell in each metadata row.  The !META column is removed
 # entirely from the data table.   Meta rows that are only comments
 # are skipped.  "Directive_" is prepended to each directive.
 sub RemoveMetadataRows
@@ -1307,15 +1319,17 @@ sub RemoveMetadataRows
 my $tsv = shift @_ || confess "Died";
 my $meta = [];
 my $firstCellValue = $tsv->[0]->[0];
+$firstCellValue =~ s/\s+$//;
 defined($firstCellValue) || die "$0: [ERROR] Table has no header row!\n";
 # warn "firstCellValue: {$firstCellValue}\n";
-return $meta if $firstCellValue ne "#META";
-# Strip "#META" from header column:
+return $meta if $firstCellValue ne "!META";
+# Strip "!META" from header column:
 shift(@{$tsv->[0]});
-# Remove and collect the metadata rows:
+# Remove and collect the metadata rows.
+# The data table is modified in place as we go along.
 for (my $r=1; $r < @{$tsv}; $r++) {
 	my $row = $tsv->[$r];
-	# Strip the #META column from all rows:
+	# Strip the !META column from all rows:
 	my $metaCell = shift(@{$row});
 	# Non-empty meta column means it's a meta row -- not a data row.
 	next if ($metaCell !~ m/\S/);
@@ -1323,10 +1337,10 @@ for (my $r=1; $r < @{$tsv}; $r++) {
 	# Meta row.  Delete it from data table.
 	splice(@{$tsv}, $r, 1);
 	$r--;
-	# Empty or comment meta cell?
-	next if $metaCell =~ m/^\s*\#\s*\#/;
-	if ($metaCell !~ s/^\s*\#(\S*)\s*//) {
-		die "$0: [ERROR] Unrecognized meta directive in row $r: $metaCell\n";
+	# Comment meta cell?
+	next if $metaCell =~ m/^\s*\#/;
+	if ($metaCell !~ s/^\s*(\S+)\s*//) {
+		confess "$0: [ERROR] Unrecognized meta directive in row $r: $metaCell\n";
 		}
 	my $directive = $1;
 	$directive = "Directive_$directive";
