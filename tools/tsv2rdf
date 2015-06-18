@@ -144,10 +144,18 @@ options can be used to override file extensions.
 our $ONTFILE;	# Ontology filename
 our $OFH;	# Ontology file handle
 our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
-		#   ($DIRECTIVE, $ARGS, @METAS)
-our $TABLE;	# Ref to the entire data table
+		#   (rowNum, [$DIRECTIVE, $ARGS], @METAS)
+		# To match the spreadsheet, Row 1 is the header row
+		# and row 2 is the first data row.  Row 0 contains
+		# the original column numbers.  Columns are indexed from 1,
+		# to match the spreadsheet.  Column 1 is the '!META' column.
+our $TABLE;	# Ref to the entire data table.
+		# To match the spreadsheet, Row 1 is the header row
+		# and row 2 is the first data row.  First data column is 1.
+		# Row 0 contains the original column numbers.
+		# Columns are indexed from 1, to match the spreadsheet.
 our @PENDING;	# Rows pending, used by #Filter for splitting rows
-our @HEADERS;	# Meta Column headers (excluding !META column)
+our @HEADERS;	# Meta Column headers (excluding !META column), indexed from 1
 our $HEADER;	# Current header: $HEADER[$COLUMN]
 our %NAMESPACE;	# Prefix->namespace mappings
 our $MROW;	# Index of current meta row
@@ -155,17 +163,17 @@ our $ROW;	# Index of current data row
 our $COLUMN;	# Index of current meta column
 our $DIRECTIVE;	# Directive parsed from !META column of current $MROW
 our $ARGS;	# Args parsed from !META column of current $MROW
-our @METAS;	# Meta cell values for current $MROW
+our @METAS;	# Meta cell values for current $MROW, indexed from 2
 our $META;	# Meta cell value for current $MROW and $COLUMN
 our %DATA;	# Maps column name to cell value in current row
 ########### Other globals, probably not used by users
-our $NROWS;	# Number of data rows (excludes header row)
-our $NMROWS;	# Number of meta rows (excludes header row)
-our $NCOLUMNS;	# Number of meta columns (and data columns incl virtual)
+our $NROWS;	# Number of data rows +2 (row 0 + row 1 headers)
+our $NMROWS;	# Number of meta rows +2 (row 0 + row 1 headers)
+our $NCOLUMNS;	# Number of meta columns +2 (col 0; col 1 is '!META')
 ########### To be made obsolete probably:
 our %HEADER_TO_COLUMN;	# Maps header to meta column index
-our %KEY_TO_ROW;	# Maps header to column hash to row number (0 based)
-our %PK_TO_ROW;		# Maps $PRIMARY_KEY column hash to row number (0 based)
+our %KEY_TO_ROW;	# Maps header to column hash to row number
+our %PK_TO_ROW;		# Maps $PRIMARY_KEY column hash to row number
 our $PRIMARY_KEY;	# Header name(s) of primary key column(s): a|b|c
 
 # Map file extensions (lower case) to readers:
@@ -222,24 +230,28 @@ $infile = $ARGV[0] if @ARGV;
 
 $TABLE = &ReadTable($infile, $worksheet, $format); 
 if (0) {
-	&PrintTable("DATA", $TABLE) if $debug;
+	&PrintTable("Initial DATA table", $TABLE) if $debug;
 	# die "Done\n";
 	}
+# @{$TABLE} >= 2 || die "[ERROR] No header row in input file: $infile\n";
+my $dHeadersRef = $TABLE->[1];
+$dHeadersRef || die "[ERROR] No header row in input file: $infile\n";
+my @dHeaders = @{$dHeadersRef};
 
 $MTABLE = &RemoveMetadataRows($TABLE);
-my $metaHeadersRef = $TABLE->[0];
+my $metaHeadersRef = $TABLE->[1];
 $metaHeadersRef || die "$0: [ERROR] table has no header row: $infile\n";
 @HEADERS = @{$metaHeadersRef};
 $NCOLUMNS = scalar(@HEADERS);
 
 if (0) {
-	&PrintTable("META", $MTABLE) if $debug;
+	&PrintTable("META table", $MTABLE) if $debug;
 	# exit 0;
 	}
 $NROWS = scalar(@$TABLE);
 
 if (0) {
-	&PrintTable("DATA", $TABLE) if $debug;
+	&PrintTable("DATA table after removing META table", $TABLE) if $debug;
 	# exit 0;
 	}
 
@@ -248,54 +260,67 @@ if ($metadataFile) {
 	warn "Reading separate metadataFile: $metadataFile\n" if $debug;
 	$rawMeta = &ReadTable($metadataFile, $metaWorksheet, $metaFormat);
 	$MTABLE = &RemoveMetadataRows($rawMeta);
-	$metaHeadersRef = $rawMeta->[0];
+	$metaHeadersRef = $rawMeta->[1];
 	$metaHeadersRef || die "$0: [ERROR] metadataFile has no header row: $metadataFile\n";
 	@HEADERS = @{$metaHeadersRef};
 	$NCOLUMNS = scalar(@HEADERS);
 	# Ignore data in separate metadataFile:
 	$rawMeta = undef;
+	# Add a fake '!META' column to data table, so that column numbers
+	# match those in the meta table:
+	for (my $r=0; $r<@{$TABLE}; $r++) {
+		my $row = $TABLE->[$r];
+		unshift(@{$row}, $row->[0]);
+		$row->[1] = "";
+		}
+	$TABLE->[0][1] = "(none)";	# Original column number
 }
+$TABLE->[1][1] = "!META";	# Fake column
 if (0) {
-	&PrintTable("META", $MTABLE) if $debug;
-	# exit 0;
+	&PrintTable("Semi-Final META table", $MTABLE) if $debug;
+	exit 0;
 	}
 $NMROWS = scalar(@{$MTABLE});
 
 # Trim all metadata cells:
-for (my $r=0; $r<@{$MTABLE}; $r++) {
+for (my $r=2; $r<@{$MTABLE}; $r++) {
 	@{$MTABLE->[$r]} = map {&Trim($_)} @{$MTABLE->[$r]};
 	}
 
 # Data headers before adding virtual columns:
-my $dHeadersRef = $TABLE->[0];
+$dHeadersRef = $TABLE->[1];
 $dHeadersRef || die "$0: [ERROR] data has no header row.\n";
-my @dHeaders = @{$dHeadersRef};
-my $nDcolumns = scalar(@dHeaders);
+@dHeaders = @{$dHeadersRef};
 
-if (0) {
-	&PrintTable("META", $MTABLE) if $debug;
-	&PrintTable("DATA", $TABLE) if $debug;
+if (1) {
+	&PrintTable("META before adding virtual", $MTABLE) if $debug;
+	&PrintTable("DATA before adding virtual", $TABLE) if $debug;
+	# exit 0;
 	}
 
 # warn "\@dHeaders: " . Dumper(\@dHeaders);
 # warn "\@HEADERS: " . Dumper(\@HEADERS);
 my @isVirtualColumn = &AddVirtualColumns();
 
+if (1) {
+	&PrintTable("META after adding virtual", $MTABLE) if $debug;
+	&PrintTable("DATA after adding virtual", $TABLE) if $debug;
+	# exit 0;
+	}
+
 # Data headers after adding virtual columns:
-$dHeadersRef = shift @{$TABLE};
+$dHeadersRef = $TABLE->[1];
 @dHeaders = @{$dHeadersRef};
-$nDcolumns = scalar(@dHeaders);
-$NROWS--;
+die "$0: [ERROR] Extra data column $NCOLUMNS: $dHeaders[$NCOLUMNS]\n"
+	if (scalar(@dHeaders) > $NCOLUMNS);
+die "$0: [ERROR] Extra metadata column: $HEADERS[$#HEADERS]\n"
+	if (scalar(@dHeaders) < $NCOLUMNS);
 
 # Make sure the metadata headers match the data headers.
 if ($metadataFile) {
-	for (my $i=0; $i<$NCOLUMNS; $i++) {
-		# No corresponding column?
-		next if $isVirtualColumn[$i]; 
-		die "$0: [ERROR] Extra metadata column $i: $HEADERS[$i]\n"
-			if defined($HEADERS[$i]) && !defined($dHeaders[$i]);
-		die "$0: [ERROR] Extra data column $i: $dHeaders[$i]\n"
-			if !defined($HEADERS[$i]);
+	for (my $i=2; $i<$NCOLUMNS; $i++) {
+		defined($HEADERS[$i]) || confess "Died";
+		defined($dHeaders[$i]) || confess "Died";
 		$HEADERS[$i] eq $dHeaders[$i] || die "$0: [ERROR] Metadata header $i ($HEADERS[$i]) does not match corresponding data header $i ($dHeaders[$i])\n";
 		}	
 	}
@@ -303,8 +328,8 @@ if ($metadataFile) {
 warn "Data rows: $NROWS columns: $NCOLUMNS  Meta rows: $NMROWS\n" if $verbose;
 
 if (1) {
-	&PrintTable("META", $MTABLE) if $debug;
-	&PrintTable("DATA", $TABLE) if $debug;
+	&PrintTable("Final META table", $MTABLE) if $debug;
+	&PrintTable("Final DATA table", $TABLE) if $debug;
 	# exit 0;
 	}
 
@@ -335,8 +360,8 @@ my %isPostProcessingDirective = map {($_,1)} qw(
 	);
 
 # Pre-processing directives 
-for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
-	# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
+for ($MROW=2; $MROW<@{$MTABLE}; $MROW++) {
+	# Set $DIRECTIVE, $ARGS, @METAS:
 	&SetMetaGlobalsForMRow();
 	next if !$isPreProcessingDirective{$DIRECTIVE};
 	warn "BEGIN Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 0;
@@ -355,14 +380,14 @@ print "\n";
 
 # Set up maps/indexes.
 warn "NCOLUMNS: $NCOLUMNS NROWS: $NROWS headers: @HEADERS\n" if $debug;
-for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
 	$HEADER_TO_COLUMN{$HEADERS[$COLUMN]} = $COLUMN;
 	}
 my @compositeKeys = ();
 @compositeKeys = grep {m/\S/} split(/\s*\|\s*/, $PRIMARY_KEY) if defined($PRIMARY_KEY);
-warn "Using composite PRIMARY_KEY: $PRIMARY_KEY\n" if $verbose;
-for ($ROW=0; $ROW<$NROWS; $ROW++) {
-	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+warn "Using composite PRIMARY_KEY: $PRIMARY_KEY\n" if defined($PRIMARY_KEY) && $verbose;
+for ($ROW=2; $ROW<$NROWS; $ROW++) {
+	for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
 		# For PK 'PROJECT ID' value 'P001' in first row:
 		# $KEY_TO_ROW{'PROJECT ID'}->{'P001'} = 0;
 		$KEY_TO_ROW{$HEADERS[$COLUMN]}->{$TABLE->[$ROW][$COLUMN]} = $ROW;
@@ -383,19 +408,18 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 
 # Process all data rows.
 my $isFirstRow = 1;
-for ($ROW=0; $ROW<$NROWS; $ROW++) {
-    # next if $ROW != 2;
+for ($ROW=2; $ROW<$NROWS; $ROW++) {
     warn "================= DATA ROW $ROW ====================\n" if $verbose || $debug;
     warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
     warn "===============================================\n" if $debug;
     @PENDING = ();
     while (1) {
 	&SetDataGlobalsForRow();
-	for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
+	for ($MROW=2; $MROW<@{$MTABLE}; $MROW++) {
 		my $mr = $MTABLE->[$MROW];
-		# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
+		# Set $DIRECTIVE, $ARGS, @METAS:
 		&SetMetaGlobalsForMRow();
-		$DIRECTIVE || confess "Died";
+		next if !$DIRECTIVE;
 		warn "  $DIRECTIVE ARGS: $ARGS\n" if $verbose;
 		# Preprocessing directives have already been handled, so skip:
 		next if $isPreProcessingDirective{$DIRECTIVE};
@@ -411,7 +435,7 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
 		warn "  RUNNING $DIRECTIVE ARGS: $ARGS\n" if $verbose;
 		warn "Directive: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
 		# warn "UNDERSCORE: $_\n" if $debug > 1;
-		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+		for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
 			# Skip $ifdata and $_ is empty?
 			next if $ifdata && $TABLE->[$ROW]->[$COLUMN] eq "";
 			&SetMetaGlobalsForColumn();
@@ -433,8 +457,8 @@ for ($ROW=0; $ROW<$NROWS; $ROW++) {
     }
 
 # Post-processing directives 
-for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
-	# ($DIRECTIVE, $ARGS, @METAS) = @{$mr};
+for ($MROW=2; $MROW<@{$MTABLE}; $MROW++) {
+	# Set $DIRECTIVE, $ARGS, @METAS:
 	&SetMetaGlobalsForMRow();
 	next if !$isPostProcessingDirective{$DIRECTIVE};
 	warn "BEGIN Postprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 0;
@@ -452,46 +476,85 @@ exit 0;
 ######################### END OF MAIN ###############################
 #####################################################################
 
+################# GenColumnName ####################
+# Convert 0-indexed column number to column name (A, B, C ... AA, AB ...)
+sub GenColumnName
+{
+my $num = shift;
+(defined($num) && $num >= 0) || confess "Died";
+my $remainder = $num % 26;
+my $letter = chr(ord('A') + $remainder);
+my $num2 = int($num / 26);
+if ($num2 > 0) { return &GenColumnName($num2 - 1) . $letter; } 
+else { return $letter; }
+}
+
 ################# AddVirtualColumns ####################
 sub AddVirtualColumns
 {
 my @isVirtualColumn;
 # First find all the VirtualColumns by scanning the directives
-my $nVirtual = 0;
-for ($MROW=0; $MROW<@{$MTABLE}; $MROW++) {
-	($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
+for ($MROW=2; $MROW<@{$MTABLE}; $MROW++) {
+	@METAS = @{$MTABLE->[$MROW]};
+	my $dirArgs = $METAS[1];
+	next if !ref $dirArgs;
+	$DIRECTIVE = $dirArgs->{directive};
 	next if $DIRECTIVE ne "Directive_VirtualColumn";
-	for (my $c=0; $c<$NCOLUMNS; $c++) {
+	for (my $c=2; $c<$NCOLUMNS; $c++) {
 		if ($METAS[$c] ne "") {
 			$isVirtualColumn[$c] = 1;
-			$nVirtual++;
 			}
 		}
 	}
+my $nVirtual = scalar(grep {$isVirtualColumn[$_]} 0 .. $#isVirtualColumn);
 return () if !$nVirtual;
-my $nExpectedRows = scalar(@{$TABLE->[0]}) + ($metadataFile ? $nVirtual : 0);
+# warn "nVirtual: $nVirtual\n";
+my $nExpectedColumns = scalar(@{$TABLE->[1]}) + ($metadataFile ? $nVirtual : 0);
 # Extra data column?
-# Make an extra data column detectable later in error check:
-if ($nExpectedRows > $NCOLUMNS) {
-	$HEADERS[$NCOLUMNS] = undef;
-	$NCOLUMNS++;
-	}
+die "$0: [ERROR] Data table has more columns than meta table expects\n"
+	if ($nExpectedColumns > $NCOLUMNS);
+# Extra meta column?
+die "$0: [ERROR] Data table has fewer columns than meta table expects\n"
+	if ($nExpectedColumns < $NCOLUMNS);
+
 # Add the necessary virtual columns, and initialize them to empty.
-# They are initialized to empty even if there is no metadataFile,
-# so if there is no metadataFile then any existing data in a virtual 
-# column is ignored.  This is to ensure predictability when the
-# user later decides to use a separate metadataFile. 
-for ($ROW=0; $ROW<$NROWS; $ROW++) {
-	my $newRow = [];
-	my $oldRow = $TABLE->[$ROW];
-	$newRow = $oldRow if !$metadataFile;
-	my $dc = 0;
-	for (my $c=0; $c<$NCOLUMNS; $c++) {
-		if ($isVirtualColumn[$c]) { $newRow->[$c] = ""; }
-		elsif ($metadataFile) { $newRow->[$c] = $oldRow->[$dc]; }
-		$dc++ if !$metadataFile || !$isVirtualColumn[$c];
+if ($metadataFile) {
+	# Add the necessary virtual columns, and initialize them to empty.
+	for ($ROW=0; $ROW<$NROWS; $ROW++) {
+		my $oldRow = $TABLE->[$ROW];
+		my $newRow = [ $oldRow->[0], $oldRow->[1] ];
+		my $dc = 2;
+		for (my $c=2; $c<$NCOLUMNS; $c++) {
+			if ($isVirtualColumn[$c]) { 
+				# Original column index row?
+				if ($ROW==0) { $newRow->[$c] = "(none)"; }
+				# Header row?
+				elsif ($ROW==1) { $newRow->[$c] = $HEADERS[$c]; }
+				# Regular data row.
+				else { $newRow->[$c] = ""; }
+				}
+			else { 
+				$newRow->[$c] = $oldRow->[$dc];
+				$dc++; 
+				}
+			}
+		$TABLE->[$ROW] = $newRow;
+		# warn "NEW ROW: [ " . join(" | ", @{$newRow}) . " ]\n";
 		}
-	$TABLE->[$ROW] = $newRow;
+	}
+else	{
+	# Initialized virtual column to empty,
+	# so if there is no metadataFile then any existing data in a virtual 
+	# column is ignored.  This is to ensure predictability when the
+	# user later decides to use a separate metadataFile. 
+	for ($ROW=2; $ROW<$NROWS; $ROW++) {
+		my $row = $TABLE->[$ROW]; 
+		for (my $c=2; $c<$NCOLUMNS; $c++) {
+			if ($isVirtualColumn[$c]) { 
+				$row->[$c] = ""; 
+				}
+			}
+		}
 	}
 return @isVirtualColumn;
 }
@@ -521,11 +584,11 @@ return $v;
 sub SetMetaGlobalsForColumn
 {
 defined($COLUMN) || confess "Died";
-($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
+($COLUMN>=2 && $COLUMN<$NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 $META = $METAS[$COLUMN];
 $META = "" if !defined($META);
-$META = "" if $MROW<0 || $MROW>=$NMROWS;
+$META = "" if $MROW<2 || $MROW>=$NMROWS;
 $HEADER = $HEADERS[$COLUMN];
 defined($HEADER) || confess "Died";
 }
@@ -537,17 +600,25 @@ sub SetMetaGlobalsForMRow
 {
 defined($MTABLE) || confess "Died";
 defined($MROW) || confess "Died";
-($DIRECTIVE, $ARGS, @METAS) = @{$MTABLE->[$MROW]};
+$MROW >= 2 || confess "Died";
+$MROW < $NMROWS || confess "Died MROW: $MROW NCOLUMNS: $NMROWS";
+my $dirArgsRef = $MTABLE->[$MROW][1];
+@METAS = @{$MTABLE->[$MROW]};
+$DIRECTIVE = $METAS[1]->{directive};
+$ARGS = $METAS[1]->{args};
 defined($DIRECTIVE) || confess "Died";
 defined($ARGS) || confess "Died";
-my $nHeaders = scalar(@HEADERS);
-my $nMetas = scalar(@METAS);
-@HEADERS == @METAS || confess "Died. nHeaders: $nHeaders nMetas: $nMetas
- METAS:
- @METAS
- HEADERS:
- @HEADERS
+if (@HEADERS != @METAS) {
+	my $nHeaders = scalar(@HEADERS);
+	my $nMetas = scalar(@METAS);
+	PrintTable("Dying META table", $MTABLE);
+	confess "Died. MROW: $MROW COLUMN: $COLUMN nHeaders: $nHeaders nMetas: $nMetas
+		METAS:
+		@METAS
+		HEADERS:
+		@HEADERS
  ";
+	}
 }
 
 ################## SetDataGlobalsForRow #################
@@ -556,7 +627,7 @@ my $nMetas = scalar(@METAS);
 sub SetDataGlobalsForRow
 {
 defined($ROW) || confess "Died";
-($ROW>=0 && $ROW<$NROWS) || confess "Died";
+($ROW>=2 && $ROW<$NROWS) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
 @HEADERS || confess "Died";
 # Clear old magic vars for safety and speed, because it reduces the
@@ -564,7 +635,7 @@ defined($NCOLUMNS) || confess "Died";
 # MagicEvalWarnings in each row before the row where they are defined.
 %MAGIC = ();
 %VAR = ();
-for (my $i=0; $i<$NCOLUMNS; $i++) {
+for (my $i=2; $i<$NCOLUMNS; $i++) {
 	my $h = $HEADERS[$i];
 	$DATA{$h} = $TABLE->[$ROW]->[$i];
 	# warn "i: $i DATA{$h}: $DATA{$h}\n";
@@ -581,7 +652,7 @@ sub SetDataGlobalsForColumn
 defined($ROW) || confess "Died";
 defined($COLUMN) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
-($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
+($COLUMN>=2 && $COLUMN<$NCOLUMNS) || confess "Died";
 # Important to set $_ before eval'ing something
 # that may involve $_.
 # $_ = $TABLE->[$ROW]->[$COLUMN];
@@ -598,7 +669,7 @@ sub ResetDataGlobalsForColumn
 defined($ROW) || confess "Died";
 defined($COLUMN) || confess "Died";
 defined($NCOLUMNS) || confess "Died";
-($COLUMN>=0 && $COLUMN<$NCOLUMNS) || confess "Died";
+($COLUMN>=2 && $COLUMN<$NCOLUMNS) || confess "Died";
 defined($_) || confess "Died: Undefined value in \$_ ";
 $TABLE->[$ROW]->[$COLUMN] = $_ if !$isVirtualColumn[$COLUMN];
 $DATA{$HEADER} = $_;
@@ -691,15 +762,15 @@ sub Iterate
 my ($fPerMetaCell, $fPerDataCell) = @_;
 # &SetMetaGlobalsForMRow();
 if ($fPerMetaCell) {
-	for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+	for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
 		&SetMetaGlobalsForColumn();
 		&{$fPerMetaCell}();
 		}
 	}
 if ($fPerDataCell) {
-	for ($ROW=0; $ROW<$NROWS; $ROW++) {
+	for ($ROW=2; $ROW<$NROWS; $ROW++) {
 		&SetDataGlobalsForRow();
-		for ($COLUMN=0; $COLUMN<$NCOLUMNS; $COLUMN++) {
+		for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
 			&SetMetaGlobalsForColumn();
 			&SetDataGlobalsForColumn();
 			warn "  Iterate before fPerDataCell, UNDERSCORE: $_\n" if $debug > 1;
@@ -880,8 +951,9 @@ sub Directive_OntFile
 my $oldDebug = $debug;
 # $debug = 2;
 $META = "";
+# Look in $ARGS or in any $META field for the ont filename.
 my $expr = $ARGS;
-for ($COLUMN=0; $COLUMN<@METAS && !$expr; $COLUMN++) {
+for ($COLUMN=2; $COLUMN<@METAS && !$expr; $COLUMN++) {
 	if ($METAS[$COLUMN] =~ m/\S/) {
 		&SetMetaGlobalsForColumn();
 		$expr = $META;
@@ -940,12 +1012,6 @@ if ($expr ne "") {
 					$rr->[$COLUMN] = $_;
 					$rr } @results;
 		unshift(@PENDING, @newRows);
-		if (0 && $HEADER =~ m/technology/) {
-			warn "New rows:\n";
-			foreach my $r (@newRows) {
-				warn "  $r->[$COLUMN] $r->[$COLUMN+1]\n";
-				}
-			}
 		warn "$functionName added $n PENDING rows for: (@results)\n" if $debug > 1;
 		}
 	$_ = $underbar;
@@ -1012,7 +1078,7 @@ die "$0: [ERROR] Unknown ARGS in Prefix directive on metadata row $MROW: $ARGS\n
 my $oldDebug = $debug;
 # $debug = 2;
 &ProcessPrefix('ARGS', $ARGS) if $ARGS;
-for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
+for ($COLUMN=2; $COLUMN<@METAS; $COLUMN++) {
 	if ($METAS[$COLUMN] =~ m/\S/) {
 		&SetMetaGlobalsForColumn();
 		&ProcessPrefix('META', $META) if $META;
@@ -1055,7 +1121,7 @@ else	{
 	# Evaluate all @METAS to assign to $var
 	my @values = ();
 	${$ref} = "" if $var =~ m/^\$/;;
-	for ($COLUMN=0; $COLUMN<@METAS; $COLUMN++) {
+	for ($COLUMN=2; $COLUMN<@METAS; $COLUMN++) {
 		my $val = "";
 		if ($METAS[$COLUMN] =~ m/\S/) {
 			&SetMetaGlobalsForColumn();
@@ -1108,6 +1174,7 @@ my $args = $ARGS;
 my $isOnt = ($args =~ s/^ont\b\s*//);
 my @metas = ();
 @metas = &MagicEvalAutoQuote($META) if $META ne "";
+# TODO: Test and document this functionality:
 if (@metas == 1) { $META = $metas[0]; }
 elsif (@metas == 3) {
 	my ($s, $p, $o) = @metas;
@@ -1120,6 +1187,7 @@ if ($args ne "") {
 	&OutputTriple($isOnt, $s, $p, $o, "ARGS", $ARGS);
 	}
 else	{
+	# TODO: This looks like a bug.  $META has already been evaled.
 	my ($s, $p, $o) = &MagicEvalWarnings($META);
 	warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
 	&OutputTriple($isOnt, $s, $p, $o, "META", $META);
@@ -1275,7 +1343,7 @@ if ($warning || $error) {
 	my $directive = $DIRECTIVE || "INTERNAL";
 	my $args = $ARGS || "(undef)";
 	my $mrow = (defined($MROW) ? $MROW : "(undef)");
-	my $column = (defined($COLUMN) && $COLUMN < $NCOLUMNS && $COLUMN >= 0 ? $COLUMN : undef);
+	my $column = (defined($COLUMN) && $COLUMN < $NCOLUMNS && $COLUMN >= 2 ? $COLUMN : undef);
 	my $header = (defined($column) ? $HEADERS[$column] : undef);
 	my $cell = (defined($column) && defined($ROW) 
 		? $TABLE->[$ROW]->[$column] : undef);
@@ -1318,37 +1386,65 @@ sub RemoveMetadataRows
 {
 my $tsv = shift @_ || confess "Died";
 my $meta = [];
-my $firstCellValue = $tsv->[0]->[0];
-$firstCellValue =~ s/\s+$//;
+my $firstCellValue = $tsv->[1]->[1];
 defined($firstCellValue) || die "$0: [ERROR] Table has no header row!\n";
+$firstCellValue =~ s/\s+$//;
 # warn "firstCellValue: {$firstCellValue}\n";
-return $meta if $firstCellValue ne "!META";
-# Strip "!META" from header column:
-shift(@{$tsv->[0]});
+return $meta if $firstCellValue !~ m/^!META\b/;
+# Row 0 is column numbers:
+push(@{$meta}, [ @{$tsv->[0]} ] );
+# Row 1 is headers:
+push(@{$meta}, [ @{$tsv->[1]} ] );
+# Make the '!META' cell empty in the data table:
+$tsv->[1][1] = "";
 # Remove and collect the metadata rows.
 # The data table is modified in place as we go along.
-for (my $r=1; $r < @{$tsv}; $r++) {
+my $lastMetaRow = 1;
+my $metaR = 2;
+for (my $r=2; $r < @{$tsv}; $r++, $metaR++) {
 	my $row = $tsv->[$r];
-	# Strip the !META column from all rows:
-	my $metaCell = shift(@{$row});
-	# Non-empty meta column means it's a meta row -- not a data row.
-	next if ($metaCell !~ m/\S/);
-	# warn "META row $r.  metaCell: $metaCell\n";
-	# Meta row.  Delete it from data table.
-	splice(@{$tsv}, $r, 1);
-	$r--;
-	# Comment meta cell?
-	next if $metaCell =~ m/^\s*\#/;
-	if ($metaCell !~ s/^\s*(\S+)\s*//) {
-		confess "$0: [ERROR] Unrecognized meta directive in row $r: $metaCell\n";
+	defined($row) || confess "Died";
+	# warn "Row $r: (@{$row})\n";
+	my $newMetaRow = [ map {""} @{$row} ];
+	$newMetaRow->[0] = $row->[0];
+	$newMetaRow->[1] = {'directive'=>"", 'args'=>""};
+	# Non-empty !META column means it's a meta row -- not a data row.
+	my $metaCell = $row->[1];
+	if ($metaCell =~ m/\S/) {
+		# warn "META row $r.  metaCell: $metaCell\n";
+		# Meta row.  Delete it from data table.
+		splice(@{$tsv}, $r, 1);
+		$r--;
+		if ($metaCell !~ s/^\s*(\S+)\s*//) {
+			die "$0: [ERROR] Unrecognized directive in row $r: $metaCell\n";
+			}
+		my $directive = $1;
+		# Not a Comment?
+		if ($directive !~ m/^\#/) {
+			$lastMetaRow = $metaR;
+			$directive = "Directive_$directive";
+			my $args = $metaCell;
+			# [ originalRowNumber , {$directive, $args}, @metas ]
+			@{$newMetaRow} = @{$row};
+			$newMetaRow->[1] = {'directive'=>$directive, 'args'=>$args};
+			}
 		}
-	my $directive = $1;
-	$directive = "Directive_$directive";
-	my $args = $metaCell;
-	# warn "META pushing: $directive $args @{$row}\n";
-	push(@{$meta}, [ $directive, $args, @{$row} ]);
+	push(@{$meta}, $newMetaRow);
+	# Set all !META column cells to empty, to ensure more
+	# predictable behavior when using a separate data file:
+	$row->[1] = "";
 	}
+# Chop off unneeded rows from meta table:
+splice(@{$meta}, $lastMetaRow+1);
 return $meta;
+}
+
+############### DirArgs ###############
+sub DirArgs
+{
+my $ref = shift || confess "Died";
+my $s = $ref->{directive} . " " . $ref->{args};
+return $s;
 }
 
 ############### PrintTable ###############
@@ -1356,9 +1452,9 @@ sub PrintTable
 {
 my $label = shift || confess "Died";
 my $tsv = shift @_ || confess "Died";
-print "======================= $label table ======================\n";
+print "======================= $label ======================\n";
 foreach my $row (@{$tsv}) {
-	my $line = join(" | ", @{$row});
+	my $line = join(" | ", map {ref($_) ? "{" . &DirArgs($_) . "}" : (defined($_) ? $_ : "undef")} @{$row});
 	print "$line\n";
 	}
 print "==========================================================\n";
@@ -1373,16 +1469,22 @@ my ($infile, $worksheet, $format) = @_;
 my $rTable = &ReadRawTable($infile, $worksheet, $format);
 return $rTable if !$rTable or !@{$rTable};
 # Always trim the header row.
-@{$rTable->[0]} = map {&Trim($_)} @{$rTable->[0]};
+my $headerRow = $rTable->[1];
+@{$headerRow} = map {&Trim($_)} @{$headerRow};
+# Ensure that all columns have headers:
+if (0) {
+	my $lastIndex = @{$headerRow} - 1;
+	@{$headerRow} = map { ($_ <2 || $headerRow->[$_] =~ m/\S/) ? $headerRow->[$_] : &GenColumnName($_ - 2) } 0 .. $lastIndex;
+	}
 # Remove empty trailing columns?
 my $continueRemoving = !$keepEmptyTrailingColumns;
 my $nRemoved = 0;
 while($continueRemoving) {
 	warn "Checking for empty trailing column in '$infile' ...\n" if $debug > 1;
-	my $c = scalar(@{$rTable->[0]}) - 1;	# Last column
-	last if $c < 0;
+	my $c = scalar(@{$rTable->[1]}) - 1;	# Last column
+	last if $c < 2;
 	my $allEmpty = 1;
-	for (my $r=0; $r<@{$rTable}; $r++) {
+	for (my $r=1; $r<@{$rTable}; $r++) {
 		if ($rTable->[$r]->[$c] =~ m/\S/) {
 			$allEmpty = 0;
 			last;
@@ -1390,7 +1492,7 @@ while($continueRemoving) {
 		}
 	if ($allEmpty) {
 		warn "Removing empty trailing column from '$infile'\n" if $debug > 1;
-		for (my $r=0; $r<@{$rTable}; $r++) {
+		for (my $r=1; $r<@{$rTable}; $r++) {
 			pop @{$rTable->[$r]};
 			}
 		$nRemoved++;
@@ -1405,12 +1507,10 @@ my $saveDebug = $debug;
 $nRemoved = 0;
 while($continueRemoving) {
 	warn "Checking for empty trailing row in '$infile' ...\n" if $debug > 2;
-	# my $c = scalar(@{$rTable->[0]}) - 1;
 	my $r = scalar(@{$rTable}) - 1;		# Last row
-	last if $r < 0;
+	last if $r < 2;
 	my $allEmpty = 1;
-	# for (my $r=0; $r<@{$rTable}; $r++) {
-	for (my $c=0; $c<@{$rTable->[$r]}; $c++) {
+	for (my $c=2; $c<@{$rTable->[$r]}; $c++) {
 		if ($rTable->[$r]->[$c] =~ m/\S/) {
 			$allEmpty = 0;
 			last;
@@ -1424,6 +1524,10 @@ while($continueRemoving) {
 	else { $continueRemoving = 0; }
 	}
 warn "Removed $nRemoved trailing empty rows from '$infile'\n" if $debug && $nRemoved;
+# Check for empty headers:
+for (my $c=2; $c<@{$rTable->[1]}; $c++) {
+	defined($rTable->[1][$c]) && $rTable->[1][$c] =~ m/\S/ || die "[ERROR] Empty header in column $c (" . &GenColumnName($c-1) . ")\n";
+	}
 $debug = $saveDebug;
 return $rTable;
 }
@@ -1476,9 +1580,9 @@ defined($worksheet) || confess "Died";
 $f = "" if $f eq "-";
 my $fh = \*STDIN;
 !$f || open($fh, "<$f") || die "$0: [ERROR] Cannot open $f\n";
-my $result = [];
+my $result = [ [] ];
 my $nColumns = 0;
-my $row = 0;
+my $row = 1;
 while (my $line = <$fh>) {
 	chomp $line;
 	no strict 'refs';
@@ -1488,9 +1592,11 @@ while (my $line = <$fh>) {
 	$nColumns = $nf if !$nColumns;
 	$nf == $nColumns || die "$0: [ERROR] Number of data columns ($nf) does not match the number of header columns ($nColumns) on data row $row in " . ($f ? "STDIN" : $f) . "\n";
 	# warn "\tRead $nf columns\n";
-	push(@{$result}, [ @fields ] );
+	push(@{$result}, [ ($row, @fields) ] );
 	$row++;
 	}
+# Add original columnn indexes in row 0:
+$result->[0] = [ ( 0 .. $nColumns ) ];
 !$f || close($fh);
 # warn "Read $row rows\n";
 return $result;
@@ -1516,8 +1622,7 @@ $f = "" if $f eq "-";
 my $fh = \*STDIN;
 !$f || open($fh, "<$f") || die "$0: [ERROR] Cannot open $f\n";
 my $result = [];
-my $nColumns = 0;
-my $row = 0;
+my $row = 1;
 use Spreadsheet::ParseXLSX;
 # Profiling seems to be too slow in the parser:
 DB::disable_profile() if $fasterProfiling;
@@ -1529,15 +1634,16 @@ my $nWorksheets = $excel->worksheet_count();
 warn "nWorksheets: $nWorksheets File: $f\n" if $debug > 0;
 my $worksheetObject = $excel->worksheet($worksheet);
 $worksheetObject || return undef;
-my $table = [];
 my ( $row_min, $row_max ) = $worksheetObject->row_range();
 warn "Row range: $row_min : $row_max\n" if $debug > 0;
 my ( $col_min, $col_max ) = $worksheetObject->col_range();
 warn "Col range: $col_min : $col_max\n" if $debug > 0;
-my $r=0;
+my $table = [ [] ];
+my $iRow=1;
+my $nColumns = 0;
 for my $row ( $row_min .. $row_max ) {
-	my $nextRow = [];
-	my $c=0;
+	my $nextRow = [ $iRow ];
+	my $iCol=1;
 	for my $col ( $col_min .. $col_max ) {
 		my $v = "";	# Default to empty string
 		my $cell = $worksheetObject->get_cell( $row, $col );
@@ -1550,14 +1656,17 @@ for my $row ( $row_min .. $row_max ) {
 			}
 		no strict 'refs';
 		push(@{$nextRow}, &{$cellFilter}($v));
-		$c++;
+		$iCol++;
 		}
-	$table->[$r] = $nextRow;
-	$r++;
+	$nColumns = $iCol if $iCol > $nColumns;
+	$table->[$iRow] = $nextRow;
+	$iRow++;
 	}
 my $nc = $col_max - $col_min + 1;
 $nc = 0 if $nc < 0;
-warn "Read $r rows $nc columns from $f\n" if $debug;
+$table->[0] = [ ( 0 .. $nColumns-1 ) ];
+my $nRowsRead = $iRow - 1;
+warn "Read $nRowsRead rows $nc columns from $f\n" if $debug;
 return $table;
 }
 
