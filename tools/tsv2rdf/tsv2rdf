@@ -1,0 +1,1797 @@
+#! /usr/bin/env perl
+
+# Copyright 2015 by David Booth
+# This software is available as free and open source under
+# the Apache 2.0 software license, which may be viewed at
+# http://www.apache.org/licenses/LICENSE-2.0.html
+# Code home: https://github.com/dbooth-boston/rdf-pipeline/
+
+# Convert TSV or spreadsheet to RDF, using custom conversion directives
+# and perl expressions provided in a metadata spreadsheet that
+# has the same form as the data spreadsheet.  
+# 
+# This approach to RDF generation is experimental.  
+# The ability to put perl code in the metadata
+# spreadsheet is powerful, and convenient for short perl
+# expressions, but any longer perl code is cumbersome to
+# put in a spreadsheet cell.  
+ho
+# Empty cells are skipped -- they do not generate triples.
+# Reads stdin, writes stdout.
+#
+# Regression test for this code is @@ TODO @@ .
+
+# TODO: Include headers in metadata table.
+#
+# TODO: Add a --guess option to guess column data types
+# and primary key.  If multiple columns are candidate keys
+# (i.e., have unique values) then weights might be used
+# to choose, based on:
+#	- earlier column in the table;
+#	- column datatype;
+#	- column with only positive integers, versus other content;
+#	- column name ends with "ID"; 
+#	- column values are the same or similar length.
+# However, it is easy enough to specify which column is the
+# primary key, so we probably should not get overly sophisticated
+# in guessing the primary key.   Maybe the primary key column
+# could be specified as a pattern (or substring or initial substring) 
+# to accommodate minor changes in column names.  For example, 
+# a '--primaryKey=foo' option might select the first column whose 
+# name contains "foo", and '--primaryKey=^foo$' would have to
+# match the whole column name.
+
+##################################################################
+
+use warnings;
+use strict;
+use Carp;
+use Data::Dumper;
+
+# Devel::NYTProf can be used for performance profiling.
+# To use it:
+#    export NYTPROF='sigexit=1'
+#    perl -d:NYTProf -- `which tsv2rdf` -m metadata-consolidated.xlsx -F xlsx junk100.xlsx > demo.ttl
+# For a 3600 row spreadsheet, profiling everything, 
+# it increased the runtime (up through
+# reading the metadata and data files, but not processing them)
+# from 15 seconds to 65 seconds.  Since we cannot control the module
+# that reads xlsx spreadsheets, the $fasterProfiling variable below controls
+# the disabling of profiling during xlsx spreadsheet parsing, and
+# reduced the above time to 20 seconds.
+our $fasterProfiling = 1;
+
+$fasterProfiling = 0 if !defined(&DB::enable_profiling);
+DB::enable_profile() if $fasterProfiling;
+
+use URI::Template;
+use Encode qw( decode encode );
+
+################# Usage ###################
+sub Usage
+{
+return "Usage: $0 [ options ] [ file.ext ... ]
+Options:
+  -b, --base=baseUri
+	Use baseUri as the base in generating URIs.
+
+  -m, --meta=metadataFile.tsv
+	Use metadata from metadataFile.tsv instead of metadata
+	embedded in input file.  If this option is used, any metadata
+	extracted from input file is discarded.
+
+  -w, --worksheet=W
+	Extract data table from worksheet W, which may either be the
+	name of a worksheet or a 0-based worksheet index.  Default: 0
+
+  -W, --metaWorksheet=W
+	Extract metadata table from worksheet W.
+
+  -f, --format=fmt
+	Data file has format fmt, which is case insensitive 
+	and must be one of:
+		tsv	(Tab Separated Values)
+		csv	(Comma Separated Values)
+		xlsx	(Excel xlsx format)
+		xls	(Excel xls format)
+	If this argument is not specified the data file's extension
+	is used to guess the data format.  
+
+  -F, --metaFormat=fmt
+	Metadata file has format fmt, where the acceptable formats
+	are the same as for the -f option.
+
+  -t, --trim  
+	Trim leading and trailing whitespace from all cells when 
+	reading data and metadata tables.  Leading and trailing
+	whitespace is always trimmed from the header row, so this
+	option only affects non-header rows.  DEFAULT
+	Opposite: --no-trim
+
+  --keepEmptyTrailingColumns
+	Keep trailing (right-most) columns whose header and cells contain 
+	only whitespace.  By default they are ignored.
+
+  --keepEmptyTrailingRows
+	Keep trailing (bottom-most) rows whose cells contain 
+	only whitespace.  By default they are ignored.
+
+  --warnOfSplitGroupMismatch
+	Warn of every item count mismatch seen by SplitGroup.  (Default)
+	If this option is disabled by '--no-warnOfSplitGroupMismatch'
+	then the user will only be warned of the total number of number 
+	of item count mismatches, rather than being warned of each
+	mismatch individually.
+
+  --requireVersion v
+	Require at least version v.
+	NOT YET IMPLEMENTED.
+
+  -v, --verbose
+	Print info about what's happening.
+
+  -d, --debug
+	Print debugging info.  Intended for developers only.
+	This option may be repeated for more verbose debugging output.
+
+  -h, --help
+	Print this usage message.
+
+where infile.ext contains the input data table and (optionally) embedded
+metadata.  Embedded metadata is removed from the data table prior
+to processing.  If infile.ext is not specified, STDIN will be read.
+Normally the file extension indicates file format, but the -w or -W
+options can be used to override file extensions.
+";
+}
+
+##################################################################
+################# Main ###################
+##################################################################
+
+########### Globals
+our $ONTFILE;	# Ontology filename
+our $OFH;	# Ontology file handle
+our $MTABLE;	# Ref to the entire metadata table.  Each row contains:
+		#   (rowNum, [$DIRECTIVE, $ARGS], @METAS)
+		# To match the spreadsheet, Row 1 is the header row
+		# and row 2 is the first data row.  Row 0 contains
+		# the original column numbers.  Columns are indexed from 1,
+		# to match the spreadsheet.  Column 1 is the '!META' column.
+our $TABLE;	# Ref to the entire data table.
+		# To match the spreadsheet, Row 1 is the header row
+		# and row 2 is the first data row.  First data column is 1.
+		# Row 0 contains the original column numbers.
+		# Columns are indexed from 1, to match the spreadsheet.
+our @PENDING;	# Rows pending, used by #Filter for splitting rows
+our @HEADERS;	# Meta Column headers (excluding !META column), indexed from 1
+our $HEADER;	# Current header: $HEADER[$COLUMN]
+our %NAMESPACE;	# Prefix->namespace mappings
+our $MROW;	# Index of current meta row
+our $ROW;	# Index of current data row
+our $COLUMN;	# Index of current meta column
+our $DIRECTIVE;	# Directive parsed from !META column of current $MROW
+our $ARGS;	# Args parsed from !META column of current $MROW
+our @METAS;	# Meta cell values for current $MROW, indexed from 2
+our $META;	# Meta cell value for current $MROW and $COLUMN
+our %DATA;	# Maps column name to cell value in current row
+########### Other globals, probably not used by users
+our $NROWS;	# Number of data rows +2 (row 0 + row 1 headers)
+our $NMROWS;	# Number of meta rows +2 (row 0 + row 1 headers)
+our $NCOLUMNS;	# Number of meta columns +2 (col 0; col 1 is '!META')
+########### To be made obsolete probably:
+our %HEADER_TO_COLUMN;	# Maps header to meta column index
+our %KEY_TO_ROW;	# Maps header to column hash to row number
+our %PK_TO_ROW;		# Maps $PRIMARY_KEY column hash to row number
+our $PRIMARY_KEY;	# Header name(s) of primary key column(s): a|b|c
+
+# Map file extensions (lower case) to readers:
+my %readerForFormat = qw(
+	tsv	ReadTsv
+	xlsx	ReadXlsx
+	);
+
+my %tripleSeen;		# Maps FH->S->P->O->boolean
+
+############ Options:
+my $baseUri = "http://example/";
+my $help = 0;
+my $debug = 0;
+my $verbose = 0;
+my $metadataFile = "";
+my $worksheet = "";
+my $metaWorksheet = "";
+my $format = "";
+my $metaFormat = "";
+my $infile = "";
+my $trim = 1;
+my $suppressDuplicates = 1;
+my $keepEmptyTrailingColumns = 0;
+my $keepEmptyTrailingRows = 0;
+my $requireVersion = "";
+my $warnOfSplitGroupMismatches = 1;
+use Getopt::Long qw(:config no_ignore_case bundling);
+GetOptions(
+                "debug|d+" => \$debug,
+                "verbose|v+" => \$verbose,
+                "help|h" => \$help,
+                "base|b=s" => \$baseUri,
+                "worksheet|w=s" => \$worksheet,
+                "metaWorksheet|W=s" => \$metaWorksheet,
+                "meta|m=s" => \$metadataFile,
+                "format|f=s" => \$format,
+                "metaFormat|F=s" => \$metaFormat,
+                "trim|t!" => \$trim,
+		"keepEmptyTrailingColumns!" => \$keepEmptyTrailingColumns,
+		"keepEmptyTrailingRows!" => \$keepEmptyTrailingRows,
+		"suppressDuplicates!" => \$suppressDuplicates,
+                "requireVersion=s" => \$requireVersion,
+		"warnOfSplitGroupMismatches!" => \$warnOfSplitGroupMismatches,
+                ) or die "$0: Error reading options.  " . &Usage();
+
+warn "$0: [WARNING] Option not yet implemented: --requireVersion\n"
+	if $requireVersion;
+die &Usage() if $help;
+$baseUri || die &Usage();
+die &Usage() if @ARGV > 1;
+$infile = $ARGV[0] if @ARGV;
+
+
+$TABLE = &ReadTable($infile, $worksheet, $format); 
+if (0) {
+	&PrintTable("Initial DATA table", $TABLE) if $debug;
+	# die "Done\n";
+	}
+# @{$TABLE} >= 2 || die "[ERROR] No header row in input file: $infile\n";
+my $dHeadersRef = $TABLE->[1];
+$dHeadersRef || die "[ERROR] No header row in input file: $infile\n";
+my @dHeaders = @{$dHeadersRef};
+
+$MTABLE = &RemoveMetadataRows($TABLE);
+my $metaHeadersRef = $TABLE->[1];
+$metaHeadersRef || die "$0: [ERROR] table has no header row: $infile\n";
+@HEADERS = @{$metaHeadersRef};
+$NCOLUMNS = scalar(@HEADERS);
+
+if (0) {
+	&PrintTable("META table", $MTABLE) if $debug;
+	# exit 0;
+	}
+$NROWS = scalar(@$TABLE);
+
+if (0) {
+	&PrintTable("DATA table after removing META table", $TABLE) if $debug;
+	# exit 0;
+	}
+
+my $rawMeta;
+if ($metadataFile) {
+	warn "Reading separate metadataFile: $metadataFile\n" if $debug;
+	$rawMeta = &ReadTable($metadataFile, $metaWorksheet, $metaFormat);
+	$MTABLE = &RemoveMetadataRows($rawMeta);
+	$metaHeadersRef = $rawMeta->[1];
+	$metaHeadersRef || die "$0: [ERROR] metadataFile has no header row: $metadataFile\n";
+	@HEADERS = @{$metaHeadersRef};
+	$NCOLUMNS = scalar(@HEADERS);
+	# Ignore data in separate metadataFile:
+	$rawMeta = undef;
+	# Add a fake '!META' column to data table, so that column numbers
+	# match those in the meta table:
+	for (my $r=0; $r<@{$TABLE}; $r++) {
+		my $row = $TABLE->[$r];
+		unshift(@{$row}, $row->[0]);
+		$row->[1] = "";
+		}
+	$TABLE->[0][1] = "(none)";	# Original column number
+}
+$TABLE->[1][1] = "!META";	# Fake column
+if (0) {
+	&PrintTable("Semi-Final META table", $MTABLE) if $debug;
+	exit 0;
+	}
+$NMROWS = scalar(@{$MTABLE});
+
+# Trim all metadata cells:
+for (my $r=2; $r<@{$MTABLE}; $r++) {
+	@{$MTABLE->[$r]} = map {&Trim($_)} @{$MTABLE->[$r]};
+	}
+
+# Data headers before adding virtual columns:
+$dHeadersRef = $TABLE->[1];
+$dHeadersRef || die "$0: [ERROR] data has no header row.\n";
+@dHeaders = @{$dHeadersRef};
+
+if (1) {
+	&PrintTable("META before adding virtual", $MTABLE) if $debug;
+	&PrintTable("DATA before adding virtual", $TABLE) if $debug;
+	# exit 0;
+	}
+
+# warn "\@dHeaders: " . Dumper(\@dHeaders);
+# warn "\@HEADERS: " . Dumper(\@HEADERS);
+my @isVirtualColumn = &AddVirtualColumns();
+
+if (1) {
+	&PrintTable("META after adding virtual", $MTABLE) if $debug;
+	&PrintTable("DATA after adding virtual", $TABLE) if $debug;
+	# exit 0;
+	}
+
+# Data headers after adding virtual columns:
+$dHeadersRef = $TABLE->[1];
+@dHeaders = @{$dHeadersRef};
+die "$0: [ERROR] Extra data column $NCOLUMNS: $dHeaders[$NCOLUMNS]\n"
+	if (scalar(@dHeaders) > $NCOLUMNS);
+die "$0: [ERROR] Extra metadata column: $HEADERS[$#HEADERS]\n"
+	if (scalar(@dHeaders) < $NCOLUMNS);
+
+# Make sure the metadata headers match the data headers.
+if ($metadataFile) {
+	for (my $i=2; $i<$NCOLUMNS; $i++) {
+		defined($HEADERS[$i]) || confess "Died";
+		defined($dHeaders[$i]) || confess "Died";
+		$HEADERS[$i] eq $dHeaders[$i] || die "$0: [ERROR] Metadata header $i ($HEADERS[$i]) does not match corresponding data header $i ($dHeaders[$i])\n";
+		}	
+	}
+
+warn "Data rows: $NROWS columns: $NCOLUMNS  Meta rows: $NMROWS\n" if $verbose;
+
+if (1) {
+	&PrintTable("Final META table", $MTABLE) if $debug;
+	&PrintTable("Final DATA table", $TABLE) if $debug;
+	# exit 0;
+	}
+
+{
+no warnings qw(qw);
+%NAMESPACE = qw(
+	rdf:	<http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+	dc:	<http://purl.org/dc/elements/1.1/>
+	rdfs:	<http://www.w3.org/2000/01/rdf-schema#>
+	owl:	<http://www.w3.org/2002/07/owl#>
+	xsd:	<http://www.w3.org/2001/XMLSchema#>
+	);
+}
+
+my %VAR;	# For #SetVar.  Variables to be declared "our"
+my %REFS;	# Maps var name (as string) to its reference.
+my %MAGIC;	# For "#SetMagic $var" Maps $var ref to corresponding hash ref
+my %warnedSplitGroup = ();
+
+my %isPreProcessingDirective = map {($_,1)} qw( 
+	Directive_OntFile
+	Directive_Prefix
+	Directive_SetVar
+	);
+
+my %isPostProcessingDirective = map {($_,1)} qw( 
+	Directive_End
+	);
+
+# Pre-processing directives 
+for ($MROW=2; $MROW<@{$MTABLE}; $MROW++) {
+	# Set $DIRECTIVE, $ARGS, @METAS:
+	&SetMetaGlobalsForMRow();
+	next if !$isPreProcessingDirective{$DIRECTIVE};
+	warn "BEGIN Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 0;
+	no strict 'refs';
+	warn "Preprocessing: $DIRECTIVE\n" if $verbose;
+	&{$DIRECTIVE}();	# All args are passed as globals
+	warn "END Preprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
+	}
+
+# Output namespaces.
+foreach my $prefix (sort keys %NAMESPACE) {
+	print "\@prefix $prefix\t$NAMESPACE{$prefix} .\n";
+	print $OFH "\@prefix $prefix\t$NAMESPACE{$prefix} .\n" if $OFH;
+	}
+print "\n";
+
+# Set up maps/indexes.
+warn "NCOLUMNS: $NCOLUMNS NROWS: $NROWS headers: @HEADERS\n" if $debug;
+for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
+	$HEADER_TO_COLUMN{$HEADERS[$COLUMN]} = $COLUMN;
+	}
+my @compositeKeys = ();
+@compositeKeys = grep {m/\S/} split(/\s*\|\s*/, $PRIMARY_KEY) if defined($PRIMARY_KEY);
+warn "Using composite PRIMARY_KEY: $PRIMARY_KEY\n" if defined($PRIMARY_KEY) && $verbose;
+for ($ROW=2; $ROW<$NROWS; $ROW++) {
+	for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
+		# For PK 'PROJECT ID' value 'P001' in first row:
+		# $KEY_TO_ROW{'PROJECT ID'}->{'P001'} = 0;
+		$KEY_TO_ROW{$HEADERS[$COLUMN]}->{$TABLE->[$ROW][$COLUMN]} = $ROW;
+		}
+	if (@compositeKeys) {
+		my $k = join("|", map {
+			my $i = $HEADER_TO_COLUMN{$_};
+			defined($i) || die "$0: [ERROR] PRIMARY_KEY column not found: $_\n";
+			my $v = $TABLE->[$ROW][$i];
+			die "$0: [ERROR] PRIMARY_KEY value in row $ROW column $i {$_} contains vertical bar: $v\n"
+				if $v =~ m/\|/;;
+			$v } @compositeKeys);
+		warn "$0: [WARNING] Non-unique PRIMARY_KEY in row $ROW: $k\n"
+			if exists($PK_TO_ROW{$k});
+		$PK_TO_ROW{$k} = $ROW;
+		}
+	}
+
+# Process all data rows.
+my $isFirstRow = 1;
+for ($ROW=2; $ROW<$NROWS; $ROW++) {
+    warn "================= DATA ROW $ROW ====================\n" if $verbose || $debug;
+    warn " ROW $ROW: @{$TABLE->[$ROW]}\n" if $debug;
+    warn "===============================================\n" if $debug;
+    @PENDING = ();
+    while (1) {
+	&SetDataGlobalsForRow();
+	for ($MROW=2; $MROW<@{$MTABLE}; $MROW++) {
+		my $mr = $MTABLE->[$MROW];
+		# Set $DIRECTIVE, $ARGS, @METAS:
+		&SetMetaGlobalsForMRow();
+		next if !$DIRECTIVE;
+		warn "  $DIRECTIVE ARGS: $ARGS\n" if $verbose;
+		# Preprocessing directives have already been handled, so skip:
+		next if $isPreProcessingDirective{$DIRECTIVE};
+		next if $isPostProcessingDirective{$DIRECTIVE};
+		my $option = "";
+		$option = $1 if ($ARGS =~ s/^(ifdata|once)\b\s*//);
+		my $ifdata = ($option eq "ifdata");
+		my $once = ($option eq "once");
+		next if $once && !$isFirstRow;
+		@METAS || confess "Died";
+		@HEADERS == @METAS || confess "Died";
+		warn "--------------- META --------------------\n" if $debug;
+		warn "  RUNNING $DIRECTIVE ARGS: $ARGS\n" if $verbose;
+		warn "Directive: $DIRECTIVE ARGS: $ARGS METAS: @METAS\n" if $debug;
+		# warn "UNDERSCORE: $_\n" if $debug > 1;
+		for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
+			# Skip $ifdata and $_ is empty?
+			next if $ifdata && $TABLE->[$ROW]->[$COLUMN] eq "";
+			&SetMetaGlobalsForColumn();
+			&SetDataGlobalsForColumn();
+			no strict 'refs';
+			defined(&{$DIRECTIVE}) || die "$0: [ERROR] No function $DIRECTIVE defined for directive: $DIRECTIVE\n";
+			# warn "LOOP Calling &$DIRECTIVE() UNDERBAR: $_ ARGS: $ARGS META: $META;\n" if $META =~ m/properties/ || $debug > 1;
+			my $oldUnderbar = $_;
+			&{$DIRECTIVE}();
+			warn "Done calling &$DIRECTIVE();\n" if $debug > 1;
+			&ResetDataGlobalsForColumn();
+			}
+		}
+	$isFirstRow = 0;
+	# Repeat this row because #Filter added pending rows?
+	last if !@PENDING;
+	$TABLE->[$ROW] = shift @PENDING;
+	}
+    }
+
+# Post-processing directives 
+for ($MROW=2; $MROW<@{$MTABLE}; $MROW++) {
+	# Set $DIRECTIVE, $ARGS, @METAS:
+	&SetMetaGlobalsForMRow();
+	next if !$isPostProcessingDirective{$DIRECTIVE};
+	warn "BEGIN Postprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 0;
+	no strict 'refs';
+	&{$DIRECTIVE}();	# All args are passed as globals
+	warn "END Postprocessing DIRECTIVE: $DIRECTIVE ARGS: $ARGS MROW: $MROW METAS: @METAS\n" if $debug > 1;
+	}
+
+my $nWarnedSplitGroup = scalar(keys %warnedSplitGroup);
+warn "$0: [WARNING] SplitGroup: $nWarnedSplitGroup total item count mismatches\n" if $nWarnedSplitGroup > 0;
+exit 0;
+
+
+#####################################################################
+######################### END OF MAIN ###############################
+#####################################################################
+
+################# GenColumnName ####################
+# Convert 0-indexed column number to column name (A, B, C ... AA, AB ...)
+sub GenColumnName
+{
+my $num = shift;
+(defined($num) && $num >= 0) || confess "Died";
+my $remainder = $num % 26;
+my $letter = chr(ord('A') + $remainder);
+my $num2 = int($num / 26);
+if ($num2 > 0) { return &GenColumnName($num2 - 1) . $letter; } 
+else { return $letter; }
+}
+
+################# AddVirtualColumns ####################
+sub AddVirtualColumns
+{
+my @isVirtualColumn;
+# First find all the VirtualColumns by scanning the directives
+for ($MROW=2; $MROW<@{$MTABLE}; $MROW++) {
+	@METAS = @{$MTABLE->[$MROW]};
+	my $dirArgs = $METAS[1];
+	next if !ref $dirArgs;
+	$DIRECTIVE = $dirArgs->{directive};
+	next if $DIRECTIVE ne "Directive_VirtualColumn";
+	for (my $c=2; $c<$NCOLUMNS; $c++) {
+		if ($METAS[$c] ne "") {
+			$isVirtualColumn[$c] = 1;
+			}
+		}
+	}
+my $nVirtual = scalar(grep {$isVirtualColumn[$_]} 0 .. $#isVirtualColumn);
+return () if !$nVirtual;
+# warn "nVirtual: $nVirtual\n";
+my $nExpectedColumns = scalar(@{$TABLE->[1]}) + ($metadataFile ? $nVirtual : 0);
+# Extra data column?
+die "$0: [ERROR] Data table has more columns than meta table expects\n"
+	if ($nExpectedColumns > $NCOLUMNS);
+# Extra meta column?
+die "$0: [ERROR] Data table has fewer columns than meta table expects\n"
+	if ($nExpectedColumns < $NCOLUMNS);
+
+# Add the necessary virtual columns, and initialize them to empty.
+if ($metadataFile) {
+	# Add the necessary virtual columns, and initialize them to empty.
+	for ($ROW=0; $ROW<$NROWS; $ROW++) {
+		my $oldRow = $TABLE->[$ROW];
+		my $newRow = [ $oldRow->[0], $oldRow->[1] ];
+		my $dc = 2;
+		for (my $c=2; $c<$NCOLUMNS; $c++) {
+			if ($isVirtualColumn[$c]) { 
+				# Original column index row?
+				if ($ROW==0) { $newRow->[$c] = "(none)"; }
+				# Header row?
+				elsif ($ROW==1) { $newRow->[$c] = $HEADERS[$c]; }
+				# Regular data row.
+				else { $newRow->[$c] = ""; }
+				}
+			else { 
+				$newRow->[$c] = $oldRow->[$dc];
+				$dc++; 
+				}
+			}
+		$TABLE->[$ROW] = $newRow;
+		# warn "NEW ROW: [ " . join(" | ", @{$newRow}) . " ]\n";
+		}
+	}
+else	{
+	# Initialized virtual column to empty,
+	# so if there is no metadataFile then any existing data in a virtual 
+	# column is ignored.  This is to ensure predictability when the
+	# user later decides to use a separate metadataFile. 
+	for ($ROW=2; $ROW<$NROWS; $ROW++) {
+		my $row = $TABLE->[$ROW]; 
+		for (my $c=2; $c<$NCOLUMNS; $c++) {
+			if ($isVirtualColumn[$c]) { 
+				$row->[$c] = ""; 
+				}
+			}
+		}
+	}
+return @isVirtualColumn;
+}
+
+################## CellFilter ###################
+# Filter all meta and data cells through this function, applying global options.
+sub CellFilter
+{
+@_ == 1 || confess "Died";
+my ($v) = @_;
+# TODO: Is this being encoded in the right place?
+# Should it be done on output instead?   Or only when
+# reading certain kinds of input files?
+$v = encode( 'utf-8', $v );
+if ($trim) {
+	$v = &Trim($v);
+	}
+return $v;
+}
+
+################## SetMetaGlobalsForColumn #################
+# Set globals: $HEADER and maybe $META.
+# from $METAS[$COLUMN] and $HEADERS[$COLUMN].
+# They are relative to $COLUMN, which 
+# must already be set.  @METAS must already be set also,
+# as by calling SetMetaGlobalsForMRow.
+sub SetMetaGlobalsForColumn
+{
+defined($COLUMN) || confess "Died";
+($COLUMN>=2 && $COLUMN<$NCOLUMNS) || confess "Died";
+@HEADERS || confess "Died";
+$META = $METAS[$COLUMN];
+$META = "" if !defined($META);
+$META = "" if $MROW<2 || $MROW>=$NMROWS;
+$HEADER = $HEADERS[$COLUMN];
+defined($HEADER) || confess "Died";
+}
+
+################## SetMetaGlobalsForMRow #################
+# Set globals: @{$MTABLE->[$MROW]}
+# They are relative to $MROW, which must already be set.
+sub SetMetaGlobalsForMRow
+{
+defined($MTABLE) || confess "Died";
+defined($MROW) || confess "Died";
+$MROW >= 2 || confess "Died";
+$MROW < $NMROWS || confess "Died MROW: $MROW NCOLUMNS: $NMROWS";
+my $dirArgsRef = $MTABLE->[$MROW][1];
+@METAS = @{$MTABLE->[$MROW]};
+$DIRECTIVE = $METAS[1]->{directive};
+$ARGS = $METAS[1]->{args};
+defined($DIRECTIVE) || confess "Died";
+defined($ARGS) || confess "Died";
+if (@HEADERS != @METAS) {
+	my $nHeaders = scalar(@HEADERS);
+	my $nMetas = scalar(@METAS);
+	PrintTable("Dying META table", $MTABLE);
+	confess "Died. MROW: $MROW COLUMN: $COLUMN nHeaders: $nHeaders nMetas: $nMetas
+		METAS:
+		@METAS
+		HEADERS:
+		@HEADERS
+ ";
+	}
+}
+
+################## SetDataGlobalsForRow #################
+# Set globals: %DATA
+# They are relative to $ROW, which must already be set.
+sub SetDataGlobalsForRow
+{
+defined($ROW) || confess "Died";
+($ROW>=2 && $ROW<$NROWS) || confess "Died";
+defined($NCOLUMNS) || confess "Died";
+@HEADERS || confess "Died";
+# Clear old magic vars for safety and speed, because it reduces the
+# number of magic vars that will be needlessly initialized by
+# MagicEvalWarnings in each row before the row where they are defined.
+%MAGIC = ();
+%VAR = ();
+for (my $i=2; $i<$NCOLUMNS; $i++) {
+	my $h = $HEADERS[$i];
+	$DATA{$h} = $TABLE->[$ROW]->[$i];
+	# warn "i: $i DATA{$h}: $DATA{$h}\n";
+	}
+# warn "\%DATA: " . Dumper \%DATA;
+}
+
+################## SetDataGlobalsForColumn #################
+# Set globals: $HEADER $_
+# They are relative to $COLUMN, which must already be set.
+# The $ROW must already be set also.
+sub SetDataGlobalsForColumn
+{
+defined($ROW) || confess "Died";
+defined($COLUMN) || confess "Died";
+defined($NCOLUMNS) || confess "Died";
+($COLUMN>=2 && $COLUMN<$NCOLUMNS) || confess "Died";
+# Important to set $_ before eval'ing something
+# that may involve $_.
+# $_ = $TABLE->[$ROW]->[$COLUMN];
+$_ = $DATA{$HEADER};
+defined($_) || confess "Died. Empty data for column {$HEADER}";
+}
+
+################## ResetDataGlobalsForColumn #################
+# Reset globals: $_ 
+# They are relative to $COLUMN, which must already be set.
+# The $ROW must already be set also.
+sub ResetDataGlobalsForColumn
+{
+defined($ROW) || confess "Died";
+defined($COLUMN) || confess "Died";
+defined($NCOLUMNS) || confess "Died";
+($COLUMN>=2 && $COLUMN<$NCOLUMNS) || confess "Died";
+defined($_) || confess "Died: Undefined value in \$_ ";
+$TABLE->[$ROW]->[$COLUMN] = $_ if !$isVirtualColumn[$COLUMN];
+$DATA{$HEADER} = $_;
+}
+
+################## MatchesObject ##################
+# Does $term seem to match what is required in the predicate position
+# of a Turtle triple?
+sub MatchesObject
+{
+my $term = shift;
+return 1 if &MatchesPname($term);
+return 1 if &MatchesLiteral($term);
+return 1 if &MatchesBnode($term);
+return 1 if &MatchesUri($term);
+return 0;
+}
+
+################## MatchesSubject ##################
+# Does $term seem to match what is required in the predicate position
+# of a Turtle triple?
+sub MatchesSubject
+{
+my $term = shift;
+return 1 if &MatchesPname($term);
+return 1 if &MatchesBnode($term);
+return 1 if &MatchesUri($term);
+return 0;
+}
+
+################## MatchesPredicate ##################
+# Does $term seem to match what is required in the predicate position
+# of a Turtle triple?
+sub MatchesPredicate
+{
+my $term = shift;
+return 1 if &MatchesPname($term);
+return 1 if $term eq "a";
+return 1 if &MatchesUri($term);
+return 0;
+}
+
+################## MatchesLiteral ##################
+# Does $term seem to be a Turtle literal?
+# This is not a precise check.
+sub MatchesLiteral
+{
+my $term = shift;
+# "foo" 'foo' """foo""" "foo"@en "foo"^^xsd:string
+return 1 if $term =~ m/^[\"\']/;
+# Number:
+return 1 if $term =~ m/^[\+\-]?(\.?)[0-9][0-9E\-\+]*$/;
+return 0;
+}
+
+################## MatchesUri ##################
+# Does $term seem to be a Turtle <uri> ?
+sub MatchesUri
+{
+my $term = shift;
+return 1 if $term =~ m/^\<[\~\!\#\$\%\&\(\)\*\+\,\-\.\/0-9\:\;\=\?\@A-Z_a-z]*\>$/i;
+return 0;
+}
+
+################## MatchesBnode ##################
+# Does $term seem to be a bnode, like _:b ?
+sub MatchesBnode
+{
+my $term = shift;
+return 1 if $term =~ m/^_\:[a-z0-9_\-]/;
+return 0;
+}
+
+################## MatchesPname ##################
+# Does $term seem to be a prefixed name like p:foo p.1: :foo : 
+# (but not bnode)?
+sub MatchesPname
+{
+my $term = shift;
+return 1 if $term =~ m/^([a-z]([a-z0-9_\-\.]*[a-z0-9_\-])?)?\:/i;
+return 0;
+}
+
+################## Iterate #################
+# Iterates through the meta cells if $fPerMetaCell is set,
+# and through data cells if $fPerDataCell is set.
+# $MROW must already be set. 
+sub Iterate
+{
+my ($fPerMetaCell, $fPerDataCell) = @_;
+# &SetMetaGlobalsForMRow();
+if ($fPerMetaCell) {
+	for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
+		&SetMetaGlobalsForColumn();
+		&{$fPerMetaCell}();
+		}
+	}
+if ($fPerDataCell) {
+	for ($ROW=2; $ROW<$NROWS; $ROW++) {
+		&SetDataGlobalsForRow();
+		for ($COLUMN=2; $COLUMN<$NCOLUMNS; $COLUMN++) {
+			&SetMetaGlobalsForColumn();
+			&SetDataGlobalsForColumn();
+			warn "  Iterate before fPerDataCell, UNDERSCORE: $_\n" if $debug > 1;
+			&{$fPerDataCell}();
+			warn "  Iterate after  fPerDataCell, UNDERSCORE: $_\n" if $debug > 1;
+			&ResetDataGlobalsForColumn();
+			}
+		}
+	}
+}
+
+################## RefOf #################
+# Return a ref to the given variable, whose name is given as a string.
+# I believe this actually keeps the variable from being garbage collected,
+# even though %VAR and %MAGIC are cleared between rows.
+sub RefOf
+{
+my $var = shift || confess "Died ";
+my $ref = $REFS{$var};
+if (!defined($ref)) {
+	$ref = $REFS{$var} = eval("our $var = (); \\$var") if $var =~ m/^[\%\@]/;
+	$ref = $REFS{$var} = eval("our $var = ''; \\$var") if $var =~ m/^\$/;
+	}
+return($ref);
+}
+
+################## Directive_SetMagic #################
+# Evaluate $ARGS or $META expressions and set the resulting value into
+# the magic scalar $var and corresponding hash %var.
+# 	#SetMagic $x
+# 	#SetMagic $x = expr
+sub Directive_SetMagic
+{
+my $oldDebug = $debug;
+# $debug = 2;
+die "$0: [ERROR] SetMagic: No variable specified in metadata row $MROW\n" if $ARGS eq "";
+my $underbar = $_;
+### Parse $x in %h
+my $args = $ARGS;
+($args =~ s/^([\$]\w+)\s*//) || die "$0: [ERROR] SetMagic: Bad variable syntax in metadata row $MROW: $ARGS\n";
+my $svar = $1;
+my $hvar = $svar;
+$hvar =~ s/^\$/\%/;	# Make it a hash
+warn "SetMagic: Declaring scalar $svar hash $hvar at row $ROW column $COLUMN meta row $MROW column $COLUMN: $ARGS\n" if $debug > 1;
+$VAR{$svar} = 1;
+$VAR{$hvar} = 1;
+### Parse '= expr' or 'if expr' if there is one
+# $ARGS: var = expr
+my $expr = "";
+my $ifOrEquals = "";
+if ($args =~ s/^(\=|if\b)\s*(\S.*)$//) {
+	$ifOrEquals = $1;
+	$expr = $2;
+	}
+if ($args ne "") { die "$0: [ERROR] SetMagic: Bad expr syntax in metadata row $MROW: $ARGS\n"; }
+my $val = "";
+my $useMeta = 1;
+if ($ifOrEquals eq "=") {
+	# Potentially use both ARGS and META
+	$val = &MagicEvalWarnings($expr);
+	die "$0: [ERROR] SetMagic: Eval ARGS returned undefined in row $ROW column {$HEADER} metadata row $MROW data {$underbar} expr: $expr\n" if !defined($val) && $META ne "";
+	}
+elsif ($ifOrEquals eq "if") {
+	$useMeta = &MagicEvalWarnings($expr);
+	}
+$val = &MagicEvalAutoQuote($META) if $META ne "" && $useMeta;
+die "$0: [ERROR] SetMagic: Eval META returned undefined in row $ROW column {$HEADER} metadata row $MROW data {$underbar} expr: $META\n" if !defined($val);
+my $sr = &RefOf($svar);
+my $hr = &RefOf($hvar);
+${$sr} = $hr->{$HEADER} = $val;
+# Save the var names for assigning later:
+$MAGIC{$svar} = $hvar;
+# warn "SetMagic svar: $svar var: $hvar ARGS: $ARGS value: $val\n" if $svar eq '$THIS' || ($val ne "" && $debug > 1);
+if (0 && $debug > 1) {
+	use Data::Dumper;
+	warn "MAGIC VAR $hvar = \n";
+	my $ref = eval "our $hvar; \\$hvar";
+	my $d = &Dumper($ref);
+	warn "$d\n";
+	}
+$debug = $oldDebug;
+# die "STOPPED!\n";
+}
+
+################## CombineExpressions #################
+sub CombineExpressions
+{
+@_ == 2 || confess "Died";
+my ($args, $meta) = @_;
+my $both = "";
+if ($args eq "") { $both = $meta; }
+elsif ($meta eq "") { $both = $args; }
+else { $both = "$args\n; { $meta\n }"; }
+return $both;
+}
+
+################## Directive_SplitGroup #################
+# A set of columns forms a tuple.  Each column has n values to
+# be split.  The i'th value from each column in the tuple is
+# used to add a new PENDING row.
+sub Directive_SplitGroup
+{
+my $oldDebug = $debug;
+# $debug = 2;
+die "$0: [ERROR] SplitGroup does not allow an ARGS expression in meta row $MROW column $COLUMN: $ARGS\n" if $ARGS ne "";
+our @vrs;
+our @indexes;
+our $maxValues;
+our $lastIndex;
+our $nPrevious;
+our $previousIndex;
+our $previousData;
+my $underbar = $_;
+my $result = $_;
+if ($META ne "") {
+	if (!@vrs) {
+		# First META column used.  Initialize.
+		@indexes = ();
+		$maxValues = undef;
+		# Find the last META column used
+		$lastIndex = $COLUMN;
+		for (my $i=$COLUMN+1; $i<$NCOLUMNS; $i++) {
+			$lastIndex = $i if $METAS[$i] ne "";
+			}
+		}
+	my @results = map {$trim ? &Trim($_) : $_} &MagicEvalWarnings($META);
+	$result = "";
+	$result = shift(@results) if @results;
+	my $nr = scalar(@results);
+	if (!defined($maxValues)) {
+		$maxValues = $nr;
+		$nPrevious = $nr;
+		$previousIndex = $COLUMN;
+		$previousData = $underbar;
+		}
+	if ($nr != $nPrevious) {
+		my $warning = "$0: [WARNING] SplitGroup: Item count mismatch in row $ROW column {$HEADERS[$previousIndex]} versus {$HEADER}: {$previousData} versus {$underbar}\n";
+		if (!exists($warnedSplitGroup{$warning})) {
+			warn $warning if $warnOfSplitGroupMismatches;
+			$warnedSplitGroup{$warning} = 1;
+			}
+		}
+	$maxValues = $nr if ($nr > $maxValues);
+	$nPrevious = $nr;
+	$previousIndex = $COLUMN;
+	$previousData = $underbar;
+	push(@vrs, [ @results ] );
+	# warn "SplitGroup ROW $ROW COLUMN $COLUMN pushed: [ " . join("|", @results) . " ]\n";
+	push(@indexes, $COLUMN);
+	$TABLE->[$ROW]->[$COLUMN] = $result;
+	# If this was the last participating column, emit pending rows.
+	if ($COLUMN == $lastIndex) {
+		# Emit the pending rows
+		for (my $i=0; $i<$maxValues; $i++) {
+			my $rr = [ @{$TABLE->[$ROW]} ];
+			for (my $j=0; $j<@vrs; $j++) {
+				my $v = $vrs[$j]->[$i];
+				$v = "" if !defined($v);
+				$rr->[$indexes[$j]] = $v;
+				}
+			unshift(@PENDING, $rr);
+			}
+		# Reset for the next time
+		@vrs = ();
+		# warn "SplitGroup ROW $ROW COLUMN $COLUMN reset\n\n";
+		}
+	}
+$_ = $result;
+defined($_) || die "$0: [ERROR] SplitGroup Eval of META failed: $?\n";
+# warn "  After eval(ARGS . META) UNDERBAR: $_\n" if $META ne "" && $debug > 1;
+$debug = $oldDebug;
+}
+
+################## Directive_OntFile #################
+# Open the ont file.
+sub Directive_OntFile
+{
+my $oldDebug = $debug;
+# $debug = 2;
+$META = "";
+# Look in $ARGS or in any $META field for the ont filename.
+my $expr = $ARGS;
+for ($COLUMN=2; $COLUMN<@METAS && !$expr; $COLUMN++) {
+	if ($METAS[$COLUMN] =~ m/\S/) {
+		&SetMetaGlobalsForColumn();
+		$expr = $META;
+		}
+	}
+warn "Called OntFile(@_) UNDERBAR: $_ META: $META ARGS: $ARGS expr: $expr\n" if $debug > 1;
+$expr || die "$0: [ERROR] OntFile: No ontology filename specified.\n";
+$ONTFILE = &MagicEvalWarnings($expr);
+$ONTFILE || die "$0: [ERROR] OntFile: Filename expression failed: $expr\n";
+warn "OntFile: $ONTFILE\n" if $debug > 1;
+open($OFH, ">", $ONTFILE) || die "$0: [ERROR] OntFile: Cannot open '$ONTFILE' for write: $!\n";
+$debug = $oldDebug;
+}
+
+################## Directive_VirtualColumn #################
+# Evaluate a virtual column.
+sub Directive_VirtualColumn
+{
+return if $META eq "";
+my $oldDebug = $debug;
+# $debug = 2;
+$ARGS eq "" || die "$0: [ERROR] VirtualColumn: Unknownn ARGS: $ARGS\n";
+&FilterHelper("VirtualColumn");
+$debug = $oldDebug;
+}
+
+################## Directive_Filter #################
+# Evaluate a virtual column.
+sub Directive_Filter
+{
+&FilterHelper("Filter");
+}
+
+################## FilterHelper #################
+# If an expression yields more than one value then the additional
+# values are placed into PENDING rows, to be processed before the
+# next regular row iteration.
+sub FilterHelper
+{
+my $functionName = shift || confess "Died";
+my $oldDebug = $debug;
+# $debug = 2;
+my $expr = &CombineExpressions($ARGS, $META);
+warn "Called $functionName(@_) UNDERBAR: $_ META: $META ARGS: $ARGS expr: $expr\n" if $expr ne "" && $debug > 1;
+# Empty filter means pass the data through unchanged.
+if ($expr ne "") {
+	my @results = &MagicEvalWarnings($expr);
+	my $n = scalar(@results);
+	warn "$functionName evaluated to $n PENDING raw values: (@results)\n" if $expr ne "" && $debug > 1;
+	@results = map {$trim ? &Trim($_) : $_} @results;
+	@results = grep {!defined($_) || $_ ne ""} @results;
+	my $underbar = "";
+	$underbar = shift @results if @results;
+	if (@results) {
+		my @newRows = map { my $rr = [ @{$TABLE->[$ROW]} ];
+					$rr->[$COLUMN] = $_;
+					$rr } @results;
+		unshift(@PENDING, @newRows);
+		warn "$functionName added $n PENDING rows for: (@results)\n" if $debug > 1;
+		}
+	$_ = $underbar;
+	}
+defined($_) || die "$0: [ERROR] Eval of META . ARGS {$expr} failed: $?\n";
+warn "  After eval(ARGS . META) UNDERBAR: $_\n" if $expr ne "" && $debug > 1;
+$debug = $oldDebug;
+}
+
+################## Directive_End #################
+# Eval the expressions after everything else is done.
+sub Directive_End
+{
+@_ == 0 || confess "Died";
+my $oldDebug = $debug;
+# $debug = 2;
+warn "#End starting:  ARGS: $ARGS MROW: $MROW\n" if $debug > 1;
+# Nothing to be done per data cell:
+my $fPerDataCell = undef;
+my $fPerMetaCell = sub {
+	&MagicEvalWarnings(&CombineExpressions($ARGS, $META));
+	};
+&Iterate($fPerMetaCell, $fPerDataCell);
+$debug = $oldDebug;
+}
+
+################## ProcessPrefix #################
+# Helper function for Directive_Prefix.  Either process $ARGS or $META.
+sub ProcessPrefix
+{
+@_ == 2 || confess "Died";
+my ($which, $meta) = @_;
+my $originalMeta = $meta;
+# Ignore optional "@prefix" and trailing period:
+$meta =~ s/^\@//;
+$meta =~ s/^prefix\s+//i;
+$meta =~ s/\s*\.$//;
+my ($prefix, $uri) = ($meta =~ m/^([^\:]*\:)\s*(.+)$/);
+die "$0: [ERROR] Bad prefix declaration in column $COLUMN {$HEADER} row $ROW: $originalMeta\n"
+	if !defined($uri);
+# warn "PREFIX: $prefix URI: $uri $which: $meta\n";
+# Perl convenience: Auto-quote if the expression contains $
+$uri = '"' . $uri . '"' if $uri =~ m/\$/;
+# warn "After auto quote PREFIX: $prefix URI: $uri $which: $meta\n";
+# Eval as a perl expression if it starts with quote:
+$uri = &EvalWarnings($uri) if $uri =~ m/^[\'\"]/;
+# warn "After eval PREFIX: $prefix URI: $uri $which: $meta\n";
+die "$0: [ERROR] Prefix declaration failed in column $COLUMN {$HEADER} row $ROW: $originalMeta\n"
+	if !defined($uri) || $uri eq "";
+# Auto-wrap in <..> if needed:
+$uri = "<$uri>" if $uri !~ m/^\</;
+&MatchesUri($uri) || warn "$0: [WARNING] Unusual prefix URI '$uri' in column $COLUMN {$HEADER} row $ROW from declaration: $originalMeta\n";
+$NAMESPACE{$prefix} = $uri;
+warn "  PREFIX: $prefix $uri\n" if $debug;
+# print "\@prefix $prefix\t$uri .\n";
+# print $OFH "\@prefix $prefix\t$uri .\n" if $OFH;
+}
+
+################## Directive_Prefix #################
+# Directive_Prefix is a preprocessing directive.
+sub Directive_Prefix
+{
+die "$0: [ERROR] Unknown ARGS in Prefix directive on metadata row $MROW: $ARGS\n" if $ARGS;
+my $oldDebug = $debug;
+# $debug = 2;
+&ProcessPrefix('ARGS', $ARGS) if $ARGS;
+for ($COLUMN=2; $COLUMN<@METAS; $COLUMN++) {
+	if ($METAS[$COLUMN] =~ m/\S/) {
+		&SetMetaGlobalsForColumn();
+		&ProcessPrefix('META', $META) if $META;
+		}
+	}
+$debug = $oldDebug;
+# die "STOPPED!\n";
+}
+
+################## Directive_SetVar #################
+# Set %VAR, for use in URI Templates.
+# Preprocessing directive.
+sub Directive_SetVar
+{
+my $oldDebug = $debug;
+# $debug = 2;
+die "$0: [ERROR] SetVar: No variable specified in metadata row $MROW\n" if $ARGS eq "";
+my $args = $ARGS;
+($args =~ s/^([\$\%\@]\w+)\s*//) || die "$0: [ERROR] SetVar: Bad variable syntax in metadata row $MROW: $ARGS\n";
+my $var = $1;
+die "$0: [ERROR] SetVar: Variable $var redeclared at meta row $MROW column $COLUMN: $META\n" if exists($VAR{$var});
+$VAR{$var} = 1;
+my $ref = eval "our $var; \\$var";
+if ($args ne "") {
+	# $ARGS: var = expr
+	($args =~ m/^\=\s*(\S.*)$/) || die "$0: [ERROR] SetVar: Bad expression syntax in metadata row $MROW: $ARGS\n";
+	my $expr = $1;
+	warn "SetVar var: $var expr: $expr ARGS: $ARGS\n" if $debug > 1;
+	my $val;
+	if ($var =~ m/^\$/) { $val = &EvalWarnings($ARGS); }
+	else 	{
+		my @val = &EvalWarnings($ARGS);
+		$val = join(" ", @val);
+		}
+		
+	$val = "(UNDEF)" if !defined($val);
+	warn "SetVar var: $var set to: $val\n" if $debug;
+	}
+else	{
+	# Evaluate all @METAS to assign to $var
+	my @values = ();
+	${$ref} = "" if $var =~ m/^\$/;;
+	for ($COLUMN=2; $COLUMN<@METAS; $COLUMN++) {
+		my $val = "";
+		if ($METAS[$COLUMN] =~ m/\S/) {
+			&SetMetaGlobalsForColumn();
+			$val = &EvalWarnings($META);
+			die "$0: [ERROR] SetVar: Expression eval failed in metadata row $MROW: $META\n" if !defined($val);
+			warn "SetVar evaluated META: $META = $val\n" if $debug;
+			}
+		${$ref}{$HEADERS[$COLUMN]} = $val if $var =~ m/^\%/;
+		${$ref}[$COLUMN] = $val if $var =~ m/^\@/;
+		${$ref} .= $val if $var =~ m/^\$/;;
+		}
+	}
+if (0 && $debug > 1) {
+	use Data::Dumper;
+	warn "VAR $var = \n";
+	my $d = &Dumper($ref);
+	warn "$d\n";
+	}
+$debug = $oldDebug;
+# die "STOPPED!\n";
+}
+
+################## OutputTriple #################
+sub OutputTriple
+{
+my ($isOnt, $s, $p, $o, $where, $argsOrMeta) = @_;
+return if !(defined($o) && defined($p) && defined($s) && $s ne "" && $p ne "" && $o ne "");
+my $fh = ($isOnt ? $OFH : "STDOUT");
+defined($fh) || die "$0: [ERROR] Triple: OntFile has not been opened.\n";
+return if $suppressDuplicates && $tripleSeen{$fh}->{$s}->{$p}->{$o};
+&MatchesSubject($s) || warn "$0: [WARNING] Triple: Unusual subject '$s' generated in column $COLUMN {$HEADER} row $ROW from $where: $argsOrMeta\n";
+&MatchesPredicate($p) || warn "$0: [WARNING] Triple: Unusual predicate '$p' generated in column $COLUMN {$HEADER} row $ROW from $where: $argsOrMeta\n";
+&MatchesObject($o) || warn "$0: [WARNING] Triple: Unusual object '$o' generated in column $COLUMN {$HEADER} row $ROW from $where: $argsOrMeta\n";
+if ($isOnt) { print $OFH "$s $p $o .\n"; }
+else { print "$s $p $o .\n"; }
+$tripleSeen{$fh}->{$s}->{$p}->{$o} = 1;
+}
+
+################## Directive_Triple #################
+# Print the triples from eval'ing ARGS or META if all three 
+# components are non-empty.
+sub Directive_Triple
+{
+my $oldDebug = $debug;
+# $debug = 2;
+my $saveUnderbar = $_;
+my $shouldWarn = $debug>1 && ($ARGS || $META);
+warn "Called Triple(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
+my $args = $ARGS;
+my $isOnt = ($args =~ s/^ont\b\s*//);
+my @metas = ();
+@metas = &MagicEvalAutoQuote($META) if $META ne "";
+# TODO: Test and document this functionality:
+if (@metas == 1) { $META = $metas[0]; }
+elsif (@metas == 3) {
+	my ($s, $p, $o) = @metas;
+	warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
+	&OutputTriple($isOnt, $s, $p, $o, "META", $META);
+	}
+if ($args ne "") {
+	my ($s, $p, $o) = &MagicEvalWarnings($args);
+	warn "  Triple After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
+	&OutputTriple($isOnt, $s, $p, $o, "ARGS", $ARGS);
+	}
+else	{
+	# TODO: This looks like a bug.  $META has already been evaled.
+	my ($s, $p, $o) = &MagicEvalWarnings($META);
+	warn "  Triple After eval(META) UNDERBAR: $_\n" if $shouldWarn;
+	&OutputTriple($isOnt, $s, $p, $o, "META", $META);
+	}
+$_ = $saveUnderbar;
+warn "  Triple Done Triple(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+$debug = $oldDebug;
+}
+
+################## Directive_RunArg #################
+sub Directive_RunArg
+{
+my $oldDebug = $debug;
+# $debug = 2;
+my $saveUnderbar = $_;
+my $shouldWarn = $debug && ($ARGS || $META);
+warn "Called RunArg(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
+my $result = "";
+$result = &MagicEvalWarnings($ARGS) if $ARGS ne "";
+warn "  RunArg After eval(ARGS) UNDERBAR: $_\n" if $shouldWarn;
+$_ = $saveUnderbar;
+warn "  RunArg Done RunArg(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+$debug = $oldDebug;
+}
+
+################## Directive_Run #################
+# Run both ARGS and META
+sub Directive_Run
+{
+my $oldDebug = $debug;
+# $debug = 2 if $META =~ m/properties/;
+my $saveUnderbar = $_;
+my $shouldWarn = $debug && ($ARGS || $META);
+warn "Called Run(@_) UNDERBAR: $_ META: $META ARGS: $ARGS\n" if $shouldWarn;
+my $expr = &CombineExpressions($ARGS, $META);
+warn "  Run before eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
+my $result = &MagicEvalWarnings($expr) if $expr ne "";
+warn "  Run After eval(ARGS . META) UNDERBAR: $_\n" if $shouldWarn;
+$_ = $saveUnderbar;
+warn "  Run Done Run(@_) UNDERBAR: $_ ARGS: $ARGS\n" if $shouldWarn;
+$debug = $oldDebug;
+}
+
+################# ShouldAutoQuote ##################
+# Should the given string be auto-quoted?  
+# Any string starting with a word char should be auto-quoted, because
+# it does not appear to be a perl expression.
+# Should autoquote: foo
+# Should not autoquote: $bar 
+sub ShouldAutoQuote
+{
+@_ == 1 || confess "Died";
+my $expr = shift @_;
+defined($expr) || confess "Died";
+return 1 if $expr eq "" || $expr =~ m/^\w/;
+return 0;
+}
+
+################# MagicEvalAutoQuote ##################
+# Check for autoquote, then if needed Set MAGIC vars and then run MagicEvalWarnings.
+# This should only be called if $ROW $COLUMN and $HEADER are set, i.e.,
+# when processing data cells.
+sub MagicEvalAutoQuote
+{
+@_ == 1 || confess "Died";
+my $expr = shift @_;
+defined($expr) || confess "Died";
+return $expr if &ShouldAutoQuote($expr);
+return &MagicEvalWarnings($expr);
+}
+
+################# MagicEvalWarnings ##################
+# Set MAGIC vars and then run EvalWarnings.
+# This should only be called if $ROW $COLUMN and $HEADER are set, i.e.,
+# when processing data cells.
+sub MagicEvalWarnings
+{
+@_ == 1 || confess "Died";
+my $expr = shift @_;
+defined($expr) || confess "Died";
+return "" if $expr eq "" || $expr eq '""' || $expr eq "''";
+# print "EVAL: $expr\n";
+# Set magic vars
+foreach my $svar (keys %MAGIC) {
+	my $hvar = $MAGIC{$svar};
+	my $sr = &RefOf($svar);
+	my $hr = &RefOf($hvar);
+	${$sr} = $hr->{$HEADER};
+	}
+return &EvalWarnings($expr);
+}
+
+################# EvalWarnings ##################
+# Run eval while trapping warnings, and return the eval result.
+# Warnings and errors are reported.  Old eval errors are cleared first.
+# %VAR variables are declared as "our".
+# Usage:
+#   my $result = &EvalWarnings($expr);
+sub EvalWarnings
+{
+@_ == 1 || confess "Died";
+my $expr = shift @_;
+defined($expr) || confess "Died";
+return "" if $expr eq "" || $expr eq '""' || $expr eq "''";
+# warn "EVAL: $expr\n";
+my $ours = join("", map {"our $_; "} sort keys %VAR);
+my $de = "$ours \{\n$expr\n\}";
+return &RawEvalWarnings($de);
+}
+
+################# RawEvalWarnings ##################
+# Run eval while trapping warnings, and return the eval result.
+# Warnings and errors are reported.  Old eval errors are cleared first.
+# Usage:
+#   my $result = &RawEvalWarnings($expr);
+sub RawEvalWarnings
+{
+@_ == 1 || confess "Died";
+my $expr = shift @_;
+defined($expr) || confess "Died";
+return "" if $expr eq "";
+my $underscore = $_;
+$underscore = "(undef)" if !defined($underscore);
+warn "      RawEvalWarnings starting expr: {$expr} UNDERSCORE: $underscore\n" if $debug > 2;
+my $result = "";
+my @result = ();
+my $warning = "";
+# Clear old errors prior to eval.  $@ does not need to be cleared,
+# because it is reset by perl.
+$! = 0;
+$? = 0;
+my $wantarray = wantarray;
+#### Create a new scope for trapping warnings.
+#### DO NOT TRY TO CALL warn FROM THIS SCOPE!
+	{
+	local $SIG{__WARN__} = sub {
+		$warning .= (shift || "");
+		};
+	if ($wantarray) { @result = eval $expr; }
+	else { $result = eval $expr; }
+	}
+my $error = $@ || "";
+$underscore = $_;
+if ($wantarray) {
+	$result = join(" ", map { defined($_) ? $_ : "(undef)" } @result);
+	}
+$underscore = "(undef)" if !defined($underscore);
+warn "wantarray\n" if $wantarray && $debug > 1;
+warn "expr: $expr\n" if $debug > 1;
+warn "      RawEvalWarnings after eval, expr: {$expr} UNDERSCORE: $underscore result: $result\n" if $debug > 2;
+if ($warning || $error) {
+	$result = join(" ", map { defined($_) ? $_ : "(undef)" } @result) if $wantarray;
+	my $directive = $DIRECTIVE || "INTERNAL";
+	my $args = $ARGS || "(undef)";
+	my $mrow = (defined($MROW) ? $MROW : "(undef)");
+	my $column = (defined($COLUMN) && $COLUMN < $NCOLUMNS && $COLUMN >= 2 ? $COLUMN : undef);
+	my $header = (defined($column) ? $HEADERS[$column] : undef);
+	my $cell = (defined($column) && defined($ROW) 
+		? $TABLE->[$ROW]->[$column] : undef);
+	my $max = 400;
+	my $shortExpr = (defined($expr) ? $expr : "");
+	$shortExpr = substr($shortExpr, 0, $max-3) . "..." if length($shortExpr) > $max;
+	my $shortCell = (defined($cell) ? $cell : "");
+	$shortCell = substr($shortCell, 0, $max-3) . "..." if length($shortCell) > $max;
+	my $shortMeta = (defined($META) ? $META : "");
+	$shortMeta = substr($shortMeta, 0, $max-3) . "..." if length($shortMeta) > $max;
+	my $WE = ($warning ? "WARNING" : "ERROR");
+	my $we = ($warning ? "a warning" : "an error");
+	my $weText = ($warning ? $warning : $error);
+	my $msg = "$0: [$WE] $directive: eval of {$shortExpr} at meta row $mrow";
+	$msg .= " column $column {$header}" if defined($column);
+	$msg .= " meta cell {$shortMeta}" if defined($META);
+	$msg .= " data row $ROW" if defined($ROW);
+	$msg .= " data cell {$shortCell}" if defined($cell);
+	$msg .= " produced $we: $weText\n";
+	# warn "header: $header\n";
+	# warn "column: $column\n";
+	# warn "NCOLUMNS: $NCOLUMNS\n";
+	# warn "HEADERS[$column]: $HEADERS[$column]\n";
+	if ($warning) { warn $msg; }
+	else { die $msg; }
+	}
+return @result if $wantarray;
+return $result;
+}
+
+################# RemoveMetadataRows ##################
+# Destructively remove and return metadata rows from the given data table.
+# Metadata rows are returned as a ref to an array of row refs -- the
+# same form as the given data table -- but with two columns
+# prepended: $DIRECTIVE and $ARGS.  The metadata directive is
+# the first cell in each metadata row.  The !META column is removed
+# entirely from the data table.   Meta rows that are only comments
+# are skipped.  "Directive_" is prepended to each directive.
+sub RemoveMetadataRows
+{
+my $tsv = shift @_ || confess "Died";
+my $meta = [];
+my $firstCellValue = $tsv->[1]->[1];
+defined($firstCellValue) || die "$0: [ERROR] Table has no header row!\n";
+$firstCellValue =~ s/\s+$//;
+# warn "firstCellValue: {$firstCellValue}\n";
+return $meta if $firstCellValue !~ m/^!META\b/;
+# Row 0 is column numbers:
+push(@{$meta}, [ @{$tsv->[0]} ] );
+# Row 1 is headers:
+push(@{$meta}, [ @{$tsv->[1]} ] );
+# Make the '!META' cell empty in the data table:
+$tsv->[1][1] = "";
+# Remove and collect the metadata rows.
+# The data table is modified in place as we go along.
+my $lastMetaRow = 1;
+my $metaR = 2;
+for (my $r=2; $r < @{$tsv}; $r++, $metaR++) {
+	my $row = $tsv->[$r];
+	defined($row) || confess "Died";
+	# warn "Row $r: (@{$row})\n";
+	my $newMetaRow = [ map {""} @{$row} ];
+	$newMetaRow->[0] = $row->[0];
+	$newMetaRow->[1] = {'directive'=>"", 'args'=>""};
+	# Non-empty !META column means it's a meta row -- not a data row.
+	my $metaCell = $row->[1];
+	if ($metaCell =~ m/\S/) {
+		# warn "META row $r.  metaCell: $metaCell\n";
+		# Meta row.  Delete it from data table.
+		splice(@{$tsv}, $r, 1);
+		$r--;
+		if ($metaCell !~ s/^\s*(\S+)\s*//) {
+			die "$0: [ERROR] Unrecognized directive in row $r: $metaCell\n";
+			}
+		my $directive = $1;
+		# Not a Comment?
+		if ($directive !~ m/^\#/) {
+			$lastMetaRow = $metaR;
+			$directive = "Directive_$directive";
+			my $args = $metaCell;
+			# [ originalRowNumber , {$directive, $args}, @metas ]
+			@{$newMetaRow} = @{$row};
+			$newMetaRow->[1] = {'directive'=>$directive, 'args'=>$args};
+			}
+		}
+	push(@{$meta}, $newMetaRow);
+	# Set all !META column cells to empty, to ensure more
+	# predictable behavior when using a separate data file:
+	$row->[1] = "";
+	}
+# Chop off unneeded rows from meta table:
+splice(@{$meta}, $lastMetaRow+1);
+return $meta;
+}
+
+############### DirArgs ###############
+sub DirArgs
+{
+my $ref = shift || confess "Died";
+my $s = $ref->{directive} . " " . $ref->{args};
+return $s;
+}
+
+############### PrintTable ###############
+sub PrintTable
+{
+my $label = shift || confess "Died";
+my $tsv = shift @_ || confess "Died";
+print "======================= $label ======================\n";
+foreach my $row (@{$tsv}) {
+	my $line = join(" | ", map {ref($_) ? "{" . &DirArgs($_) . "}" : (defined($_) ? $_ : "undef")} @{$row});
+	print "$line\n";
+	}
+print "==========================================================\n";
+print "\n";
+}
+
+################# ReadTable #####################
+sub ReadTable
+{
+@_ == 3 || confess "Died";
+my ($infile, $worksheet, $format) = @_;
+my $rTable = &ReadRawTable($infile, $worksheet, $format);
+return $rTable if !$rTable or !@{$rTable};
+# Always trim the header row.
+my $headerRow = $rTable->[1];
+@{$headerRow} = map {&Trim($_)} @{$headerRow};
+# Ensure that all columns have headers:
+if (0) {
+	my $lastIndex = @{$headerRow} - 1;
+	@{$headerRow} = map { ($_ <2 || $headerRow->[$_] =~ m/\S/) ? $headerRow->[$_] : &GenColumnName($_ - 2) } 0 .. $lastIndex;
+	}
+# Remove empty trailing columns?
+my $continueRemoving = !$keepEmptyTrailingColumns;
+my $nRemoved = 0;
+while($continueRemoving) {
+	warn "Checking for empty trailing column in '$infile' ...\n" if $debug > 1;
+	my $c = scalar(@{$rTable->[1]}) - 1;	# Last column
+	last if $c < 2;
+	my $allEmpty = 1;
+	for (my $r=1; $r<@{$rTable}; $r++) {
+		if ($rTable->[$r]->[$c] =~ m/\S/) {
+			$allEmpty = 0;
+			last;
+			}
+		}
+	if ($allEmpty) {
+		warn "Removing empty trailing column from '$infile'\n" if $debug > 1;
+		for (my $r=1; $r<@{$rTable}; $r++) {
+			pop @{$rTable->[$r]};
+			}
+		$nRemoved++;
+		}
+	else { $continueRemoving = 0; }
+	}
+warn "Removed $nRemoved trailing empty columns from '$infile'\n" if $debug && $nRemoved;
+# Remove empty trailing rows?
+$continueRemoving = !$keepEmptyTrailingRows;
+my $saveDebug = $debug;
+# $debug = 3;
+$nRemoved = 0;
+while($continueRemoving) {
+	warn "Checking for empty trailing row in '$infile' ...\n" if $debug > 2;
+	my $r = scalar(@{$rTable}) - 1;		# Last row
+	last if $r < 2;
+	my $allEmpty = 1;
+	for (my $c=2; $c<@{$rTable->[$r]}; $c++) {
+		if ($rTable->[$r]->[$c] =~ m/\S/) {
+			$allEmpty = 0;
+			last;
+			}
+		}
+	if ($allEmpty) {
+		warn "Removing empty trailing row $r from '$infile'\n" if $debug > 2;
+		pop @{$rTable};
+		$nRemoved++;
+		}
+	else { $continueRemoving = 0; }
+	}
+warn "Removed $nRemoved trailing empty rows from '$infile'\n" if $debug && $nRemoved;
+# Check for empty headers:
+for (my $c=2; $c<@{$rTable->[1]}; $c++) {
+	defined($rTable->[1][$c]) && $rTable->[1][$c] =~ m/\S/ || die "[ERROR] Empty header in column $c (" . &GenColumnName($c-1) . ")\n";
+	}
+$debug = $saveDebug;
+return $rTable;
+}
+
+################# ReadRawTable #####################
+# Determine the file type from the file extension or $format,
+# and invoke the appropriate %readerForFormat to read the
+# specified worksheet from the specified file.  Returns
+# a ref to an array (the rows) of array refs (the cells).
+# The first row will be the header row.   Usage:
+#   my $table = &ReadRawTable("foo.xlsx", "Worksheet1", $format);
+# Uses global %readerForFormat.
+sub ReadRawTable
+{
+@_ == 3 || confess "Died";
+my ($infile, $worksheet, $format) = @_;
+# Grrr.  Ridiculous that perl doesn't have a standard function to
+# parse the file extension.
+my ($ext) = ($infile =~ m/\.([^\.]*)$/);
+$ext = "" if !defined $ext;
+my $encoding = "";
+$encoding = $1 if $format =~ s/\:(.*)$//;
+$format = lc($format || $ext);
+# die "infile: $infile format: $format ext: $ext\n";
+$format || die "$0: [ERROR] Unable to determine file format from filename '$infile'.  
+Please use the '-f fmt' option (for a data file) or '-F fmt' option
+(for a metadata file) to specify the file type.\n";
+my $reader = $readerForFormat{$format} || die "$0: [ERROR] Unimplemented spreadsheet file type: $format\n";
+# Disable reference warnings:
+no strict 'refs';
+# &CellFilter is passed in explicitly to help ensure that new readers
+# do not forget to call it.
+my $rTable = &{$reader}($infile, $worksheet, \&CellFilter); 
+$rTable || die "$0: [ERROR] Failed to read data file '$infile' worksheet '$worksheet' as $format\n";
+return $rTable;
+}
+
+########## ReadTsv ###########
+# Read a TSV file from a filename (if given) or stdin,
+# trimming leading and trailing whitespace from all cells.
+# Returns a reference to an array (the rows) of array 
+# references (the column values).  The result is guaranteed
+# to have the same number of cells in each row.
+sub ReadTsv
+{
+@_ == 3 or confess "Died";
+my ($f, $worksheet, $cellFilter) = @_;
+$f ||= "";
+defined($worksheet) || confess "Died";
+$f = "" if $f eq "-";
+my $fh = \*STDIN;
+!$f || open($fh, "<$f") || die "$0: [ERROR] Cannot open $f\n";
+my $result = [ [] ];
+my $nColumns = 0;
+my $row = 1;
+while (my $line = <$fh>) {
+	chomp $line;
+	no strict 'refs';
+	my @fields = map {&{$cellFilter}($_)} split(/\t/, $line, -1);
+	@fields || die "$0: [ERROR] No data fields found in " . ($f ? "STDIN" : $f) . "\n";
+	my $nf = scalar(@fields);
+	$nColumns = $nf if !$nColumns;
+	$nf == $nColumns || die "$0: [ERROR] Number of data columns ($nf) does not match the number of header columns ($nColumns) on data row $row in " . ($f ? "STDIN" : $f) . "\n";
+	# warn "\tRead $nf columns\n";
+	push(@{$result}, [ ($row, @fields) ] );
+	$row++;
+	}
+# Add original columnn indexes in row 0:
+$result->[0] = [ ( 0 .. $nColumns ) ];
+!$f || close($fh);
+# warn "Read $row rows\n";
+return $result;
+}
+
+########## ReadXlsx ###########
+# Read a .xlsx file from a filename (if given) or stdin,
+# trimming leading and trailing whitespace from all cells.
+# Optionally the worksheet may be specified:
+#       my $table = &ReadXlsx("myFile.xlsx", "Worksheet1");
+# Otherwise, the first is used.
+# Returns a reference to an array (the rows) of array 
+# references (the column values).  The result is guaranteed
+# to have the same number of cells in each row.
+sub ReadXlsx
+{
+@_ == 3 or confess "Died";
+my ($f, $worksheet, $cellFilter) = @_;
+$f ||= "";
+defined($worksheet) || confess "Died";
+$worksheet ||= 0;	# Change "" to 0 if necessary.
+$f = "" if $f eq "-";
+my $fh = \*STDIN;
+!$f || open($fh, "<$f") || die "$0: [ERROR] Cannot open $f\n";
+my $result = [];
+my $row = 1;
+use Spreadsheet::ParseXLSX;
+# Profiling seems to be too slow in the parser:
+DB::disable_profile() if $fasterProfiling;
+my $excel = Spreadsheet::ParseXLSX->new()->parse($fh);
+DB::enable_profile() if $fasterProfiling;
+my @worksheets = $excel->worksheets();
+# my $nWorksheets = scalar(@worksheets);
+my $nWorksheets = $excel->worksheet_count();
+warn "nWorksheets: $nWorksheets File: $f\n" if $debug > 0;
+my $worksheetObject = $excel->worksheet($worksheet);
+$worksheetObject || return undef;
+my ( $row_min, $row_max ) = $worksheetObject->row_range();
+warn "Row range: $row_min : $row_max\n" if $debug > 0;
+my ( $col_min, $col_max ) = $worksheetObject->col_range();
+warn "Col range: $col_min : $col_max\n" if $debug > 0;
+my $table = [ [] ];
+my $iRow=1;
+my $nColumns = 0;
+for my $row ( $row_min .. $row_max ) {
+	my $nextRow = [ $iRow ];
+	my $iCol=1;
+	for my $col ( $col_min .. $col_max ) {
+		my $v = "";	# Default to empty string
+		my $cell = $worksheetObject->get_cell( $row, $col );
+		if ($cell) {
+			$v = $cell->value();
+			# warn "Row, Col    = ($row, $col)\n" if $debug > 1;
+			# warn "Value       = ", $cell->value(),       "\n" if $debug > 1;
+			# warn "Unformatted = ", $cell->unformatted(), "\n" if $debug > 1;
+			# warn "\n" if $debug > 1;
+			}
+		no strict 'refs';
+		push(@{$nextRow}, &{$cellFilter}($v));
+		$iCol++;
+		}
+	$nColumns = $iCol if $iCol > $nColumns;
+	$table->[$iRow] = $nextRow;
+	$iRow++;
+	}
+my $nc = $col_max - $col_min + 1;
+$nc = 0 if $nc < 0;
+$table->[0] = [ ( 0 .. $nColumns-1 ) ];
+my $nRowsRead = $iRow - 1;
+warn "Read $nRowsRead rows $nc columns from $f\n" if $debug;
+return $table;
+}
+
+########## Split ############
+# Split a string at separators, returning only non-empty results
+# after Trimming whitespace.
+sub Split
+{
+@_ == 2 || confess "Died";
+my ($separator, $s) = @_;
+my $qs = quotemeta($separator);
+my @raw = split(/$qs/, $s);
+my @cooked = grep {$_ ne ""} map {&Trim($_)} @raw;
+return @cooked;
+}
+
+########## Trim ############
+# Perl function to remove whitespace from beginning and end of a string.
+sub Trim
+{
+my $s = shift @_;
+return undef if !defined($s);
+$s =~ s/\A[\s\n\r]+//s;
+$s =~ s/[\s\n\r]+\Z//s;
+return $s;
+}
+
+########## DeleteControlChars ###########
+sub DeleteControlChars
+{
+my $v = shift @_;
+defined($v) || confess "Died";
+$v =~ tr/\000-\037/ /;
+return $v;
+}
+
+########## Clean ###########
+# Trim leading and trailing whitespace, turn everything but [a-zA-Z0-9_\-]
+# into underscore ("_"), and then turn multiple successive underscores
+# into a single underscore.
+sub Clean
+{
+my $v = shift @_;
+defined($v) || confess "Died";
+$v = &Trim($v);
+$v =~ s/[^A-Za-z0-9_\-]/_/g;
+$v =~ s/__+/_/g;
+return $v;
+}
+
+########## Quote ############
+# Escape the given string as necessary, and wrap it in
+# """triple quotes""" for output as an RDF literal.
+sub Quote
+{
+my $s = shift @_;
+return '"""' . &TripleQuoteSafe($s) . '"""';
+}
+
+########## TripleQuoteSafe ############
+# Make a string safe to write as a Turtle """string""".  
+# Backslashes and quotes " are escaped.  Nothing else is.
+# http://www.w3.org/TR/turtle/#string
+sub TripleQuoteSafe
+{
+my $s = shift @_;
+$s =~ s/([\"\\])/\\$1/gms;			# \   --> \\
+return $s;
+}
+
+########## QuoteSafe ############
+# Make a string safe to write as a single-line Turtle "string".  Prohibited
+# characters [\"\r\n\\] are silently changed to spaces.
+# http://www.w3.org/TR/turtle/#string
+sub QuoteSafe
+{
+my $s = shift @_;
+$s =~ s/[\"\r\n\\]/ /gms;
+return $s;
+}
+
+########## MakeVar ###########
+# Turn the given column name into a variable,
+# or return the empty string if failure.
+sub MakeVar
+{
+my $v = shift @_;
+$v = &Clean($v);
+# $v =~ s/_$//;
+# $v =~ s/^_//;
+$v = "" if $v !~ m/^[A-Za-z]/;	# Must start with a letter
+return $v;
+}
+
+################# MimeTypeOfFile #####################
+# UNUSED CODE.  This was for testing the possibility of
+# determining a file's MIME type from its name or contents,
+# but it did not work well.  A simple foo.csv file showed
+# as having different MIME types based on the filename (correct: text/csv)
+# versus the content (wrong: application/octet-stream).
+# Thus, that technique was abandoned.  But I am keeping the
+# code here in case someone wants to pursue it again some day.
+sub MimeTypeOfFile
+{
+my $f = shift || die;
+use MIME::Types;
+use File::Type;
+my $ft = File::Type->new();
+my $types = MIME::Types->new( only_complete => 1 );
+my $mime = $types->mimeTypeOf($f);
+$mime = "UNDEFINED" if !defined $mime;
+print "mime from filename: $mime\n";
+# alternatively, check file from disk
+$mime = $ft->checktype_filename($f);
+$mime = "UNDEFINED" if !defined $mime;
+print "mime from contents: $mime\n";
+return $mime;
+}
+

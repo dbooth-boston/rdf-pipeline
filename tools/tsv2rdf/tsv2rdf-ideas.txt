@@ -1,0 +1,184 @@
+These ideas should be moved to the bug tracker once tsv2rdf
+is stable enough.
+
+0. Add a --guess option to guess column data types
+and primary key.  If multiple columns are candidate keys
+(i.e., have unique values) then weights might be used
+to choose, based on:
+       - earlier column in the table;
+       - column datatype;
+       - column with only positive integers, versus other content;
+       - column name ends with "ID";
+       - column values are the same or similar length.
+However, it is easy enough to specify which column is the
+primary key, so we probably should not get overly sophisticated
+in guessing the primary key.   Maybe the primary key column
+could be specified as a pattern (or substring or initial substring)
+to accommodate minor changes in column names.  For example,
+a '--primaryKey=foo' option might select the first column whose
+name contains "foo", and '--primaryKey=^foo$' would have to
+match the whole column name.
+
+1. Don't distinguish between preprocessing directives and others.
+Just process them all in sequence.  Preprocessing directives can
+operate on only the metadata, while others can loop through the
+data if they choose.  This would give the user a simpler mental
+processing model.  This also means that looping through the
+data would be done *inside* each directive function, which is
+probably fine, because there won't be very many of them.
+
+ON SECOND THOUGHT: Actually, it is quite nice having the old
+processing model for data, because it means that the directives
+are executed in order on each data row at a time.  But the
+preprocessing needs to be done the other way (as it is now),
+so that justifies having both preprocessing directives and
+regular directives.  The preprocessing &Iterate function seems
+to work pretty well now, but the regular processing method has
+not yet been cleaned up similarly.
+
+2. OBSOLETE
+
+3. Maybe: Change $MROW, $ROW and $COLUMN indexes to start from 1 instead of 0,
+because spreadsheets number them that way.  Actually, since the
+header is row 1 in a spreadsheet, the first data row would be 2.
+This would also allow a row and column range to be specified,
+so that the spreadsheet could have extra junk that would be
+ignored.  Also, might want to allow the data file to not have
+a header row, if the minrow is specified as 1.
+It would be really good (for user debugging purposes) to retain
+the original row and column numbers.  At present &RemoveMetadataRows
+discards rows that have empty or comment meta column values.
+The original row and column numbers could be retained in
+row and column index 0.  This would work also when virtual rows
+and columns are added.
+
+5. LoadMap could load a mapping table, or maybe Load could load
+an additional data or metadata table.
+
+15. Make a way to embed program options into the metadata, such
+as --no-trim.  Maybe as part of the first !META line, such as
+  !META --no-trim
+but we also want to allow the version to be explicit:
+  !META --no-trim --requireVersion 1.1
+
+16. Implement the --requireVersion option.
+
+19. Maybe implement a general Hash foo?  $HASH{foo} would yield
+the current cell's value, and $COLUMN_HASH{'Column Header'}->{foo} 
+would yield the value for the given column.  OTOH, $FOO and
+$FOO{'Column Header'} would be much more convenient.
+
+20. Add Import, for importing ontologies.
+Maybe also add ThisOntology <foo>, to name this ontology,
+so that owl:imports statements will use <foo> instead of <>:
+  <foo> owl:imports <bar> .
+Actually it might be better to have a generic BEGIN section,
+to output whatever you want, instead of Import and Prefix.
+Also an END section?  An END section would be good for reporting
+accumulated errors/warnings, such as how many items failed to map.
+
+23. Triples potentially generated from columns DogId and DogName
+with cell values 123 and Fido.
+Instance triples:
+	  # For the row in general:
+	:row0 a ont:Row .
+	  # For DogId:
+	:row0 ont:dog :d_123 .
+	:d_123 a ont:Dog .
+	:d_123 rdfs:label "Fido" .
+	:d_123 table:DogId "123" .		# or :row0 subject?
+	  # For DogName:
+	:row0 table:DogName "Fido" .
+Ontology triples:
+	  # For the row in general:
+	ont:Row a owl:Class .
+	ont:Row rdfs:label "Row" .
+	ont:Row rdfs:comment "Class of rows in a table" .
+	  # For DogId:
+	ont:dog a owl:ObjectProperty .
+	ont:dog rdfs:domain ont:Row .
+	ont:dog rdfs:range ont:Dog .
+	ont:dog rdfs:label "dog" .
+	ont:Row rdfs:comment "Subject row is about the object dog" .
+	table:DogId a owl:DatatypeProperty .
+	table:DogId rdfs:domain ont:Dog .	# or ont:Row domain?
+	table:DogId rdfs:range xsd:string .
+	table:DogId rdfs:label "DogID" .
+	table:DogId rdfs:comment "Subject row has object dog ID" .
+	  # For DogName:
+	table:DogName a owl:DatatypeProperty .
+	table:DogName rdfs:domain ont:Row .
+	table:DogName rdfs:range xsd:string .
+	table:DogName rdfs:label "DogName" .
+	table:DogName rdfs:comment "Subject row has object dog name" .
+
+27. Allow continuation lines, so that perl code does not have to be
+on one long line.   Maybe instead the end of the metadata should
+be indicated by some kind of END marker.  But we also want to
+be able to run cleanup stuff at the end, maybe using FINALLY keyword?
+Not very perl-ish.
+
+31. Maybe delete Filter, because we have SetMagic.
+But Filter is also used for splitting rows.
+
+32. Maybe SetVar is not needed, since we have SetMagic once?
+But SetVar is for a single value -- not a magic var.
+
+33. Maybe have an ONTOLOGY GENERATION section and a DATA GENERATION section.
+The ont section would only be done once, on the first row.  To ensure
+that there is a first row, empty input data could be changed to a single row
+of empty values, though this would be a kludge.  We don't need so many
+magic variables set.  Each column should just output the triples it needs:
+first the ont triples, then the data triples.
+
+34. Maybe have no preprocessing phase, but allow the user to
+run the regular processing phase as many times as desired.
+This would cover the need for both preprocessing and END, and
+it would allow keys to be generated after virtual columns are created,
+etc.  Maybe only carry SetMagic vars across phases if they are set 'once'.
+PENDING rows will need to be spliced into TABLE, which may require
+changing to a linked list.
+Maybe have a Run keyword, that
+causes the outer loop to be run again (on all data rows).
+This would enable any number of passes to be run, so that PreFilter
+and PreRun would not be needed.
+
+35. It would be nice to have something to help with union domains
+and ranges.  Maybe DomainUnion and RangeUnion directives, which
+would remember the declarations and then output them at the end.
+But it's easier to use domainIncludes, because it does not require
+a list.
+
+36. Add a lcHeaders option to force headers to lower case?
+
+37. Change to make one code block that is eval'ed?  Benefits would
+be efficiency and not having to re-declare variables.  
+Another benefit would be that raw perl could be used in
+the meta spreadsheet.
+
+38. Add Rdf directive to output triples, given a string?
+The idea is that it would be like the Triples directive
+(to only output a triple if all three components exist),
+but would be given as a string:
+Rdf once ont "$PROPERTY a $PTYPE ; rdfs:domain $PDOMAIN ; rdfs:range $PRANGE ; rdfs:label ****PLABEL***" -- But PLABEL may contain spaces, which would make it hard to parse
+Change Triple to take a string instead of a list, and parse it into
+s-p-o.  Maybe accept a list of strings, for multiple triples.
+
+39. Change SetVar to give an error if multiple values are
+provided in $ARGS or @METAS when a scalar is specified.
+
+40. Change $TABLE (and $MTABLE?) to make each row hold a hash
+table (mapping $HEADER[$ROW] to its cell).  This would make it
+easier to access from spreadsheet code: $TABLE->[$ROW]->{DogID}.
+It also means that less work would be done when the row is
+processed.  However it would use more memory.
+
+-------------------
+Clean up $NROWS $NCOLUMNS messages
+
+-------------------
+
+Check for bug:
+TODO: This looks like a bug
+
+
