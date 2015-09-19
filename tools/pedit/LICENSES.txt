@@ -5,10 +5,3 @@ Version 2.0, which is compatible with Apache 2.0:
 http://jointjs.com/license
 http://mozilla.org/MPL/2.0/
 
-2. rappid, which has a custom license at:
-http://jointjs.com/license/rappid
-That license is rather confusing, but it says: "A development license 
-is not required in order to build an application that uses the software."
-So AFAICT a license is not required for building the RDF Pipeline 
-Framework to use rappid.
-
