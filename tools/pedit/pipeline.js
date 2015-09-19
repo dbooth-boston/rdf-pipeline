@@ -31,29 +31,29 @@ var node = function(label, options) {
 	    }, joint.shapes.devs.Model.prototype.defaults)
 	});
 
-	return new atomic(options);
+	var cell = new atomic(options);
+	graph.addCell(cell);
+	return cell;
 };
 
 var a1 = new node('a1', {
-    position: { x: 360, y: 360 },
-    inPorts: ['a1.in'],
-    outPorts: ['a1.out1','a1.out2']
-});
-
-var a2 = new joint.shapes.devs.Atomic({
     position: { x: 50, y: 260 },
-    outPorts: ['a2.out']
+    outPorts: ['a1.out']
 });
 
-var a3 = new joint.shapes.devs.Atomic({
+var a2 = new node('a2', {
+    position: { x: 360, y: 360 },
+    inPorts: ['a2.in'],
+    outPorts: ['a2.out1','a2.out2']
+});
+
+var a3 = new node('a3', {
     position: { x: 650, y: 150 },
     size: { width: 100, height: 300 },
     inPorts: ['a','b']
 });
 
-graph.addCell(a1).addCell(a2).addCell(a3);
-
-connect(a2,'a2.out',a1,'a1.in');
-connect(a1,'a1.out1',a3,'a');
-connect(a1,'a1.out2',a3,'b');
+connect(a1,'a1.out',a2,'a2.in');
+connect(a2,'a2.out1',a3,'a');
+connect(a2,'a2.out2',a3,'b');
 
