@@ -3,7 +3,7 @@ package RDF::Pipeline;
 
 # RDF Pipeline Framework
 # 
-# Copyright 2014 by David Booth <david@dbooth.org>
+# Copyright 2015 by David Booth <david@dbooth.org>
 # This software is available as free and open source under
 # the Apache 2.0 software license, which may be viewed at
 # http://www.apache.org/licenses/LICENSE-2.0.html
@@ -407,7 +407,7 @@ return $ret;
 }
 
 ##################### FilterArgs ######################
-# Remove internal args from query parameter args.
+# Remove RDF Pipeline internal args from query parameter args.
 sub FilterArgs
 {
 my ($pargs, @toRemove) = @_;
@@ -527,7 +527,31 @@ if ( $mirrorWasUpdated
 	# return Apache2::Const::OK;
 	# %config || return Apache2::Const::SERVER_ERROR;
 	}
-
+##### BEGIN pedit
+# Intercept admin request and return the pipeline editor.
+# TODO: Instead of using the path /node/admin for this,
+# change the apache config to make it use /admin ,
+# perhaps using <LocationMatch ...>:
+# http://httpd.apache.org/docs/current/mod/core.html#locationmatch
+if ($r->uri() eq "/node/admin") {
+	my $method = $r->method;
+	return Apache2::Const::HTTP_METHOD_NOT_ALLOWED if $method ne 'GET' && $method ne 'HEAD';
+	my $startTime = Time::HiRes::time();
+	$r->content_type("text/html");
+	my $qToolsDir = quotemeta("$ENV{RDF_PIPELINE_DEV_DIR}/tools");
+	# TODO: provide the pipeline definition as input to show-pipeline.perl:
+	my $content = `$qToolsDir/pedit/show-pipeline.perl`;
+	my $size = length($content);
+	$r->set_content_length($size) if defined($size);
+	if($r->header_only) {
+		&LogDeltaTimingData("HandleHttpEvent", $thisUri, $startTime, 1);
+		return Apache2::Const::OK;
+		}
+	$r->print($content);
+	&LogDeltaTimingData("HandleHttpEvent", $thisUri, $startTime, 1);
+	return Apache2::Const::OK;
+	}
+##### END pedit
 my $subtype = $nm->{value}->{$thisUri}->{nodeType} || "";
 &Warn("NOTICE: $thisUri is not a Node.\n", $DEBUG_DETAILS) if !$subtype;
 &Warn("thisUri: $thisUri subtype: $subtype\n", $DEBUG_DETAILS);
