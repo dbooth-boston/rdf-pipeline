@@ -527,6 +527,18 @@ if ( $mirrorWasUpdated
 	# return Apache2::Const::OK;
 	# %config || return Apache2::Const::SERVER_ERROR;
 	}
+##### BEGIN updaters/translators library
+# Intercept 'updaters' request and forward to the updaters/translators libary.
+# TODO: Change this from using the path /node/updaters to
+# something that cannot clash with a node name.
+if ($r->uri() eq "/node/updaters") {
+	my $startTime = Time::HiRes::time();
+	my $updatersUri = "https://github.com/dbooth-boston/rdf-pipeline/tree/master/tools/updaters";
+	$r->headers_out->set('Location' => $updatersUri); 
+	&LogDeltaTimingData("HandleHttpEvent", $thisUri, $startTime, 1);
+	return Apache2::Const::REDIRECT;
+	}
+##### END updaters/translators library
 ##### BEGIN pedit
 # Intercept admin request and return the pipeline editor.
 # TODO: Instead of using the path /node/admin for this,
