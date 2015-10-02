@@ -4,7 +4,7 @@ Server: Apache/2.2.22 (Ubuntu)
 Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
 ETag: "LM1326111111.111111000001"
 Content-Length: 614
-Content-Location: http://localhost/cache/cardiology/state
+Content-Location: http://localhost/cache/URI/SHORT_cardiology_HASHhDmRAS0Gb-ZncOwMpFp-SSg/state
 Vary: Accept-Encoding
 Content-Type: text/plain
 
@@ -24,7 +24,7 @@ Server: Apache/2.2.22 (Ubuntu)
 Last-Modified: Sat, 03 Mar 2012 03:03:03 GMT
 ETag: "LM1326111111.111111000001"
 Content-Length: 334
-Content-Location: http://localhost/cache/immunology/state
+Content-Location: http://localhost/cache/URI/SHORT_immunology_HASHhAI5TXuz_nGahze674NFyOQ/state
 Vary: Accept-Encoding
 Content-Type: text/plain
 
