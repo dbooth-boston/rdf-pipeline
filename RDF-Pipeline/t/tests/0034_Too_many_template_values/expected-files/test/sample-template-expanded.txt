@@ -1,1 +1,1 @@
-/home/dbooth/rdf-pipeline/trunk/tools/ste.perl: ERROR: 3 values provided for 2 template variables ($inUri Bill)
+/home/dbooth/rdf-pipeline/trunk/tools/ste.perl: [ERROR] 3 values provided for 2 template variables ($inUri Bill)
