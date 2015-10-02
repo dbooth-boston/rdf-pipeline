@@ -34,7 +34,7 @@ my $out = "$wwwDir/test/sample-template-expanded.txt";
 my $cmd = "$ste $in -t http://example/this -i http://example/in -i William -i Taffy -o http://example/out > $out 2>&1";
 system($cmd);
 -e $out or die;
-!system("grep -q -i 'ERROR: Duplicate template variable' $out") or die;
+!system("grep -q -i 'ERROR. Duplicate template variable' $out") or die;
 ############################################
 
 exit 0;
