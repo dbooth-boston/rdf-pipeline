@@ -1,18 +1,18 @@
-          UPDATED query parameters of http://localhost/node/cardiology
-          UPDATED depUri http://localhost/node/cardiology-updater of http://localhost/node/cardiology
-              UPDATED query parameters of http://localhost/node/merge
-                  UPDATED query parameters of http://localhost/node/labs
-                  UPDATED depUri http://localhost/node/labs-updater of http://localhost/node/labs
-                UPDATING http://localhost/node/labs {labs-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/labs/state
-              UPDATED depUri http://localhost/node/labs of http://localhost/node/merge
-              UPDATED depUri http://localhost/node/merge-updater of http://localhost/node/merge
-                  UPDATED query parameters of http://localhost/node/patients
-                  UPDATED depUri http://localhost/node/patients-updater of http://localhost/node/patients
-                UPDATING http://localhost/node/patients {patients-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/patients/state
-              UPDATED depUri http://localhost/node/patients of http://localhost/node/merge
-            UPDATING http://localhost/node/merge {merge-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/merge/state
-          UPDATED depUri http://localhost/node/merge of http://localhost/node/cardiology
-        UPDATING http://localhost/node/cardiology {cardiology-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/cardiology/state
+          UPDATED      query parameters of http://localhost/node/cardiology
+          UPDATED      depUri http://localhost/node/cardiology-updater of http://localhost/node/cardiology
+              UPDATED      query parameters of http://localhost/node/merge
+                  UPDATED      query parameters of http://localhost/node/labs
+                  UPDATED      depUri http://localhost/node/labs-updater of http://localhost/node/labs
+                UPDATING http://localhost/node/labs {labs-updater} state: /var/www/cache/URI/SHORT_labs_HASHh4cbDyjlBQBL0F-2EuL3S1A/state
+              UPDATED      depUri http://localhost/node/labs of http://localhost/node/merge
+              UPDATED      depUri http://localhost/node/merge-updater of http://localhost/node/merge
+                  UPDATED      query parameters of http://localhost/node/patients
+                  UPDATED      depUri http://localhost/node/patients-updater of http://localhost/node/patients
+                UPDATING http://localhost/node/patients {patients-updater} state: /var/www/cache/URI/SHORT_patients_HASHhXXrTogpS1nn0sbVQRB52_Q/state
+              UPDATED      depUri http://localhost/node/patients of http://localhost/node/merge
+            UPDATING http://localhost/node/merge {merge-updater} state: /var/www/cache/URI/SHORT_merge_HASHh7XWBUMde2ZDP31wPvSqBmQ/state
+          UPDATED      depUri http://localhost/node/merge of http://localhost/node/cardiology
+        UPDATING http://localhost/node/cardiology {cardiology-updater} state: /var/www/cache/URI/SHORT_cardiology_HASHhDmRAS0Gb-ZncOwMpFp-SSg/state
 ----------------------------------------------------------------------
           NO CHANGE to query parameters of http://localhost/node/cardiology
           NO CHANGE to depUri http://localhost/node/cardiology-updater of http://localhost/node/cardiology
@@ -26,21 +26,21 @@
               NO CHANGE to depUri http://localhost/node/patients of http://localhost/node/merge
           NO CHANGE to depUri http://localhost/node/merge of http://localhost/node/cardiology
 ----------------------------------------------------------------------
-          UPDATED query parameters of http://localhost/node/immunology
-          UPDATED depUri http://localhost/node/immunology-updater of http://localhost/node/immunology
-              UPDATED query parameters of http://localhost/node/merge
-                  UPDATED query parameters of http://localhost/node/labs
+          UPDATED      query parameters of http://localhost/node/immunology
+          UPDATED      depUri http://localhost/node/immunology-updater of http://localhost/node/immunology
+              UPDATED      query parameters of http://localhost/node/merge
+                  UPDATED      query parameters of http://localhost/node/labs
                   NO CHANGE to depUri http://localhost/node/labs-updater of http://localhost/node/labs
-                UPDATING http://localhost/node/labs {labs-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/labs/state
-              UPDATED depUri http://localhost/node/labs of http://localhost/node/merge
+                UPDATING http://localhost/node/labs {labs-updater} state: /var/www/cache/URI/SHORT_labs_HASHh4cbDyjlBQBL0F-2EuL3S1A/state
+              UPDATED      depUri http://localhost/node/labs of http://localhost/node/merge
               NO CHANGE to depUri http://localhost/node/merge-updater of http://localhost/node/merge
-                  UPDATED query parameters of http://localhost/node/patients
+                  UPDATED      query parameters of http://localhost/node/patients
                   NO CHANGE to depUri http://localhost/node/patients-updater of http://localhost/node/patients
-                UPDATING http://localhost/node/patients {patients-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/patients/state
-              UPDATED depUri http://localhost/node/patients of http://localhost/node/merge
-            UPDATING http://localhost/node/merge {merge-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/merge/state
-          UPDATED depUri http://localhost/node/merge of http://localhost/node/immunology
-        UPDATING http://localhost/node/immunology {immunology-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/immunology/state
+                UPDATING http://localhost/node/patients {patients-updater} state: /var/www/cache/URI/SHORT_patients_HASHhXXrTogpS1nn0sbVQRB52_Q/state
+              UPDATED      depUri http://localhost/node/patients of http://localhost/node/merge
+            UPDATING http://localhost/node/merge {merge-updater} state: /var/www/cache/URI/SHORT_merge_HASHh7XWBUMde2ZDP31wPvSqBmQ/state
+          UPDATED      depUri http://localhost/node/merge of http://localhost/node/immunology
+        UPDATING http://localhost/node/immunology {immunology-updater} state: /var/www/cache/URI/SHORT_immunology_HASHhAI5TXuz_nGahze674NFyOQ/state
 ----------------------------------------------------------------------
           NO CHANGE to query parameters of http://localhost/node/immunology
           NO CHANGE to depUri http://localhost/node/immunology-updater of http://localhost/node/immunology
@@ -56,17 +56,17 @@
 ----------------------------------------------------------------------
           NO CHANGE to query parameters of http://localhost/node/cardiology
           NO CHANGE to depUri http://localhost/node/cardiology-updater of http://localhost/node/cardiology
-              UPDATED query parameters of http://localhost/node/merge
-                  UPDATED query parameters of http://localhost/node/labs
+              UPDATED      query parameters of http://localhost/node/merge
+                  UPDATED      query parameters of http://localhost/node/labs
                   NO CHANGE to depUri http://localhost/node/labs-updater of http://localhost/node/labs
-                UPDATING http://localhost/node/labs {labs-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/labs/state
-              UPDATED depUri http://localhost/node/labs of http://localhost/node/merge
+                UPDATING http://localhost/node/labs {labs-updater} state: /var/www/cache/URI/SHORT_labs_HASHh4cbDyjlBQBL0F-2EuL3S1A/state
+              UPDATED      depUri http://localhost/node/labs of http://localhost/node/merge
               NO CHANGE to depUri http://localhost/node/merge-updater of http://localhost/node/merge
-                  UPDATED query parameters of http://localhost/node/patients
+                  UPDATED      query parameters of http://localhost/node/patients
                   NO CHANGE to depUri http://localhost/node/patients-updater of http://localhost/node/patients
-                UPDATING http://localhost/node/patients {patients-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/patients/state
-              UPDATED depUri http://localhost/node/patients of http://localhost/node/merge
-            UPDATING http://localhost/node/merge {merge-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/merge/state
-          UPDATED depUri http://localhost/node/merge of http://localhost/node/cardiology
-        UPDATING http://localhost/node/cardiology {cardiology-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/cardiology/state
+                UPDATING http://localhost/node/patients {patients-updater} state: /var/www/cache/URI/SHORT_patients_HASHhXXrTogpS1nn0sbVQRB52_Q/state
+              UPDATED      depUri http://localhost/node/patients of http://localhost/node/merge
+            UPDATING http://localhost/node/merge {merge-updater} state: /var/www/cache/URI/SHORT_merge_HASHh7XWBUMde2ZDP31wPvSqBmQ/state
+          UPDATED      depUri http://localhost/node/merge of http://localhost/node/cardiology
+        UPDATING http://localhost/node/cardiology {cardiology-updater} state: /var/www/cache/URI/SHORT_cardiology_HASHhDmRAS0Gb-ZncOwMpFp-SSg/state
 ----------------------------------------------------------------------
