@@ -43,7 +43,7 @@ foreach my $dir (@testDirs) {
 	!system($addCmd) or die;
 
 	# Commit 
-	my $commitCmd = "git commit -m 'Updated regression test results' '$dir' ";
+	my $commitCmd = "git commit --allow-empty -m 'Updated regression test results' '$dir' ";
 	warn "$commitCmd\n";
 	!system($commitCmd) or die;
 
