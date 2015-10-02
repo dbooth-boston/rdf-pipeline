@@ -1,5 +1,5 @@
 @prefix patient: <http://example/patient#> . 
 @prefix : <http://example/med#> . 
-patient:p002 :lab [ :name "Bob" ; :dob "1950-12-21" ] .
-patient:p003 :lab [ :name "Carol" ; :dob "1944-06-12" ] .
-patient:p004 :lab [ :name "Doug" ; :dob "1949-08-27" ] .
+patient:p002 :name "Bob" ; :dob "1950-12-21" .
+patient:p003 :name "Carol" ; :dob "1944-06-12" .
+patient:p004 :name "Doug" ; :dob "1949-08-27" .

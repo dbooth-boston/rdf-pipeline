@@ -5,6 +5,6 @@ print "\@prefix : <http://example/med#> . \n";
 while (<STDIN>) 
   {
   if (m/(patient)\t(id)=(\d+)\t(\w+)=(\w+)\t(\w+)=(.*)/)
-    { print "patient:p$3 :lab [ :$4 \"$5\" ; :$6 \"$7\" ] .\n"; }
+    { print "patient:p$3 :$4 \"$5\" ; :$6 \"$7\" .\n"; }
   }
 

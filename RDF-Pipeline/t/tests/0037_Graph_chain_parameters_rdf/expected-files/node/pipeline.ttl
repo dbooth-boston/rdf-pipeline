@@ -2,6 +2,13 @@
 @prefix p: <http://purl.org/pipeline/ont#> .
 @prefix : <http://localhost/node/> .
 
+# Some test URLs:
+#   http://localhost/node/cardiology?id=(002,003,004)
+#   http://localhost/node/cardiology?id=(002,003,004)
+#   http://localhost/node/immunology?id=(003,006)
+#   http://localhost/node/immunology?id=(003,006)
+#   http://localhost/node/cardiology?id=(002,003,004)
+
 :patients a p:FileNode ;
   p:inputs ( "patients-data.txt" ) .
 
