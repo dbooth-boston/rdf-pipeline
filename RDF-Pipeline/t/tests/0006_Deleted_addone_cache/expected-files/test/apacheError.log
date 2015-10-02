@@ -2,12 +2,12 @@
           UPDATED      depUri http://localhost/node/addone-updater of http://localhost/node/addone
               UPDATED      query parameters of http://localhost/node/odds
                   UPDATED      query parameters of http://localhost/node/max
-                UPDATING http://localhost/node/max {/home/dbooth/rdf-pipeline/Private/www/node/max} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_max_HASHhqGe3F178J8lfxP_1dJCmDA/state
+                UPDATING http://localhost/node/max {/var/www/node/max} state: /var/www/cache/URI/SHORT_max_HASHhqGe3F178J8lfxP_1dJCmDA/state
               UPDATED      depUri http://localhost/node/max of http://localhost/node/odds
               UPDATED      depUri http://localhost/node/odds-updater of http://localhost/node/odds
-            UPDATING http://localhost/node/odds {odds-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_odds_HASHhD6HCI1OMEiNa3DqHERr7qA/state
+            UPDATING http://localhost/node/odds {odds-updater} state: /var/www/cache/URI/SHORT_odds_HASHhD6HCI1OMEiNa3DqHERr7qA/state
           UPDATED      depUri http://localhost/node/odds of http://localhost/node/addone
-        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
+        UPDATING http://localhost/node/addone {addone-updater} state: /var/www/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
 ----------------------------------------------------------------------
           NO CHANGE to query parameters of http://localhost/node/addone
           NO CHANGE to depUri http://localhost/node/addone-updater of http://localhost/node/addone
@@ -24,5 +24,5 @@
               NO CHANGE to depUri http://localhost/node/max of http://localhost/node/odds
               NO CHANGE to depUri http://localhost/node/odds-updater of http://localhost/node/odds
           NO CHANGE to depUri http://localhost/node/odds of http://localhost/node/addone
-        UPDATING http://localhost/node/addone {addone-updater} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
+        UPDATING http://localhost/node/addone {addone-updater} state: /var/www/cache/URI/SHORT_addone_HASHh63K3WcFV0HixQablMeU2-Q/state
 ----------------------------------------------------------------------
