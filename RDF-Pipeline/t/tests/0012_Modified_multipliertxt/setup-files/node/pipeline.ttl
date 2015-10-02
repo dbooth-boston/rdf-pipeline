@@ -8,7 +8,7 @@
 
 ##### Pipeline definition starts here #####
 
-:max a p:FileNode . # No updater -- update manually.
+:max a p:FileNode . 
 
 :odds a p:FileNode ;
 	p:inputs ( :max ) ;
