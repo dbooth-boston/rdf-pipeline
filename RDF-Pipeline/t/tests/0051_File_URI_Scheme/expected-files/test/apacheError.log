@@ -1,5 +1,5 @@
           UPDATED      query parameters of http://localhost/node/lower
-            UPDATING file:///tmp/file-uri-test inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_file-uri-test_HASHh9wmLIDLYH1zovt7zu8wCYw/serCache of http://localhost/node/lower
+            UPDATING file:///tmp/file-uri-test inSerCache: /var/www/cache/URI/SHORT_file-uri-test_HASHh9wmLIDLYH1zovt7zu8wCYw/serCache of http://localhost/node/lower
           UPDATED      depUri file:///tmp/file-uri-test of http://localhost/node/lower
-        UPDATING http://localhost/node/lower {/home/dbooth/rdf-pipeline/Private/www/node/lower} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_lower_HASHh6FLEWJNW5ID1aVzf2_IVAA/state
+        UPDATING http://localhost/node/lower {/var/www/node/lower} state: /var/www/cache/URI/SHORT_lower_HASHh6FLEWJNW5ID1aVzf2_IVAA/state
 ----------------------------------------------------------------------
