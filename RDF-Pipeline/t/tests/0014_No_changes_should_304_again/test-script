@@ -20,6 +20,10 @@ my $wwwDir = shift @ARGV || $ENV{RDF_PIPELINE_WWW_DIR} || die;
 $ENV{RDF_PIPELINE_WWW_DIR} = $wwwDir;	
 
 ############ CUSTOMIZE HERE ################
+# OBSOLETE: Superseded by 0015:
+exit 0;
+
+
 !system("cd ../0012_Modified_multipliertxt ; ./test-script") or die;
 # Invoke the URL, concatenating its output to $wwwDir/test/testout :
 my $testUrl = 'http://localhost/node/addone';
