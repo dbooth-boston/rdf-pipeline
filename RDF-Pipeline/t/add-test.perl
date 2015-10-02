@@ -32,7 +32,7 @@ $dir .= "_$description" if $description;
 mkdir($dir) or die;
 
 # Generate an initial test-script, that can later be customized:
-my $content = &ReadFile("<$moduleDir/t/helpers/test-script-template") or die;
+my $content = &ReadFile("<$moduleDir/t/helpers/test-script-TEMPLATE") or die;
 $content =~ s/BEGIN_TEMPLATE_WARNING(.|\n)*END_TEMPLATE_WARNING\s*\n(\n?)//ms;
 $content =~ s/\$URL\b/$url/g;
 &WriteFile("$dir/test-script", $content);
