@@ -27,8 +27,10 @@ my $testUrl = 'http://localhost/node/addone';
 !system("../../helpers/copy-dir.perl -s /dev/null setup-files/cache") or die;
 # Init max to 13:
 !system("echo 13 > '$wwwDir/node/max.txt'") or die;
-# Wait 1 second to ensure that a strong ETag is issued, so that
-# the change later will be detectable:
+# Wait at least 1 second to ensure that Apache will issue a strong ETag
+# instead of a weak ETag, to ensure later change is detectable,
+# as described at:
+# https://issues.apache.org/bugzilla/show_bug.cgi?id=42987
 sleep 1;
 # Run the pipeline, which should update every node:
 !system("../../helpers/pipeline-request.perl GET '$testUrl'") or die;
