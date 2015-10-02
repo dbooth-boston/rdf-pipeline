@@ -161,7 +161,6 @@ use Apache2::URI ();
 use URI::Escape;
 use Time::HiRes ();
 use File::Path qw(make_path remove_tree);
-use WWW::Mechanize;
 use Digest::MD4 qw(md4_base64);
 use Getopt::Long;
 use Socket;
@@ -584,7 +583,7 @@ sub GetFromUri_UNTESTED_AND_UNUSED
 my ($requestUri) = @_;
 &Warn("GetFromUri($requestUri) called\n", $DEBUG_DETAILS);
 $requestUri =~ s/\#.*//;  # Strip any frag ID
-my $ua = WWW::Mechanize->new();
+my $ua = WWW::UserAgent->new();
 $ua->agent("$0/0.01 " . $ua->agent);
 # Set If-Modified-Since and If-None-Match headers in request, if available.
 our $oldHeaders;
@@ -638,8 +637,7 @@ sub ForeignSendHttpRequest
 my ($nm, $method, $thisUri, $depUri, $depLM, $depQuery) = @_;
 &Warn("ForeignSendHttpRequest(nm, $method, $thisUri, $depUri, $depLM, $depQuery) called\n", $DEBUG_DETAILS);
 # Send conditional GET, GRAB or HEAD to depUri with depUri*/serCacheLM
-# my $ua = LWP::UserAgent->new;
-my $ua = WWW::Mechanize->new();
+my $ua = LWP::UserAgent->new;
 $ua->agent("$0/0.01 " . $ua->agent);
 my $requestUri = $depUri;
 my $httpMethod = $method;
@@ -714,8 +712,10 @@ if ($code == RC_OK && $newLM && $newLM ne $oldLM) {
 	# http://search.cpan.org/~gaas/libwww-perl-6.03/lib/LWP/UserAgent.pm
 	if ($method ne 'HEAD') {
 		&Warn("UPDATING $depUri inSerCache: $inSerCache of $thisUri\n", $DEBUG_CACHES); 
-		&MakeParentDirs( $inSerCache );
-		$ua->save_content( $inSerCache );
+		# &MakeParentDirs( $inSerCache );
+		# $ua->save_content( $inSerCache );
+		my $content = $res->decoded_content();
+		&WriteFile( $inSerCache, $content );
 		}
 	&SaveLMHeaders($inSerCache, $newLM, $newLMHeader, $newETagHeader);
 	}
