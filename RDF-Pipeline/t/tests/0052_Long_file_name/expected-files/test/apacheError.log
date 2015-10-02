@@ -1,10 +1,10 @@
           UPDATED      query parameters of http://localhost/node/short
-            UPDATING file:///tmp/junk_0052_pipeline_test.txt inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_junk_0052_pipeline_t_HASHhoSiXJ_1cQJFyM5I6rIwK4g/serCache of http://localhost/node/short
+            UPDATING file:///tmp/junk_0052_pipeline_test.txt inSerCache: /var/www/cache/URI/SHORT_junk_0052_pipeline_t_HASHhoSiXJ_1cQJFyM5I6rIwK4g/serCache of http://localhost/node/short
           UPDATED      depUri file:///tmp/junk_0052_pipeline_test.txt of http://localhost/node/short
-        UPDATING http://localhost/node/short {/home/dbooth/rdf-pipeline/Private/www/node/short} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_short_HASHh572OMJsOGNjq90hh-jX-4w/state
+        UPDATING http://localhost/node/short {/var/www/node/short} state: /var/www/cache/URI/SHORT_short_HASHh572OMJsOGNjq90hh-jX-4w/state
 ----------------------------------------------------------------------
           UPDATED      query parameters of http://localhost/node/long
-            UPDATING file:///tmp/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/junk.txt inSerCache: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_junk.txt_HASHh2eIVxR79Zk80HAZ1lqXVGg/serCache of http://localhost/node/long
+            UPDATING file:///tmp/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/junk.txt inSerCache: /var/www/cache/URI/SHORT_junk.txt_HASHh2eIVxR79Zk80HAZ1lqXVGg/serCache of http://localhost/node/long
           UPDATED      depUri file:///tmp/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/looooooooooooooooooooooooooooooooooooooooooong/junk.txt of http://localhost/node/long
-        UPDATING http://localhost/node/long {/home/dbooth/rdf-pipeline/Private/www/node/long} state: /home/dbooth/rdf-pipeline/Private/www/cache/URI/SHORT_long_HASHhXKYgDxutIFg6_ojt6QIUPg/state
+        UPDATING http://localhost/node/long {/var/www/node/long} state: /var/www/cache/URI/SHORT_long_HASHhXKYgDxutIFg6_ojt6QIUPg/state
 ----------------------------------------------------------------------
