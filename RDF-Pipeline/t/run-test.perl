@@ -20,7 +20,19 @@
 use strict;
 use Getopt::Long; # Perl
 
-my $apacheConfig = "/etc/apache2/sites-enabled/000-default";
+# Different apache versions use different names.
+# Find the right one.
+my @apacheConfigs = qw(
+	/etc/apache2/sites-enabled/000-default.conf
+	/etc/apache2/sites-enabled/000-default
+	);
+my $apacheConfig = $apacheConfigs[0];
+foreach my $f ( @apacheConfigs ) {
+	if (-e $f) {
+		$apacheConfig = $f;
+		last;
+		}
+	}
 
 my $quietOption = 0;
 my $deleteEmptyDirsOption = 0;
