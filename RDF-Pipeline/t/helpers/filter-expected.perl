@@ -54,6 +54,10 @@ while (<$fh>) {
 	s/_HASH([a-zA-Z0-9_\-]+)//g;
 	s/SHORT_//g;
 
+        ############# Server paths ###############
+        # /home/dbooth/rdf-pipeline/Private/www/node/
+        s|/home/dbooth/rdf-pipeline/Private/www/|/var/www/|g;
+
         print $tmpfh $_;
         }
 close($fh) || die;
