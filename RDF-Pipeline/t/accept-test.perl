@@ -85,7 +85,7 @@ my ($newFilter) = @_;
 open(my $newFh, "<$newFilter") || die;
 my $newFilterString = join("", map {s/\#.*//; s/[\s\n\r]+//ms; $_} <$newFh>);
 close($newFh) || die;
-my $oldFilter = "$moduleDir/t/helpers/filter-original.perl";
+my $oldFilter = "$moduleDir/t/helpers/filter-ORIGINAL.perl";
 open(my $oldFh, "<$oldFilter") || die;
 my $oldFilterString = join("", map {s/\#.*//; s/[\s\n\r]+//ms; $_} <$oldFh>);
 close($oldFh) || die;
