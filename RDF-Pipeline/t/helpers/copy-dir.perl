@@ -1,7 +1,7 @@
 #! /usr/bin/perl -w
 
 # Copy one directory to another, excluding hidden files/directories.
-# The destination directory is first deleted.
+# All files/directories in the destination directory are first deleted.
 # As a special case, if the source directory is "/dev/null" (which
 # isn't actually a directory, but whatever), then the contents
 # of the destination directory are deleted, leaving an empty
@@ -19,6 +19,8 @@
 
 use strict;
 
+use File::Path qw(make_path remove_tree);
+
 my $noisy = 0;
 
 my $svnOption = 0;
@@ -26,6 +28,8 @@ if (@ARGV && $ARGV[0] eq "-s") {
 	shift @ARGV;
 	$svnOption = 1;
 	}
+
+die "[ERROR] -s option is obsolete.\n" if $svnOption;
 
 @ARGV == 2 or die "Usage: $0 [-s] sourceDir destDir\n";
 my $sourceDir = shift @ARGV;
@@ -45,20 +49,14 @@ $destDir = "$cwd/$destDir" if $destDir !~ m|\A\/|;
 
 my $useSvn = $svnOption && -d "$destDir/.svn";
 
-if ($useSvn) {
-	my $svnCmd = "svn rm -q --force '$destDir'";
-	warn "$svnCmd\n" if $noisy;
-	!system($svnCmd) or die "Command failed: $svnCmd";
-	}
-else	{
-	if (-d "$destDir/.svn") {
-		die "ERROR: Destination directory contains a .svn subdirectory!
-If it is under subversion control, then use the -s option.
-Otherwise, manually delete the destination directory first.\n" 
-		}
-	my $rmCmd = "rm -r '$destDir'";
-	# warn "rmCmd: $rmCmd\n";
-	!system($rmCmd) or die "Command failed: $rmCmd" if -e $destDir;
+if (-d $destDir) {
+	# Clean out the destination first.
+	## my $rmCmd = "rm -r '$destDir'";
+	## # warn "rmCmd: $rmCmd\n";
+	## !system($rmCmd) or die "Command failed: $rmCmd" if -e $destDir;
+	## Avoid deleting the directory, because it may be /var/www.
+	## Instead, delete the contents.
+	remove_tree( $destDir, {keep_root => 1} );
 	}
 
 if ($sourceDir ne "/dev/null") {
