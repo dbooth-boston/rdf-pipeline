@@ -29,7 +29,8 @@ if (@ARGV && $ARGV[0] eq "-s") {
 	$svnOption = 1;
 	}
 
-warn "[WARNING] -s option is obsolete and ignored.\n" if $svnOption;
+### Silently ignore -s option:
+# warn "[WARNING] -s option is obsolete and ignored.\n" if $svnOption;
 $svnOption = 0;
 
 @ARGV == 2 or die "Usage: $0 [-s] sourceDir destDir\n";
