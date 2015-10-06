@@ -46,7 +46,7 @@ foreach my $dir (@testDirs) {
 	-e $tmpTDir || die "ERROR: No actual-files to accept: $tmpTDir\n";
 
 	# Copy the $tmpTDir files to expected-files
-	my $copyCmd = "$moduleDir/t/helpers/copy-dir.perl -s '$tmpTDir' '$dir/expected-files'";
+	my $copyCmd = "$moduleDir/t/helpers/copy-dir.perl '$tmpTDir' '$dir/expected-files'";
 	# warn "copyCmd: $copyCmd\n";
 	!system($copyCmd) or die;
 	# Add the test to svn?
