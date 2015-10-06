@@ -29,7 +29,8 @@ if (@ARGV && $ARGV[0] eq "-s") {
 	$svnOption = 1;
 	}
 
-die "[ERROR] -s option is obsolete.\n" if $svnOption;
+warn "[WARNING] -s option is obsolete and ignored.\n" if $svnOption;
+$svnOption = 0;
 
 @ARGV == 2 or die "Usage: $0 [-s] sourceDir destDir\n";
 my $sourceDir = shift @ARGV;
@@ -69,10 +70,14 @@ if ($sourceDir ne "/dev/null") {
 	#### but tar with --format=posix seems to work.
 	# my $copyCmd = "rsync -a '--exclude=.*' '$sourceDir' '$destDir'";
 	mkdir($destDir) || die if !-d $destDir;
-	my $copyCmd = "cd '$sourceDir' ; /bin/tar cf - '--format=posix' '--exclude-vcs' . | ( cd '$destDir' ; /bin/tar xf - )";
+	my $copyCmd = "cd '$sourceDir' ; /bin/tar cf - '--format=posix' '--exclude-vcs' . | ( cd '$destDir' ; /bin/tar xf - 2>&1 )";
 	warn "$copyCmd\n" if $noisy;
 	# warn "Copying '$sourceDir' to '$destDir'\n" if $useSvn && $noisy;
-	!system($copyCmd) or die;
+	my $error = join("", grep {
+		!m/Cannot utime: Operation not permitted/
+		&& !m/Exiting with failure status due to previous errors/ } 
+			`$copyCmd`);
+	die "$error\n" if $error;
 	}
 
 if ($useSvn) {
